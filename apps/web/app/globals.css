@@ -1,0 +1,461 @@
+@import "../styles/theme.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Marketing homepage — premium clinical, aligned with dark-pill CTAs */
+@layer components {
+  .marketing-page-shell {
+    @apply relative min-h-screen bg-white;
+  }
+  .marketing-page-shell::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 z-0;
+    background: radial-gradient(ellipse 110% 50% at 50% -5%, rgb(61 141 123 / 0.09) 0%, transparent 60%);
+  }
+  .marketing-page-shell::after {
+    content: "";
+    @apply pointer-events-none absolute inset-0 z-0;
+    opacity: 0.12;
+    background-image: linear-gradient(rgba(100, 116, 139, 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100, 116, 139, 0.12) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  @media (max-width: 767px) {
+    .marketing-page-shell::after {
+      display: none;
+    }
+  }
+
+  /* ── New hero surface ───────────────────────────────────────────── */
+  .ms-hero {
+    background: linear-gradient(175deg, rgb(245 249 248) 0%, rgb(255 255 255) 55%, rgb(247 250 252) 100%);
+  }
+
+  /* ── Section backgrounds ────────────────────────────────────────── */
+  .ms-section-light {
+    background: #ffffff;
+  }
+  .ms-section-mid {
+    background: rgb(247 250 249);
+  }
+  .ms-section-form {
+    background: linear-gradient(180deg, rgb(248 250 252) 0%, rgb(255 255 255) 100%);
+  }
+
+  /* legacy — kept for compatibility */
+  .marketing-hero-surface {
+    @apply relative z-[1] overflow-hidden;
+    background: linear-gradient(180deg, rgba(245, 249, 248, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+  }
+  .marketing-hero-surface::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 opacity-40;
+    background: radial-gradient(ellipse 80% 50% at 20% 0%, rgb(61 141 123 / 0.1) 0%, transparent 55%);
+  }
+  .marketing-hero-surface::after {
+    content: "";
+    @apply pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full opacity-20 blur-3xl md:h-80 md:w-80;
+    background: rgb(61 141 123 / 0.12);
+  }
+  /* Subtle film grain; hero only (keeps flat colours from looking plastic) */
+  .marketing-hero-noise {
+    @apply pointer-events-none absolute inset-0 z-[1] mix-blend-multiply;
+    opacity: 0.055;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0%200%20200%20200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marketing-hero-noise {
+      @apply hidden;
+    }
+  }
+  @media (max-width: 767px) {
+    .marketing-hero-noise {
+      @apply hidden;
+    }
+  }
+  .landing-header-sticky {
+    @apply sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.04)];
+  }
+  @supports (backdrop-filter: blur(8px)) {
+    .landing-header-sticky {
+      background-color: rgb(255 255 255 / 0.85);
+      backdrop-filter: blur(12px);
+    }
+  }
+  .marketing-hero-pill {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-hs-primary/20 bg-hs-primary/[0.06] px-4 py-1.5 font-heading text-xs font-semibold uppercase tracking-[0.1em] text-hs-primary sm:justify-start;
+  }
+  .marketing-dots {
+    @apply pointer-events-none absolute inset-0 z-0 opacity-[0.25];
+    background-image: radial-gradient(rgb(61 141 123 / 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  /* Unified cards: soft gradient, inner highlight, hover teal/violet rim (same family as CTA glow) */
+  .marketing-card-premium {
+    @apply relative overflow-hidden rounded-2xl border border-slate-200/90 transition duration-300;
+    background: linear-gradient(165deg, #ffffff 0%, rgb(248 250 252) 55%, rgb(241 245 249) 100%);
+    box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 4px 16px -4px rgba(15, 23, 42, 0.08), 0 1px 0 0 rgba(255,255,255,0.9) inset;
+  }
+  .marketing-card-premium:hover {
+    border-color: rgb(61 141 123 / 0.18);
+    box-shadow: 0 1px 0 0 #fff inset, 0 0 0 1px rgb(61 141 123 / 0.12), 0 8px 32px -8px rgba(15, 23, 42, 0.12), 0 24px 48px -20px rgba(61, 141, 123, 0.08);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marketing-card-premium:hover {
+      box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 4px 16px -4px rgba(15, 23, 42, 0.08);
+    }
+  }
+  .marketing-glass {
+    @apply marketing-card-premium;
+  }
+  .marketing-glass-subtle {
+    @apply marketing-card-premium;
+  }
+  .marketing-card-hover {
+    @apply transition-[transform,box-shadow,border-color] duration-300 ease-out;
+  }
+  .marketing-card-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 32px -8px rgba(61, 141, 123, 0.14), 0 4px 12px -2px rgba(20, 40, 34, 0.08);
+    border-color: rgb(61 141 123 / 0.28) !important;
+  }
+  .marketing-timeline-connector {
+    @apply relative pl-0 before:absolute before:left-[11px] before:top-8 before:h-[calc(100%-0.5rem)] before:w-px before:bg-gradient-to-b before:from-hs-primary/50 before:via-hs-primary/20 before:to-transparent last:before:hidden;
+  }
+  .marketing-icon-ring {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-hs-primary/[0.07] text-hs-primary ring-1 ring-hs-primary/15;
+  }
+  .marketing-card-shadow {
+    box-shadow: 0 8px 32px -12px rgba(30, 45, 42, 0.1), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  }
+  .marketing-sheen {
+    @apply relative overflow-hidden;
+  }
+  .marketing-sheen::after {
+    content: "";
+    @apply pointer-events-none absolute -left-1/2 -top-1/2 h-[200%] w-1/2 -rotate-12 bg-gradient-to-r from-transparent via-white/[0.12] to-transparent opacity-0 transition duration-700 ease-out;
+  }
+  .marketing-sheen:hover::after {
+    @apply translate-x-full opacity-80;
+  }
+  .marketing-ambient-rose {
+    @apply pointer-events-none absolute -right-1/4 top-0 h-72 w-72 rounded-full blur-3xl;
+    background: radial-gradient(circle, rgb(61 141 123 / 0.06) 0%, transparent 70%);
+  }
+  .marketing-ambient-sage {
+    @apply pointer-events-none absolute -left-1/4 bottom-0 h-80 w-80 rounded-full blur-3xl;
+    background: radial-gradient(circle, rgb(100 180 160 / 0.07) 0%, transparent 70%);
+  }
+  .marketing-trust-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[0.7rem] font-medium tracking-[0.05em] text-slate-600 shadow-sm transition duration-200 hover:border-hs-primary/30 hover:bg-hs-primary/[0.03] hover:text-hs-primary;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 1px 0 rgba(255,255,255,0.9) inset;
+  }
+  .marketing-section-heading-line {
+    @apply mb-3 inline-block h-0.5 w-8 rounded-full bg-hs-primary/60;
+  }
+  .marketing-form-ring {
+    @apply ring-1 ring-hs-primary/10 ring-offset-2 ring-offset-stone-50/80;
+  }
+  .marketing-form-panel {
+    @apply marketing-card-premium border-slate-200/80;
+  }
+  .marketing-lead-pull {
+    @apply relative mt-6 rounded-xl border border-slate-200/80 py-3.5 pl-5 pr-4 text-[0.95em] font-normal leading-relaxed text-slate-700;
+    background: linear-gradient(135deg, rgba(248, 250, 252, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border-left-width: 3px;
+    border-left-color: rgb(148 163 184 / 0.5);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.8) inset, 0 4px 20px -8px rgba(15, 23, 42, 0.06);
+  }
+  /* Lighter “dark” band above footer (ref: mid charcoal + grid) */
+  .marketing-cta-dark {
+    @apply relative overflow-hidden border-b border-white/5 text-slate-100;
+    background: linear-gradient(175deg, rgb(38 50 60) 0%, rgb(45 55 64) 40%, rgb(40 48 55) 100%);
+  }
+  .marketing-cta-dark::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0;
+    background: radial-gradient(ellipse 65% 50% at 20% 0%, rgb(61 120 110 / 0.14) 0%, transparent 52%),
+      radial-gradient(ellipse 45% 40% at 100% 100%, rgb(100 80 130 / 0.1) 0%, transparent 50%);
+  }
+  .marketing-cta-dark::after {
+    content: "";
+    @apply pointer-events-none absolute inset-0 opacity-[0.09];
+    background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M64%200v64H0' fill='none' stroke='white' stroke-width='0.5' stroke-opacity='0.4'/%3E%3C/svg%3E");
+  }
+  .marketing-cta-grid-overlay {
+    @apply pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:48px_48px,48px_48px] [mask-image:radial-gradient(ellipse_80%_70%_at_50%_40%,black,transparent)] opacity-50;
+  }
+  /* AWS-style dark pill: multicolor glow only on hover / focus (see https://aws.amazon.com/free/compute/ ) */
+  .marketing-btn-glow-wrap {
+    @apply relative isolate inline-flex min-h-[48px] flex-1 sm:max-w-xs;
+  }
+  .marketing-btn-glow-wrap--full {
+    @apply w-full max-w-none flex-none;
+  }
+  .marketing-btn-glow-wrap--nav {
+    @apply min-h-0 flex-none sm:max-w-none;
+  }
+  .marketing-btn-glow-wrap::before {
+    content: "";
+    @apply pointer-events-none absolute -inset-[2px] -z-10 rounded-full opacity-0 blur-[18px] transition-[opacity,filter,transform] duration-300 ease-out;
+    background: linear-gradient(115deg, rgb(45 212 191 / 0.6) 0%, rgb(56 189 248 / 0.45) 45%, rgb(167 139 250 / 0.55) 100%);
+    transform: scale(0.92);
+  }
+  .marketing-btn-glow-wrap:hover::before,
+  .marketing-btn-glow-wrap:focus-within::before {
+    @apply opacity-100 blur-[24px];
+    transform: scale(1);
+  }
+  .marketing-btn-glow-wrap:has(:disabled)::before {
+    opacity: 0 !important;
+  }
+  .marketing-btn-glow-inner {
+    @apply relative z-[1] inline-flex w-full min-h-[48px] cursor-pointer items-center justify-center rounded-full border border-slate-700/60 bg-[#111318] px-8 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#1a1f28] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+  }
+  .marketing-btn-glow-inner--on-dark {
+    @apply focus-visible:ring-offset-[rgb(42,50,58)];
+  }
+  .marketing-btn-glow-inner--sm {
+    @apply min-h-10 w-auto px-4 py-2 text-sm font-medium;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marketing-btn-glow-wrap::before {
+      @apply opacity-0 blur-md;
+      transform: none;
+      transition: opacity 0.2s ease;
+    }
+    .marketing-btn-glow-wrap:hover::before,
+    .marketing-btn-glow-wrap:focus-within::before {
+      @apply opacity-70;
+    }
+  }
+  .footer-site {
+    @apply border-t border-white/[0.06] bg-[#030712] text-slate-400;
+  }
+  .footer-site .footer-site-brand {
+    @apply text-slate-100;
+  }
+  .footer-site .footer-site-copy {
+    @apply text-slate-500;
+  }
+  .footer-site a {
+    @apply text-slate-300 transition-colors hover:text-white;
+  }
+  .footer-site a[href^="mailto"],
+  .footer-site a[href^="tel"] {
+    @apply text-slate-400 hover:text-slate-200;
+  }
+  .footer-site-link {
+    @apply text-slate-400 transition-colors hover:text-slate-200;
+  }
+  .marketing-page-thread {
+    @apply relative;
+  }
+  @media (min-width: 1280px) {
+    .marketing-page-thread::before {
+      content: "";
+      @apply pointer-events-none absolute top-0 bottom-0 z-0 w-px;
+      left: max(0.75rem, calc(50% - 36rem));
+      background: linear-gradient(180deg, transparent 0%, rgb(120 130 128 / 0.12) 15%, rgb(100 110 108 / 0.06) 50%, transparent 100%);
+    }
+  }
+  .marketing-site {
+    font-size: 17px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
+  @media (min-width: 768px) {
+    .marketing-site {
+      font-size: 18px;
+    }
+  }
+  .marketing-site .ms-h1 {
+    @apply max-w-[46rem] font-heading font-semibold leading-[1.1] tracking-[-0.03em] text-slate-900;
+    font-size: clamp(2rem, 0.8rem + 4vw, 3.25rem);
+  }
+  .marketing-site .ms-h1.ms-h1-balance,
+  .marketing-site .ms-h2,
+  .marketing-site .ms-h3 {
+    text-wrap: balance;
+  }
+  .marketing-site .ms-h2 {
+    @apply max-w-[40rem] font-heading font-semibold leading-[1.2] tracking-[-0.022em] text-slate-900;
+    font-size: clamp(1.45rem, 0.9rem + 1.4vw, 2rem);
+  }
+  .marketing-site .ms-h2.ms-h2-on-dark,
+  .marketing-site .ms-h1.ms-h1-on-dark {
+    @apply text-white;
+  }
+  .marketing-site .ms-h3 {
+    @apply font-heading text-base font-semibold leading-snug tracking-[-0.015em] text-slate-900 md:text-[1.05rem];
+  }
+  .marketing-site .ms-lead {
+    @apply max-w-[42rem] text-slate-500;
+    font-size: clamp(0.96rem, 0.88rem + 0.28vw, 1.06rem);
+    line-height: 1.75;
+  }
+  .marketing-site .ms-eyebrow {
+    @apply text-[10.5px] font-bold uppercase tracking-[0.18em] text-hs-primary/80;
+  }
+  .marketing-site .ms-body-muted {
+    @apply text-slate-400;
+  }
+  .marketing-site .ms-body {
+    @apply text-slate-500;
+  }
+  .marketing-site .ms-body-strong {
+    @apply font-semibold text-slate-900;
+  }
+  /* Marketing: AI / mobile / doc accents (use with border-l) */
+  .ms-accent-ai {
+    @apply border-l-[3px] border-sky-500/70 bg-sky-50/60;
+  }
+  .ms-accent-wa {
+    @apply border-l-[3px] border-emerald-500/50 bg-emerald-50/40;
+  }
+  .ms-accent-mobile {
+    @apply border-l-[3px] border-blue-500/60 bg-blue-50/50;
+  }
+  .ms-accent-doc {
+    @apply border-l-[3px] border-amber-500/60 bg-amber-50/40;
+  }
+  .ms-accent-follow {
+    @apply border-l-[3px] border-violet-500/60 bg-violet-50/40;
+  }
+  .ms-accent-brand {
+    @apply border-l-[3px] border-hs-primary bg-hs-primary-very-light/50;
+  }
+  .ms-accent-visit {
+    @apply border-l-[3px] border-teal-600/70 bg-teal-50/50;
+  }
+
+  /* ─── Authenticated app workspace — surfaces & interaction (single rhythm) ─── */
+  .ds-app-card {
+    @apply rounded-2xl border border-hs-border/60 bg-hs-paper shadow-ds-sm;
+  }
+  .ds-app-card-interactive {
+    @apply rounded-2xl border border-hs-border/60 bg-hs-paper shadow-ds-sm transition-[transform,box-shadow,border-color] duration-[280ms] ease-out;
+  }
+  .ds-app-card-interactive:hover {
+    transform: translateY(-2px);
+    border-color: rgb(61 141 123 / 0.22);
+    box-shadow: 0 4px 16px -4px rgba(61, 141, 123, 0.10), 0 8px 24px -8px rgba(20, 40, 34, 0.06);
+  }
+  .ds-table-shell {
+    @apply overflow-x-auto rounded-2xl border border-hs-border/60 bg-hs-paper shadow-ds-sm;
+  }
+}
+
+@layer utilities {
+  /* ── Base marketing entrance ───────────────────────────────────────── */
+  @keyframes marketing-fade-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+  }
+
+  /* ── Phone mockup gentle float ─────────────────────────────────────── */
+  @keyframes ms-float {
+    0%, 100% { transform: translateY(0px)  rotate(-0.5deg); }
+    50%       { transform: translateY(-10px) rotate(0.5deg);  }
+  }
+
+  /* ── Sound-wave bars (AI waveform) ─────────────────────────────────── */
+  @keyframes ms-waveform {
+    0%, 100% { transform: scaleY(0.25); opacity: 0.45; }
+    50%       { transform: scaleY(1);    opacity: 1;    }
+  }
+
+  /* ── Recording / status dot pulse ──────────────────────────────────── */
+  @keyframes ms-pulse-dot {
+    0%, 100% { opacity: 1;   transform: scale(1);    }
+    50%       { opacity: 0.3; transform: scale(0.85); }
+  }
+
+  /* ── Icon ring glow on hover ────────────────────────────────────────── */
+  @keyframes ms-icon-glow {
+    from { box-shadow: 0 0 0 0 rgb(61 141 123 / 0.35); }
+    to   { box-shadow: 0 0 0 8px rgb(61 141 123 / 0);  }
+  }
+
+  /* ── Skeleton shimmer ───────────────────────────────────────────────── */
+  @keyframes ds-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+
+  /* ── Utility classes ────────────────────────────────────────────────── */
+  .animate-marketing-hero {
+    animation: marketing-fade-in 0.65s var(--ds-ease-out) both;
+  }
+  .animate-marketing-delay {
+    animation: marketing-fade-in 0.65s var(--ds-ease-out) 0.2s both;
+  }
+  .animate-ms-float {
+    animation: ms-float 5s ease-in-out infinite;
+  }
+  .animate-ms-waveform {
+    animation: ms-waveform 0.85s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+  .animate-ms-pulse {
+    animation: ms-pulse-dot 1.8s ease-in-out infinite;
+  }
+  .ds-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: ds-shimmer 1.5s ease infinite;
+  }
+
+  /* ── Reduced-motion overrides ───────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-marketing-hero,
+    .animate-marketing-delay {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+    .animate-ms-float,
+    .animate-ms-waveform,
+    .animate-ms-pulse {
+      animation: none;
+      transform: none;
+      opacity: 1;
+    }
+    .marketing-card-hover:hover {
+      transform: none;
+    }
+    .marketing-sheen:hover::after {
+      transform: none;
+      opacity: 0;
+    }
+    .ds-app-card-interactive:hover {
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply min-h-screen bg-hs-surface text-hs-ink antialiased;
+    transition: background-color var(--ds-duration-fast) var(--ds-ease-in-out),
+      color var(--ds-duration-fast) var(--ds-ease-in-out);
+  }
+  ::selection {
+    @apply bg-hs-primary-very-light text-hs-ink;
+  }
+  :where(a, button, [role="button"], input, textarea, select) {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  :where(a, button, [role="button"]):focus-visible,
+  :where(input, textarea, select):focus-visible {
+    @apply outline-none ring-2 ring-hs-primary/30 ring-offset-2 ring-offset-hs-surface;
+  }
+}

@@ -1,0 +1,30 @@
+# Normalize line endings for cross-platform consistency
+* text=auto eol=lf
+
+# Explicitly set text files
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.css   text eol=lf
+*.sql   text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.env.example text eol=lf
+*.sh    text eol=lf
+
+# Binary files — do not modify
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+*.otf   binary
+*.pdf   binary
+*.zip   binary

@@ -1,0 +1,98 @@
+/**
+ * Design system — single source of color, spacing, motion, and typography.
+ * Tailwind `hs-*` / `typo-*` classes reference these; do not hardcode in components.
+ */
+:root {
+  /* ─── RGB channels (R G B) for Tailwind alpha: `rgb(var(--ds-primary) / 0.5)` ─── */
+  --ds-primary: 61 141 123;
+  --ds-primary-light: 90 160 143;
+  --ds-primary-dark: 46 106 92;
+  --ds-primary-very-light: 230 241 237;
+
+  --ds-secondary: 212 165 116;
+  --ds-secondary-light: 232 201 166;
+  --ds-secondary-dark: 184 135 77;
+
+  --ds-accent: 30 125 141;
+
+  --ds-ink: 20 20 20;
+  --ds-text: 20 20 20;
+  --ds-text-secondary: 90 90 90;
+  --ds-text-tertiary: 128 128 128;
+
+  /* App-wide: white dominant; surfaces only subtly off-white when needed */
+  --ds-bg: 255 255 255;
+  --ds-surface: 255 255 255;
+  --ds-paper: 255 255 255;
+  --ds-card: 248 250 250;
+  --ds-cream: 248 250 250;
+
+  --ds-border: 230 230 230;
+  --ds-border-dark: 214 211 209;
+
+  --ds-success: 45 106 79;
+  --ds-warning: 217 158 43;
+  --ds-error: 139 75 75;
+  --ds-info: 30 125 141;
+
+  --ds-complexity-simple: 168 213 186;
+  --ds-complexity-standard: 126 179 179;
+  --ds-complexity-complex: 212 165 116;
+  --ds-complexity-urgent: 139 75 75;
+
+  /* hex fallbacks for non-Tailwind consumers */
+  --ds-color-primary-hex: #3d8d7b;
+  --ds-color-primary-very-light-hex: #e6f1ed;
+  --ds-gradient-hero: linear-gradient(135deg, rgb(21 55 45) 0%, rgb(45 90 80) 45%, rgb(20 50 45) 100%);
+
+  /* Spacing (8px grid) */
+  --ds-space-xs: 0.25rem; /* 4 */
+  --ds-space-sm: 0.5rem; /* 8 */
+  --ds-space-md: 1rem; /* 16 */
+  --ds-space-lg: 1.5rem; /* 24 */
+  --ds-space-xl: 2rem; /* 32 */
+  --ds-space-2xl: 3rem; /* 48 */
+  --ds-space-3xl: 4rem; /* 64 */
+
+  /* Typography scale (rem) */
+  --ds-text-hero-size: 2.125rem;
+  --ds-text-hero-leading: 1.12;
+  --ds-text-hero-weight: 600;
+
+  --ds-text-section-size: 1.25rem;
+  --ds-text-section-leading: 1.4;
+  --ds-text-section-weight: 600;
+
+  --ds-text-body-size: 1rem;
+  --ds-text-body-leading: 1.5;
+
+  --ds-text-small-size: 0.75rem;
+  --ds-text-small-leading: 1.4;
+
+  /* Motion — pair with lib/ds-motion.ts */
+  --ds-duration-fast: 200ms;
+  --ds-duration-normal: 280ms;
+  --ds-duration-page: 240ms;
+  --ds-duration-modal: 220ms;
+  --ds-ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ds-ease-in-out: ease-in-out;
+
+  /* Elevation */
+  --ds-shadow-sm: 0 1px 2px rgba(20 40 34 / 0.06);
+  --ds-shadow-md: 0 2px 8px rgba(45 110 95 / 0.06), 0 12px 32px rgba(20 40 34 / 0.06);
+  --ds-shadow-card: 0 2px 8px rgba(45 110 95 / 0.06), 0 16px 44px rgba(20 40 34 / 0.05), 0 0 0 1px rgba(200 217 210 / 0.35);
+  --ds-shadow-input: inset 0 1px 2px rgba(45 90 80 / 0.04);
+}
+
+/* Legacy `gh-*` Tailwind colors — align with `hs-*` (single palette; prefer hs for new code) */
+:root {
+  --gh-cream: #ffffff;
+  --gh-paper: #ffffff;
+  --gh-sand: #f5f5f5;
+  --gh-ink: #141414;
+  --gh-muted: #5a5a5a;
+  --gh-subtle: #8a8a8a;
+  --gh-accent: var(--ds-color-primary-hex);
+  --gh-accent-light: #e6f1ed;
+  --gh-leaf: #2a6a58;
+}
