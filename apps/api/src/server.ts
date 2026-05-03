@@ -67,7 +67,8 @@ const marketingLeadBody = z.object({
   email: z.string().email().max(320),
   clinicName: z.string().min(1).max(200),
   city: z.string().min(1).max(120),
-  message: z.string().max(2000).optional()
+  message: z.string().max(2000).optional().nullable(),
+  intent: z.enum(["walkthrough", "trial"]).optional()
 });
 
 /** Public: marketing site demo / contact form (no auth). */
@@ -85,13 +86,18 @@ app.post("/public/marketing-lead", async (req, res) => {
     jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
     return;
   }
+  const cn = parsed.data.clinicName.trim().toLowerCase();
+  const intent =
+    parsed.data.intent ??
+    (cn.includes("trial") || cn.includes("90-day") ? ("trial" as const) : ("walkthrough" as const));
   const row = {
     name: parsed.data.name.trim(),
     phone: parsed.data.phone.trim(),
     email: parsed.data.email.trim().toLowerCase(),
     clinic_name: parsed.data.clinicName.trim(),
     city: parsed.data.city.trim(),
-    message: parsed.data.message?.trim() || null
+    message: parsed.data.message?.trim() || null,
+    intent
   };
   const { data, error } = await supabaseAdmin.from("marketing_lead_requests").insert(row).select("id").maybeSingle();
   if (error) {
@@ -1073,6 +1079,90 @@ app.get("/admin/platform-summary", authRequired, requireAppRoles(["SUPER_ADMIN"]
     recentActivity
   });
 });
+
+const marketingLeadListQuery = z.object({
+  status: z.enum(["new", "contacted", "qualified", "closed", "lost"]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0)
+});
+
+const marketingLeadPatchBody = z
+  .object({
+    lead_status: z.enum(["new", "contacted", "qualified", "closed", "lost"]).optional(),
+    admin_notes: z.string().max(8000).nullable().optional()
+  })
+  .refine((b) => b.lead_status !== undefined || b.admin_notes !== undefined, {
+    message: "Provide lead_status and/or admin_notes"
+  });
+
+app.get("/admin/marketing-leads", authRequired, requireAppRoles(["SUPER_ADMIN"]), async (req, res) => {
+  const q = marketingLeadListQuery.safeParse(req.query);
+  if (!q.success) {
+    jsonError(res, 400, "Invalid query", { code: "VALIDATION_ERROR", details: q.error.flatten() });
+    return;
+  }
+  const { status, limit, offset } = q.data;
+  let query = supabaseAdmin
+    .from("marketing_lead_requests")
+    .select(
+      "id,name,phone,email,clinic_name,city,message,intent,lead_status,admin_notes,created_at,updated_at",
+      { count: "exact" }
+    )
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (status) {
+    query = query.eq("lead_status", status);
+  }
+  const { data, error, count } = await query;
+  if (error) {
+    jsonErrorDb(res, "admin_marketing_leads_list", error);
+    return;
+  }
+  jsonSuccess(res, 200, { items: data ?? [], total: count ?? (data?.length ?? 0) });
+});
+
+app.patch(
+  "/admin/marketing-leads/:id",
+  authRequired,
+  requireAppRoles(["SUPER_ADMIN"]),
+  async (req, res) => {
+    const idParsed = z.string().uuid().safeParse(req.params.id);
+    if (!idParsed.success) {
+      jsonError(res, 400, "Invalid id", { code: "VALIDATION_ERROR" });
+      return;
+    }
+    const bodyParsed = marketingLeadPatchBody.safeParse(req.body);
+    if (!bodyParsed.success) {
+      jsonError(res, 400, "Invalid body", { code: "VALIDATION_ERROR", details: bodyParsed.error.flatten() });
+      return;
+    }
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (bodyParsed.data.lead_status !== undefined) {
+      patch.lead_status = bodyParsed.data.lead_status;
+    }
+    if (bodyParsed.data.admin_notes !== undefined) {
+      const n = bodyParsed.data.admin_notes;
+      patch.admin_notes = n === null ? null : n.trim() === "" ? null : n.trim();
+    }
+    const { data, error } = await supabaseAdmin
+      .from("marketing_lead_requests")
+      .update(patch)
+      .eq("id", idParsed.data)
+      .select(
+        "id,name,phone,email,clinic_name,city,message,intent,lead_status,admin_notes,created_at,updated_at"
+      )
+      .maybeSingle();
+    if (error) {
+      jsonErrorDb(res, "admin_marketing_leads_patch", error);
+      return;
+    }
+    if (!data) {
+      jsonError(res, 404, "Lead not found", { code: "NOT_FOUND" });
+      return;
+    }
+    jsonSuccess(res, 200, data);
+  }
+);
 
 app.get("/doctor/patients", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
   const claims = (req as express.Request & { user: AuthClaims }).user;

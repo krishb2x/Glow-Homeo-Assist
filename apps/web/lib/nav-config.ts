@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   MessageSquare,
   Settings,
+  Sparkles,
   Stethoscope,
   Users
 } from "lucide-react";
@@ -17,6 +18,7 @@ export const NAV_SUPER_ADMIN: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutGrid },
   { href: "/clinics", label: "Clinics", Icon: Building2 },
   { href: "/doctors", label: "Doctors", Icon: Users },
+  { href: "/marketing-leads", label: "Leads", Icon: Sparkles },
   { href: "/analytics", label: "Analytics", Icon: BarChart2 },
   { href: "/settings", label: "Settings", Icon: Settings }
 ];
@@ -36,6 +38,7 @@ export function isMainNavActive(href: string, path: string): boolean {
   if (href === "/clinics") return path === "/clinics" || path.startsWith("/clinics/");
   if (href === "/doctors") return path === "/doctors" || path.startsWith("/doctors/");
   if (href === "/analytics") return path.startsWith("/analytics");
+  if (href === "/marketing-leads") return path.startsWith("/marketing-leads");
   if (href === "/patients") return path.startsWith("/patients");
   if (href === "/appointments") return path.startsWith("/appointments");
   if (href === "/consultation") return path === "/consultation" || path.startsWith("/consultation");

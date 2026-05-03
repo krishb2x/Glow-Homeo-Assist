@@ -8,7 +8,7 @@ import { MotionSection } from "./MotionSection";
 
 const faqs = [
   {
-    q: "Who is HomeoAssist designed for?",
+    q: `Who is ${BRAND_NAME} designed for?`,
     a: `For homeopathy doctors and clinics of any size — solo practitioners, small clinics, and multi-doctor setups. Every feature is shaped around how homeopathy practice actually works, not adapted from a generic medical tool.`
   },
   {
@@ -29,7 +29,7 @@ const faqs = [
   },
   {
     q: "How do I get started?",
-    a: `${BRAND_NAME} is currently in early access. Book a walkthrough and we will set up your clinic personally, help move your existing patient list if needed, and stay available while your team gets comfortable with the system.`
+    a: `${BRAND_NAME} is currently in early access. Book a 20-minute walkthrough and we will set up your clinic personally, help move your existing patient list if needed, and stay available while your team gets comfortable with the system.`
   }
 ];
 

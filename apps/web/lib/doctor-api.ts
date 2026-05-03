@@ -404,6 +404,100 @@ export async function fetchAdminPlatformSummary(): Promise<PlatformSummary> {
   return apiFetchJson<PlatformSummary>(haProxyPath("admin/platform-summary"), { method: "GET" });
 }
 
+export type MarketingLeadIntent = "walkthrough" | "trial";
+export type MarketingLeadStatus = "new" | "contacted" | "qualified" | "closed" | "lost";
+
+export type AdminMarketingLeadRow = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  clinic_name: string;
+  city: string;
+  message: string | null;
+  intent: MarketingLeadIntent;
+  lead_status: MarketingLeadStatus;
+  admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listAdminMarketingLeads(params?: {
+  status?: MarketingLeadStatus;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AdminMarketingLeadRow[]; total: number }> {
+  if (isDemoMode()) {
+    const now = new Date().toISOString();
+    const all: AdminMarketingLeadRow[] = [
+      {
+        id: "33333333-3333-3333-3333-333333333301",
+        name: "Dr. Demo Walkthrough",
+        phone: "+91 98765 43210",
+        email: "walkthrough.demo@glowhomeo.example",
+        clinic_name: "GlowHomeo Assist — 20-minute walkthrough",
+        city: "Bengaluru",
+        message: "Practice: Verdant Clinic",
+        intent: "walkthrough",
+        lead_status: "new",
+        admin_notes: null,
+        created_at: now,
+        updated_at: now
+      },
+      {
+        id: "33333333-3333-3333-3333-333333333302",
+        name: "Dr. Demo Trial",
+        phone: "+91 91234 56789",
+        email: "trial.demo@glowhomeo.example",
+        clinic_name: "GlowHomeo Assist — 90-day guided trial",
+        city: "Mumbai",
+        message: null,
+        intent: "trial",
+        lead_status: "contacted",
+        admin_notes: "Called — interested in Q3",
+        created_at: now,
+        updated_at: now
+      }
+    ];
+    const filtered = params?.status ? all.filter((r) => r.lead_status === params.status) : all;
+    return { items: filtered, total: filtered.length };
+  }
+  const sp = new URLSearchParams();
+  if (params?.status) sp.set("status", params.status);
+  if (params?.limit != null) sp.set("limit", String(params.limit));
+  if (params?.offset != null) sp.set("offset", String(params.offset));
+  const qs = sp.toString();
+  return apiFetchJson<{ items: AdminMarketingLeadRow[]; total: number }>(
+    haProxyPath(`admin/marketing-leads${qs ? `?${qs}` : ""}`),
+    { method: "GET" }
+  );
+}
+
+export async function patchAdminMarketingLead(
+  id: string,
+  body: { lead_status?: MarketingLeadStatus; admin_notes?: string | null }
+): Promise<AdminMarketingLeadRow> {
+  if (isDemoMode()) {
+    const { items } = await listAdminMarketingLeads();
+    const base = items.find((r) => r.id === id) ?? items[0];
+    if (!base) {
+      throw new Error("Lead not found");
+    }
+    const now = new Date().toISOString();
+    return {
+      ...base,
+      id,
+      lead_status: body.lead_status ?? base.lead_status,
+      admin_notes: body.admin_notes !== undefined ? body.admin_notes : base.admin_notes,
+      updated_at: now
+    };
+  }
+  return apiFetchJson<AdminMarketingLeadRow>(haProxyPath(`admin/marketing-leads/${encodeURIComponent(id)}`), {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
 export async function listDoctorsInClinic(clinicId: string): Promise<AdminDoctorRow[]> {
   return apiFetchJson<AdminDoctorRow[]>(haProxyPath(`admin/doctors?clinicId=${encodeURIComponent(clinicId)}`), {
     method: "GET"

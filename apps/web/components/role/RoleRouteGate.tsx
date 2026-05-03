@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useAppRole } from "../../contexts/RoleContext";
 
-const SUPER_ONLY_PREFIXES = ["/clinics", "/doctors", "/analytics"];
+const SUPER_ONLY_PREFIXES = ["/clinics", "/doctors", "/marketing-leads", "/analytics"];
 const DOCTOR_AREA_PREFIXES = [
   "/patients",
   "/consultation",

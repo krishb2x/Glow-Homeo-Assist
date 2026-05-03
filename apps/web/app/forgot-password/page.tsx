@@ -62,7 +62,7 @@ export default function ForgotPasswordPage(): JSX.Element {
   }
 
   return (
-    <main className="min-h-screen bg-white font-sans">
+    <main id="main-content" className="min-h-screen bg-white font-sans">
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12 sm:px-8">
         <section
           className="rounded-2xl border border-stone-100 bg-white p-8"

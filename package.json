@@ -11,6 +11,7 @@
     "dev:web": "npm --workspace @homeoassist/web run dev",
     "build": "npm --workspaces --if-present run build",
     "lint": "npm --workspaces --if-present run lint",
-    "test:api": "npm --workspace @homeoassist/api run test"
+    "test:api": "npm --workspace @homeoassist/api run test",
+    "test:web": "npm --workspace @homeoassist/web run test"
   }
 }

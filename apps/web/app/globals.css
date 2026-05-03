@@ -85,6 +85,47 @@
       backdrop-filter: blur(12px);
     }
   }
+
+  /* Marketing CTAs — same teal as in-app `Button` primary (hs-primary) */
+  .marketing-cta-primary {
+    @apply rounded-2xl bg-hs-primary font-semibold text-white;
+    box-shadow: 0 4px 14px -2px rgb(61 141 123 / 0.35), 0 1px 0 0 rgba(255, 255, 255, 0.15) inset;
+  }
+  .marketing-cta-primary:hover {
+    @apply bg-hs-primary-light;
+    box-shadow: 0 8px 28px -4px rgb(61 141 123 / 0.38), 0 1px 0 0 rgba(255, 255, 255, 0.18) inset;
+  }
+  .marketing-cta-secondary {
+    @apply rounded-2xl border border-slate-200/95 bg-white font-semibold text-slate-800;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+  .marketing-cta-secondary:hover {
+    @apply border-hs-primary/30 bg-hs-primary-very-light/40 text-hs-primary-dark;
+    box-shadow: 0 4px 18px -6px rgb(61 141 123 / 0.12);
+  }
+
+  /* Navbar — compact pill CTAs (teal primary) */
+  .marketing-nav-cta-primary {
+    @apply inline-flex min-h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-hs-primary px-3.5 py-2 text-center text-[0.8125rem] font-semibold leading-snug text-white transition-all duration-200 sm:px-4 sm:text-sm;
+    box-shadow: 0 2px 8px -1px rgb(61 141 123 / 0.35), 0 1px 0 0 rgba(255, 255, 255, 0.12) inset;
+  }
+  .marketing-nav-cta-primary:hover {
+    @apply bg-hs-primary-light;
+    box-shadow: 0 4px 14px -2px rgb(61 141 123 / 0.38), 0 1px 0 0 rgba(255, 255, 255, 0.15) inset;
+  }
+  .marketing-nav-cta-primary:active {
+    @apply scale-[0.98];
+  }
+  .marketing-nav-cta-secondary {
+    @apply inline-flex min-h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-slate-200/95 bg-white px-3.5 py-2 text-center text-[0.8125rem] font-semibold leading-snug text-slate-800 transition-all duration-200 sm:px-4 sm:text-sm;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  .marketing-nav-cta-secondary:hover {
+    @apply border-hs-primary/30 bg-hs-primary-very-light/50 text-hs-primary-dark;
+  }
+  .marketing-nav-cta-secondary:active {
+    @apply scale-[0.98];
+  }
   .marketing-hero-pill {
     @apply inline-flex items-center justify-center gap-2 rounded-full border border-hs-primary/20 bg-hs-primary/[0.06] px-4 py-1.5 font-heading text-xs font-semibold uppercase tracking-[0.1em] text-hs-primary sm:justify-start;
   }
@@ -213,7 +254,7 @@
     opacity: 0 !important;
   }
   .marketing-btn-glow-inner {
-    @apply relative z-[1] inline-flex w-full min-h-[48px] cursor-pointer items-center justify-center rounded-full border border-slate-700/60 bg-[#111318] px-8 text-sm font-semibold text-white no-underline whitespace-nowrap transition-colors hover:bg-[#1a1f28] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+    @apply relative z-[1] inline-flex w-full min-h-[48px] cursor-pointer items-center justify-center rounded-full border border-hs-primary-dark/25 bg-hs-primary px-8 text-sm font-semibold text-white no-underline whitespace-nowrap transition-colors hover:bg-hs-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-hs-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
   }
   .marketing-btn-glow-inner--on-dark {
     @apply focus-visible:ring-offset-[rgb(42,50,58)];
@@ -277,6 +318,12 @@
   .marketing-site .ms-h1 {
     @apply max-w-[46rem] font-heading font-semibold leading-[1.1] tracking-[-0.03em] text-slate-900;
     font-size: clamp(2rem, 0.8rem + 4vw, 3.25rem);
+  }
+  /* Hero: same 3-line breaks on phone and desktop (explicit line spans in markup) */
+  .marketing-site .ms-h1.ms-h1-hero-three-line {
+    text-wrap: initial;
+    @apply mx-auto flex w-full max-w-[min(100%,20rem)] flex-col items-stretch gap-1.5 leading-[1.1] sm:max-w-[min(100%,24rem)] sm:gap-2 md:max-w-[min(100%,28rem)] lg:max-w-[min(100%,32rem)];
+    font-size: clamp(1.85rem, 0.75rem + 3.5vw, 2.85rem);
   }
   .marketing-site .ms-h1.ms-h1-balance,
   .marketing-site .ms-h2,

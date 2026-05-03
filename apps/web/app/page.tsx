@@ -15,13 +15,14 @@ import {
   Users
 } from "lucide-react";
 import Link from "next/link";
-import { CTAButtons } from "../components/CTAButtons";
+import { ClinicalCTAGroup } from "../components/marketing/ClinicalCTAGroup";
+import { GuidedTrialSection } from "../components/marketing/GuidedTrialSection";
 import { LandingHeader } from "../components/LandingHeader";
-import { LeadForm } from "../components/LeadForm";
 import { FAQSection } from "../components/marketing/FAQSection";
 import { FeatureGrid } from "../components/marketing/FeatureGrid";
 import { MotionSection } from "../components/marketing/MotionSection";
 import { BRAND_NAME, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../lib/brand";
+import { loginUrl, marketingOrigin } from "../lib/marketing-urls";
 
 /* ─── Data ─────────────────────────────────────────────────────────── */
 
@@ -274,12 +275,12 @@ export default function LandingPage(): JSX.Element {
     <div className="marketing-site marketing-page-shell overflow-x-hidden text-slate-900">
       <LandingHeader />
 
-      <main className="relative z-[1]">
+      <main id="main-content" className="relative z-[1]">
 
         {/* ══ HERO ════════════════════════════════════════════════════ */}
         <section
           id="home"
-          className="ms-hero relative overflow-hidden px-5 pb-24 pt-16 sm:px-6 sm:pb-28 sm:pt-20 md:px-10 md:pb-32 md:pt-28"
+          className="ms-hero relative overflow-x-hidden px-4 pb-24 pt-14 sm:px-6 sm:pb-28 sm:pt-20 md:px-10 md:pb-32 md:pt-28"
         >
           <div className="marketing-dots" aria-hidden />
           <div className="marketing-hero-noise" aria-hidden />
@@ -299,12 +300,14 @@ export default function LandingPage(): JSX.Element {
               Built for homeopathy doctors
             </div>
 
-            {/* Headline — delay 80ms */}
+            {/* Headline — fixed 3 lines on all breakpoints */}
             <h1
-              className="animate-marketing-hero ms-h1 ms-h1-balance mx-auto"
+              className="animate-marketing-hero ms-h1 ms-h1-hero-three-line text-center"
               style={{ animationDelay: "80ms" }}
             >
-              The complete practice system for homeopathy doctors
+              <span className="block w-full">The complete</span>
+              <span className="block w-full">practice system for</span>
+              <span className="block w-full">homeopathy doctors</span>
             </h1>
 
             {/* Sub-headline — delay 220ms */}
@@ -317,21 +320,20 @@ export default function LandingPage(): JSX.Element {
               shaped by experienced homeopathy practitioners.
             </p>
 
-            {/* CTA buttons — delay 360ms */}
             <div
-              className="animate-marketing-hero mx-auto mt-10 flex max-w-md justify-center"
+              className="animate-marketing-hero mx-auto mt-12 flex max-w-4xl justify-center px-1 sm:px-2"
               style={{ animationDelay: "360ms" }}
             >
-              <CTAButtons className="justify-center" />
+              <ClinicalCTAGroup className="w-full justify-center" size="hero" />
             </div>
 
-            {/* Trust pills — staggered from 480ms */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            {/* Trust pills — staggered from 520ms */}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
               {trustPills.map(({ label, icon: Icon }, idx) => (
                 <span
                   key={label}
                   className="animate-marketing-hero marketing-trust-pill"
-                  style={{ animationDelay: `${480 + idx * 55}ms` }}
+                  style={{ animationDelay: `${520 + idx * 55}ms` }}
                 >
                   <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
                   {label}
@@ -462,7 +464,7 @@ export default function LandingPage(): JSX.Element {
                   "Live transcription — works in-clinic and for online calls",
                   "Structured output matched to homeopathic case format",
                   "You edit, approve, or discard — nothing auto-saves",
-                  "Saves 10–15 minutes per patient on documentation"
+                  "Many doctors find it saves meaningful documentation time after each visit — individual results vary with case load and style"
                 ].map((t) => (
                   <li key={t} className="flex items-center gap-2.5">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-hs-primary" aria-hidden />
@@ -542,50 +544,22 @@ export default function LandingPage(): JSX.Element {
 
         <WaveUp from="fill-slate-50/60" />
 
+        <GuidedTrialSection />
+
         {/* ══ FAQ ══════════════════════════════════════════════════════ */}
         <FAQSection />
 
-        {/* ══ BOOK DEMO ════════════════════════════════════════════════ */}
-        <MotionSection
-          id="book-demo"
-          className="scroll-mt-20 ms-section-form relative overflow-hidden px-5 py-16 sm:px-6 md:px-10 md:py-24"
+        {/* ══ CTA — after FAQ ═══════════════════════════════════════════ */}
+        <section
+          id="get-started"
+          className="scroll-mt-20 border-t border-slate-100 bg-gradient-to-b from-white to-slate-50/80 px-4 py-14 sm:px-6 sm:py-16 md:px-10 md:py-20"
         >
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgb(61 141 123 / 0.07) 0%, transparent 65%)" }}
-            aria-hidden
-          />
-          <div className="relative mx-auto max-w-lg">
-            <p className="ms-eyebrow text-center">Get started</p>
-            <h2 className="ms-h2 mt-2 max-w-none text-center">Book a walkthrough</h2>
-            <p className="mt-2 text-center text-[0.9rem] text-slate-500">
-              Tell us about your clinic — we will set it up personally and follow up shortly.
-            </p>
-            <div className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-900/6 ring-1 ring-hs-primary/8">
-              <LeadForm idPrefix="page" />
+          <div className="mx-auto max-w-4xl">
+            <div className="mx-auto flex justify-center px-1 sm:px-2">
+              <ClinicalCTAGroup className="w-full justify-center" size="hero" />
             </div>
           </div>
-        </MotionSection>
-
-        {/* ══ DARK CTA ═════════════════════════════════════════════════ */}
-        <MotionSection className="marketing-cta-dark px-5 py-16 sm:px-6 sm:py-20 md:px-10 md:py-28">
-          <div className="marketing-cta-grid-overlay" aria-hidden />
-          <div className="relative z-10 mx-auto max-w-2xl text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
-              For your practice
-            </p>
-            <h2 className="ms-h2 ms-h2-on-dark mx-auto mt-3 max-w-xl text-center font-semibold text-white">
-              Bring your whole practice into one system
-            </h2>
-            <p className="mx-auto mt-4 max-w-md text-[0.92rem] leading-relaxed text-slate-300/80">
-              Request early access and we will set up your clinic personally. Your records, your
-              patients, your growth — in one place built for homeopathy.
-            </p>
-            <div className="mx-auto mt-10 max-w-sm">
-              <CTAButtons className="justify-center" variant="dark" />
-            </div>
-          </div>
-        </MotionSection>
+        </section>
 
         {/* ══ FOOTER ═══════════════════════════════════════════════════ */}
         <footer className="footer-site" role="contentinfo">
@@ -609,6 +583,12 @@ export default function LandingPage(): JSX.Element {
                     {CONTACT_PHONE_DISPLAY}
                   </a>
                 </div>
+                <a
+                  href={marketingOrigin()}
+                  className="mt-5 inline-flex w-fit items-center justify-center rounded-lg border border-white/20 bg-white/[0.07] px-4 py-2.5 text-[0.8rem] font-semibold text-slate-100 transition-colors hover:border-white/35 hover:bg-white/10"
+                >
+                  GlowHomeo Marketplace
+                </a>
               </div>
 
               {/* Link columns — 3-col on mobile/tablet, dissolve into parent grid on lg */}
@@ -618,11 +598,11 @@ export default function LandingPage(): JSX.Element {
                   <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px]">For Doctors</p>
                   <ul className="space-y-2 text-[0.76rem] sm:text-[0.82rem]">
                     {[
-                      { label: "Why HomeoAssist", href: "#features" },
+                      { label: `Why ${BRAND_NAME}`, href: "#features" },
                       { label: "Patient app", href: "#features" },
                       { label: "AI consultation", href: "#consultation" },
-                      { label: "Early access", href: "#book-demo" },
-                      { label: "Guidance", href: "#" }
+                      { label: "90-day guided programme", href: "/#clinical-onboarding" },
+                      { label: "FAQ", href: "#faq" }
                     ].map((l) => (
                       <li key={l.label}>
                         <a href={l.href} className="footer-site-link transition-colors hover:text-white">
@@ -640,9 +620,8 @@ export default function LandingPage(): JSX.Element {
                     {[
                       { label: "Features", href: "#features" },
                       { label: "How it works", href: "#consultation" },
-                      { label: "Book demo", href: "#book-demo" },
                       { label: "FAQ", href: "#faq" },
-                      { label: "Log in", href: "/login" }
+                      { label: "Log in", href: loginUrl() }
                     ].map((l) => (
                       <li key={l.label}>
                         <a href={l.href} className="footer-site-link transition-colors hover:text-white">
@@ -658,10 +637,10 @@ export default function LandingPage(): JSX.Element {
                   <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 sm:text-[11px]">Legal</p>
                   <ul className="space-y-2 text-[0.76rem] sm:text-[0.82rem]">
                     {[
-                      { label: "Privacy", href: "#" },
-                      { label: "Terms", href: "#" },
-                      { label: "Cookies", href: "#" },
-                      { label: "Refunds", href: "#" }
+                      { label: "Privacy", href: "/privacy" },
+                      { label: "Terms", href: "/terms" },
+                      { label: "Cookies", href: "/cookies" },
+                      { label: "Refunds", href: "/refunds" }
                     ].map((l) => (
                       <li key={l.label}>
                         <a href={l.href} className="footer-site-link transition-colors hover:text-white">
@@ -677,12 +656,9 @@ export default function LandingPage(): JSX.Element {
             {/* Bottom bar */}
             <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-8 text-[0.75rem] text-slate-600 sm:flex-row">
               <p>© {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</p>
-              <div className="flex items-center gap-5">
-                <Link href="/login" className="transition-colors hover:text-slate-300">Log in</Link>
-                <a href="#book-demo" className="font-semibold text-hs-primary transition-colors hover:text-hs-primary/80">
-                  Request access →
-                </a>
-              </div>
+              <a href={loginUrl()} className="transition-colors hover:text-slate-300">
+                Log in
+              </a>
             </div>
           </div>
         </footer>
