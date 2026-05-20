@@ -23,9 +23,11 @@ import { resolveClinicScope } from "./lib/clinicScope";
 import { jsonSuccess, jsonError } from "./lib/apiEnvelope";
 import { jsonErrorDb, logAndSanitizeError, CLIENT_SAFE_MSG } from "./lib/safeError";
 import { checkMarketingLeadLimit } from "./lib/marketingLeadRateLimit";
-import { resolveFeatures, getClinicFeatures, type PlanTier, PLAN_FEATURES } from "./lib/features";
+import { resolveFeatures, getClinicFeatures, PLAN_FEATURES } from "./lib/features";
 import { assertRequiredTablesExist } from "./lib/dbSchemaCheck";
-import { PatientCreateBodySchema, PatientPatchBodySchema } from "@homeoassist/domain";
+import { PatientCreateBodySchema, PatientPatchBodySchema, ClinicalRecordPatchSchema, NoteDraftPatchSchema, AdvicePatchSchema, mergeClinicalRecordPatch } from "@homeoassist/domain";
+import { runConsultationFinalizeSideEffects, createScribeJob, updateScribeJob } from "./modules/encounters/v2EncountersService";
+import { startBackgroundJobs } from "./jobs/backgroundJobs";
 import crypto from "node:crypto";
 
 const app = express();
@@ -1431,6 +1433,30 @@ app.get("/doctor/patients/:id/timeline", authRequired, requireAppRoles(["DOCTOR"
     });
   }
 
+  const { data: outcomeRows } = await client
+    .from("case_outcomes")
+    .select("id,consultation_id,outcome,assessment,documented_at")
+    .eq("patient_id", patientId)
+    .eq("clinic_id", clinicId)
+    .order("documented_at", { ascending: false });
+  for (const o of outcomeRows ?? []) {
+    const or = o as {
+      id: string;
+      consultation_id: string;
+      outcome: string;
+      assessment: string | null;
+      documented_at: string;
+    };
+    events.push({
+      kind: "case_outcome",
+      id: or.id,
+      at: or.documented_at,
+      consultationId: or.consultation_id,
+      outcome: or.outcome,
+      assessment: or.assessment ?? undefined
+    });
+  }
+
   jsonSuccess(res, 200, { events });
 });
 
@@ -1585,6 +1611,57 @@ app.get("/doctor/patients/:id", authRequired, requireAppRoles(["DOCTOR", "SUPER_
   }
   const lastVisitAt = times.length > 0 ? new Date(Math.max(...times)).toISOString() : null;
 
+  let pendingPriorOutcome: { consultationId: string; endedAt: string; summary: string } | null = null;
+  let lastCaseOutcome: { outcome: string; documentedAt: string; assessment?: string } | null = null;
+  const { data: endedForOutcome } = await client
+    .from("consultations")
+    .select("id,ended_at,note_final")
+    .eq("patient_id", patientId)
+    .eq("clinic_id", clinicId)
+    .not("ended_at", "is", null)
+    .not("note_final", "is", null)
+    .order("ended_at", { ascending: false })
+    .limit(10);
+  if (endedForOutcome && endedForOutcome.length > 0) {
+    const cIds = endedForOutcome.map((c) => (c as { id: string }).id);
+    const { data: ocRows } = await client
+      .from("case_outcomes")
+      .select("consultation_id")
+      .eq("clinic_id", clinicId)
+      .in("consultation_id", cIds);
+    const withOutcome = new Set((ocRows ?? []).map((o) => (o as { consultation_id: string }).consultation_id));
+    for (const c of endedForOutcome) {
+      const cr = c as { id: string; ended_at: string; note_final: unknown };
+      if (withOutcome.has(cr.id)) continue;
+      const nf = cr.note_final as Record<string, unknown> | null;
+      const cc = nf?.chiefComplaints ?? nf?.chief_complaints;
+      const summary =
+        typeof cc === "string" && cc.trim()
+          ? cc.length > 160
+            ? `${cc.slice(0, 160)}…`
+            : cc
+          : "Document outcome";
+      pendingPriorOutcome = { consultationId: cr.id, endedAt: cr.ended_at, summary };
+      break;
+    }
+  }
+  const { data: lastOcRow } = await client
+    .from("case_outcomes")
+    .select("outcome,documented_at,assessment")
+    .eq("patient_id", patientId)
+    .eq("clinic_id", clinicId)
+    .order("documented_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastOcRow) {
+    const lo = lastOcRow as { outcome: string; documented_at: string; assessment: string | null };
+    lastCaseOutcome = {
+      outcome: lo.outcome,
+      documentedAt: lo.documented_at,
+      assessment: lo.assessment ?? undefined
+    };
+  }
+
   const rw = row as {
     id: string;
     name: string;
@@ -1622,7 +1699,9 @@ app.get("/doctor/patients/:id", authRequired, requireAppRoles(["DOCTOR", "SUPER_
     ongoingConditions: rw.ongoing_conditions ?? undefined,
     tags: Array.isArray(rw.tags) ? (rw.tags as string[]) : undefined,
     createdAt: rw.created_at,
-    lastVisitAt
+    lastVisitAt,
+    pendingPriorOutcome,
+    lastCaseOutcome
   });
 });
 
@@ -1958,6 +2037,59 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
     blood_group?: string | null;
     ongoing_conditions?: string | null;
   } | null;
+
+  let pendingPriorOutcome: { consultationId: string; endedAt: string; summary: string } | null = null;
+  let lastCaseOutcome: { outcome: string; documentedAt: string; assessment?: string } | null = null;
+  const { data: endedForOutcome } = await client
+    .from("consultations")
+    .select("id,ended_at,note_final")
+    .eq("patient_id", row.patient_id)
+    .eq("clinic_id", clinicId)
+    .not("ended_at", "is", null)
+    .not("note_final", "is", null)
+    .neq("id", row.id)
+    .order("ended_at", { ascending: false })
+    .limit(10);
+  if (endedForOutcome && endedForOutcome.length > 0) {
+    const cIds = endedForOutcome.map((c) => (c as { id: string }).id);
+    const { data: ocRows } = await client
+      .from("case_outcomes")
+      .select("consultation_id")
+      .eq("clinic_id", clinicId)
+      .in("consultation_id", cIds);
+    const withOutcome = new Set((ocRows ?? []).map((o) => (o as { consultation_id: string }).consultation_id));
+    for (const c of endedForOutcome) {
+      const cr = c as { id: string; ended_at: string; note_final: unknown };
+      if (withOutcome.has(cr.id)) continue;
+      const nf = cr.note_final as Record<string, unknown> | null;
+      const cc = nf?.chiefComplaints ?? nf?.chief_complaints;
+      const summary =
+        typeof cc === "string" && cc.trim()
+          ? cc.length > 160
+            ? `${cc.slice(0, 160)}…`
+            : cc
+          : "Document outcome";
+      pendingPriorOutcome = { consultationId: cr.id, endedAt: cr.ended_at, summary };
+      break;
+    }
+  }
+  const { data: lastOcRow } = await client
+    .from("case_outcomes")
+    .select("outcome,documented_at,assessment")
+    .eq("patient_id", row.patient_id)
+    .eq("clinic_id", clinicId)
+    .order("documented_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastOcRow) {
+    const lo = lastOcRow as { outcome: string; documented_at: string; assessment: string | null };
+    lastCaseOutcome = {
+      outcome: lo.outcome,
+      documentedAt: lo.documented_at,
+      assessment: lo.assessment ?? undefined
+    };
+  }
+
   jsonSuccess(res, 200, {
     id: row.id,
     patientId: row.patient_id,
@@ -1994,6 +2126,8 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
     followUpNote: ext.follow_up_note ?? null,
     editingLocked: Boolean(ext.editing_locked),
     finalizedAt: ext.finalized_at ?? null,
+    pendingPriorOutcome,
+    lastCaseOutcome,
     prescription: rx
       ? {
           id: rx.id,
@@ -2005,38 +2139,6 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
 });
 
 const ConsultationLifecycleSchema = z.enum(["DRAFT", "ACTIVE", "REVIEWING", "FINALIZED"]);
-const ClinicalRecordPatchSchema = z
-  .object({
-    labs: z
-      .array(
-        z.object({
-          id: z.string(),
-          testName: z.string().max(500),
-          result: z.string().max(8000),
-          notes: z.string().max(8000)
-        })
-      )
-      .optional(),
-    clinicalNotes: z
-      .object({
-        observations: z.string().max(200000).optional(),
-        diagnosisThinking: z.string().max(200000).optional()
-      })
-      .optional(),
-    history: z
-      .object({
-        pastDiseases: z.string().max(200000).optional(),
-        medications: z.string().max(200000).optional()
-      })
-      .optional()
-  })
-  .strict();
-const AdvicePatchSchema = z
-  .object({
-    diet: z.string().max(20000),
-    lifestyle: z.string().max(20000)
-  })
-  .strict();
 
 app.patch("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
   const claims = (req as express.Request & { user: AuthClaims }).user;
@@ -2047,16 +2149,6 @@ app.patch("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", 
     jsonError(res, 400, "Invalid consultation id", { code: "VALIDATION_ERROR" });
     return;
   }
-  const NoteDraftPatchSchema = z
-    .object({
-      chiefComplaints: z.string().max(200000).optional(),
-      emotionalState: z.string().max(200000).optional(),
-      physicalSymptoms: z.string().max(200000).optional(),
-      modalities: z.string().max(200000).optional(),
-      timeline: z.string().max(200000).optional(),
-      needsReview: z.boolean().optional()
-    })
-    .strict();
   const parsed = z
     .object({
       lifecycleStatus: ConsultationLifecycleSchema.optional(),
@@ -2118,29 +2210,9 @@ app.patch("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", 
     updates.note_draft = { ...prev, ...parsed.data.noteDraft };
   }
   if (parsed.data.clinicalRecord) {
-    const prev =
-      typeof ex.clinical_record === "object" && ex.clinical_record !== null && !Array.isArray(ex.clinical_record)
-        ? (ex.clinical_record as Record<string, unknown>)
-        : {};
-    const inc = parsed.data.clinicalRecord;
-    const merged: Record<string, unknown> = { ...prev };
-    if (inc.labs !== undefined) merged.labs = inc.labs;
-    if (inc.clinicalNotes !== undefined) {
-      const cn =
-        typeof prev.clinicalNotes === "object" && prev.clinicalNotes !== null && !Array.isArray(prev.clinicalNotes)
-          ? (prev.clinicalNotes as Record<string, unknown>)
-          : {};
-      merged.clinicalNotes = { ...cn, ...inc.clinicalNotes };
-    }
-    if (inc.history !== undefined) {
-      const h =
-        typeof prev.history === "object" && prev.history !== null && !Array.isArray(prev.history)
-          ? (prev.history as Record<string, unknown>)
-          : {};
-      merged.history = { ...h, ...inc.history };
-    }
-    updates.clinical_record = merged;
+    updates.clinical_record = mergeClinicalRecordPatch(ex.clinical_record, parsed.data.clinicalRecord);
     updates.clinical_record_version = (ex.clinical_record_version ?? 0) + 1;
+    updates.draft_autosaved_at = new Date().toISOString();
   }
   if (parsed.data.advice) {
     updates.advice = parsed.data.advice;
@@ -2195,6 +2267,13 @@ app.post("/doctor/consultations/:id/generate-draft", authRequired, requireAppRol
     return;
   }
 
+  const idParse = z.string().uuid().safeParse(req.params.id);
+  if (!idParse.success) {
+    jsonError(res, 400, "Invalid consultation id", { code: "VALIDATION_ERROR" });
+    return;
+  }
+  const consultationId = idParse.data;
+
   const parsed = z.object({
     transcriptText: z.string().max(200000).default(""),
     transcriptLanguage: z.string().default("mixed-hi-en"),
@@ -2210,7 +2289,7 @@ app.post("/doctor/consultations/:id/generate-draft", authRequired, requireAppRol
   const { data: existing } = await client
     .from("consultations")
     .select("transcript_text")
-    .eq("id", req.params.id)
+    .eq("id", consultationId)
     .eq("clinic_id", clinicId)
     .maybeSingle();
   const storedTranscript = (existing as { transcript_text?: string | null } | null)?.transcript_text ?? "";
@@ -2242,11 +2321,43 @@ app.post("/doctor/consultations/:id/generate-draft", authRequired, requireAppRol
   const { error } = await client
     .from("consultations")
     .update(dbUpdates)
-    .eq("id", req.params.id)
+    .eq("id", consultationId)
     .eq("clinic_id", clinicId);
   if (error) {
     jsonErrorDb(res, "consultation_generate_draft", error);
     return;
+  }
+
+  if (noteDraft) {
+    const { data: latestJob } = await client
+      .from("scribe_jobs")
+      .select("id")
+      .eq("consultation_id", consultationId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestJob && (latestJob as { id: string }).id) {
+      await updateScribeJob(client, (latestJob as { id: string }).id, {
+        status: "DRAFTED",
+        transcriptText: transcript,
+        draftRecord: noteDraft,
+        ended: true
+      });
+    } else {
+      const jobId = await createScribeJob(client, {
+        clinicId,
+        consultationId,
+        doctorId: claims.userId,
+        status: "DRAFTED"
+      });
+      if (jobId) {
+        await updateScribeJob(client, jobId, {
+          transcriptText: transcript,
+          draftRecord: noteDraft,
+          ended: true
+        });
+      }
+    }
   }
 
   jsonSuccess(res, 200, {
@@ -2387,6 +2498,13 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
       lockEditing: z.boolean().optional(),
       followUpRecommendedAt: z.string().optional().nullable(),
       followUpNote: z.string().max(4000).optional().nullable(),
+      distribute: z
+        .object({
+          sendEmail: z.boolean().optional(),
+          sendWhatsApp: z.boolean().optional(),
+          notifyEmail: z.string().email().optional().nullable()
+        })
+        .optional(),
       createFollowUp: z
         .object({
           dueAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "Invalid date"),
@@ -2468,7 +2586,22 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
         }
       }
     }
-    jsonSuccess(res, 200, { ok: true, alreadyEnded: true });
+    let distribution = null;
+    if (fin.finalize) {
+      distribution = await runConsultationFinalizeSideEffects({
+        admin: supabaseAdmin,
+        client,
+        clinicId,
+        consultationId: idParse.data,
+        patientId: rw.patient_id,
+        doctorId: claims.userId,
+        actorRole: claims.role,
+        followUpRecommendedAt: fin.followUpRecommendedAt ?? null,
+        followUpNote: fin.followUpNote ?? null,
+        distribute: fin.distribute
+      });
+    }
+    jsonSuccess(res, 200, { ok: true, alreadyEnded: true, distribution });
     return;
   }
 
@@ -2510,8 +2643,90 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
       return;
     }
   }
-  jsonSuccess(res, 200, { ok: true, alreadyEnded: false });
+  let distribution = null;
+  if (fin.finalize) {
+    distribution = await runConsultationFinalizeSideEffects({
+      admin: supabaseAdmin,
+      client,
+      clinicId,
+      consultationId: idParse.data,
+      patientId: rw.patient_id,
+      doctorId: claims.userId,
+      actorRole: claims.role,
+      followUpRecommendedAt: fin.followUpRecommendedAt ?? null,
+      followUpNote: fin.followUpNote ?? null,
+      distribute: fin.distribute
+    });
+  }
+  jsonSuccess(res, 200, { ok: true, alreadyEnded: false, distribution });
 });
+
+/** Signed URL for stored prescription PDF/HTML (Patient App + doctor re-download). */
+app.get(
+  "/doctor/consultations/:id/prescription-download",
+  authRequired,
+  requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
+  async (req, res) => {
+    const claims = (req as express.Request & { user: AuthClaims }).user;
+    const clinicId = resolveClinicScope(req, claims, res);
+    if (!clinicId) return;
+    const idParse = z.string().uuid().safeParse(req.params.id);
+    if (!idParse.success) {
+      jsonError(res, 400, "Invalid consultation id", { code: "VALIDATION_ERROR" });
+      return;
+    }
+    const client = getDb(claims);
+    const { data: row, error: loadErr } = await client
+      .from("consultations")
+      .select("id,pdf_object_id,pdf_ready")
+      .eq("id", idParse.data)
+      .eq("clinic_id", clinicId)
+      .maybeSingle();
+    if (loadErr) {
+      jsonErrorDb(res, "prescription_download_load", loadErr);
+      return;
+    }
+    if (!row) {
+      jsonError(res, 404, "Consultation not found", { code: "NOT_FOUND" });
+      return;
+    }
+    const pdfObjectId = (row as { pdf_object_id?: string | null }).pdf_object_id;
+    if (!pdfObjectId) {
+      jsonError(res, 404, "Prescription not yet generated", { code: "NOT_FOUND" });
+      return;
+    }
+    const { data: media, error: mediaErr } = await client
+      .from("media_objects")
+      .select("storage_object_key,mime_type,size_bytes")
+      .eq("id", pdfObjectId)
+      .eq("clinic_id", clinicId)
+      .maybeSingle();
+    if (mediaErr) {
+      jsonErrorDb(res, "prescription_download_media", mediaErr);
+      return;
+    }
+    const objectKey = (media as { storage_object_key?: string } | null)?.storage_object_key;
+    if (!objectKey || objectKey.startsWith("inline:")) {
+      jsonError(res, 503, "Prescription file is not available in storage", { code: "STORAGE_UNAVAILABLE" });
+      return;
+    }
+    if (!objectKey.startsWith(`clinics/${clinicId}/`)) {
+      jsonError(res, 403, "Object key is outside clinic tenant scope", { code: "TENANT_SCOPE" });
+      return;
+    }
+    try {
+      const downloadUrl = await createDownloadUrl(objectKey);
+      jsonSuccess(res, 200, {
+        downloadUrl,
+        expiresInSeconds: 900,
+        mimeType: (media as { mime_type?: string }).mime_type ?? "application/pdf"
+      });
+    } catch (e) {
+      logAndSanitizeError("prescription_download", e);
+      jsonError(res, 503, "Download is not available. Please try again later.", { code: "STORAGE_UNAVAILABLE" });
+    }
+  }
+);
 
 app.post("/doctor/prescriptions", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
   const claims = (req as express.Request & { user: AuthClaims }).user;
@@ -2748,7 +2963,7 @@ app.get("/storage/presign-download", authRequired, requireAppRoles(["DOCTOR", "S
   }
   try {
     const downloadUrl = await createDownloadUrl(objectKey);
-    jsonSuccess(res, 200, { downloadUrl, expiresInSeconds: 120 });
+    jsonSuccess(res, 200, { downloadUrl, expiresInSeconds: 900 });
   } catch (e) {
     logAndSanitizeError("presign_download", e);
     jsonError(res, 503, "Download is not available. Please try again later.", { code: "STORAGE_UNAVAILABLE" });
@@ -2927,6 +3142,7 @@ if (process.env.VITEST !== "true") {
     }
     server.listen(port, () => {
       logger.info("HomeoSync API listening", { port, ws: "/ws/consultation" });
+      startBackgroundJobs(supabaseAdmin);
     });
   })();
 }

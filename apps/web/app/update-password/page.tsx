@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, useTransition } from "react";
+import { AuthShell } from "../../components/auth/AuthShell";
 import { fetchStaffAuthMe } from "../../lib/staff-session";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
@@ -24,6 +25,11 @@ function ButtonSpinner({ className }: { className?: string }): JSX.Element {
   );
 }
 
+const INPUT_CLASS =
+  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[0.95rem] text-slate-900 " +
+  "placeholder:text-slate-400 outline-none transition-shadow " +
+  "focus:border-hs-primary/50 focus:ring-4 focus:ring-hs-primary/15";
+
 function UpdatePasswordForm(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,11 +40,6 @@ function UpdatePasswordForm(): JSX.Element {
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
-
-  const inputClass =
-    "w-full rounded-md border border-stone-100 bg-white px-4 py-2.5 text-hs-ink " +
-    "placeholder:text-hs-text-tertiary outline-none transition " +
-    "focus:border-hs-primary/50 focus:ring-2 focus:ring-hs-primary/15";
 
   const source = searchParams.get("source") ?? "";
 
@@ -124,13 +125,16 @@ function UpdatePasswordForm(): JSX.Element {
 
   if (prepError) {
     return (
-      <div>
-        <p className="text-sm text-rose-800" role="alert">
+      <div className="space-y-4">
+        <p
+          className="rounded-xl border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-[0.88rem] text-rose-900/90"
+          role="alert"
+        >
           {prepError}
         </p>
-        <p className="mt-4 text-center text-sm">
-          <Link href="/login" className="font-medium text-hs-primary underline-offset-2 hover:underline">
-            Back to sign in
+        <p className="text-center">
+          <Link href="/login" className="font-semibold text-hs-primary hover:underline">
+            ← Back to sign in
           </Link>
         </p>
       </div>
@@ -138,30 +142,38 @@ function UpdatePasswordForm(): JSX.Element {
   }
 
   if (!ready) {
-    return <p className="text-sm text-hs-text-secondary">Preparing…</p>;
+    return (
+      <div className="flex items-center justify-center gap-2 py-4 text-[0.88rem] text-slate-500">
+        <ButtonSpinner className="h-4 w-4 animate-spin text-hs-primary" />
+        <span>Preparing your secure session…</span>
+      </div>
+    );
   }
 
   if (success) {
     return (
-      <p
-        className="rounded-md border border-hs-border bg-hs-primary-very-light/60 px-4 py-3 text-sm text-hs-ink"
+      <div
+        className="rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/60 px-4 py-4 text-[0.92rem] leading-relaxed text-hs-primary-dark"
         role="status"
       >
-        Password updated successfully. Taking you to your workspace…
-      </p>
+        <p className="font-semibold">Password updated.</p>
+        <p className="mt-1 text-slate-700">Taking you to your workspace…</p>
+      </div>
     );
   }
 
   return (
     <div>
       {source ? (
-        <p className="mb-2 text-sm text-hs-text-secondary">
-          {source === "invite" ? "Complete your account by choosing a password." : "Choose a new password for your account."}
+        <p className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[0.85rem] text-slate-600">
+          {source === "invite"
+            ? "Complete your account by choosing a password."
+            : "Choose a new password for your account."}
         </p>
       ) : null}
       {formError ? (
         <div
-          className="mb-4 rounded-md border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-sm text-rose-900/90"
+          className="mb-4 rounded-xl border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-[0.88rem] text-rose-900/90"
           role="alert"
         >
           {formError}
@@ -169,7 +181,7 @@ function UpdatePasswordForm(): JSX.Element {
       ) : null}
       <form onSubmit={onSubmit} className="grid gap-4">
         <label className="grid gap-1.5">
-          <span className="text-sm font-medium text-hs-ink">New password</span>
+          <span className="text-[0.85rem] font-semibold text-slate-700">New password</span>
           <input
             type="password"
             required
@@ -177,11 +189,11 @@ function UpdatePasswordForm(): JSX.Element {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
+            className={INPUT_CLASS}
           />
         </label>
         <label className="grid gap-1.5">
-          <span className="text-sm font-medium text-hs-ink">Confirm password</span>
+          <span className="text-[0.85rem] font-semibold text-slate-700">Confirm password</span>
           <input
             type="password"
             required
@@ -189,13 +201,16 @@ function UpdatePasswordForm(): JSX.Element {
             autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className={inputClass}
+            className={INPUT_CLASS}
           />
         </label>
+        <p className="text-[0.78rem] text-slate-500">
+          Use at least 8 characters. Mix letters, numbers, and a symbol for the strongest result.
+        </p>
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-hs-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-hs-primary-dark focus:outline-none focus:ring-2 focus:ring-hs-primary/25 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-75"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-hs-primary px-4 py-3 text-[0.95rem] font-semibold text-white shadow-[0_10px_28px_-12px_rgba(14,124,102,0.55)] transition-colors hover:bg-hs-primary-dark focus:outline-none focus:ring-4 focus:ring-hs-primary/25 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-75"
         >
           {pending ? (
             <>
@@ -213,28 +228,29 @@ function UpdatePasswordForm(): JSX.Element {
 
 export default function UpdatePasswordPage(): JSX.Element {
   return (
-    <main id="main-content" className="min-h-screen bg-white font-sans">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12 sm:px-8">
-        <section
-          className="rounded-2xl border border-stone-100 bg-white p-8"
-          aria-labelledby="update-pw-heading"
-        >
-          <h1 id="update-pw-heading" className="font-heading text-2xl font-medium text-hs-ink">
-            Set your password
-          </h1>
-          <p className="mt-2 text-sm text-hs-text-secondary">Use at least 8 characters.</p>
-          <div className="mt-6">
-            <Suspense fallback={<p className="text-sm text-hs-text-secondary">Loading…</p>}>
-              <UpdatePasswordForm />
-            </Suspense>
+    <AuthShell
+      eyebrow="Account setup"
+      title="Set your password"
+      description="Choose a strong password to secure your clinic workspace."
+      panelTagline="Welcome aboard — let's get your account ready."
+      footerSlot={
+        <p>
+          <Link href="/login" className="font-semibold text-hs-primary hover:underline">
+            ← Back to sign in
+          </Link>
+        </p>
+      }
+    >
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center gap-2 py-4 text-[0.88rem] text-slate-500">
+            <ButtonSpinner className="h-4 w-4 animate-spin text-hs-primary" />
+            <span>Loading…</span>
           </div>
-          <p className="mt-6 text-center text-sm">
-            <Link href="/login" className="text-hs-text-secondary underline-offset-2 transition hover:text-hs-ink">
-              Back to sign in
-            </Link>
-          </p>
-        </section>
-      </div>
-    </main>
+        }
+      >
+        <UpdatePasswordForm />
+      </Suspense>
+    </AuthShell>
   );
 }

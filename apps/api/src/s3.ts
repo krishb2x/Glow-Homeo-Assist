@@ -20,6 +20,14 @@ const s3 = s3Enabled
 
 const bucketName = s3Enabled ? (bucket as string) : "";
 
+export function getPrivateBucketName(): string {
+  return bucketName;
+}
+
+export function isS3Configured(): boolean {
+  return s3Enabled;
+}
+
 function requireS3(): S3Client {
   if (!s3) {
     throw new Error(
@@ -29,7 +37,11 @@ function requireS3(): S3Client {
   return s3;
 }
 
-export function buildObjectKey(clinicId: string, category: "audio" | "document" | "audio-staging", filename: string): string {
+export function buildObjectKey(
+  clinicId: string,
+  category: "audio" | "document" | "audio-staging" | "pdf",
+  filename: string
+): string {
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const timestamp = Date.now();
   return `clinics/${clinicId}/${category}/${timestamp}-${safeName}`;
@@ -76,7 +88,7 @@ export async function createUploadUrl(objectKey: string, contentType: string): P
   );
 }
 
-export async function createDownloadUrl(objectKey: string): Promise<string> {
+export async function createDownloadUrl(objectKey: string, expiresInSeconds = 900): Promise<string> {
   const client = requireS3();
   return getSignedUrl(
     client,
@@ -84,7 +96,7 @@ export async function createDownloadUrl(objectKey: string): Promise<string> {
       Bucket: bucketName,
       Key: objectKey
     }),
-    { expiresIn: 120 }
+    { expiresIn: expiresInSeconds }
   );
 }
 

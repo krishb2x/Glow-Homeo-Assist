@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { AuthShell } from "../../components/auth/AuthShell";
 import { getPublicSiteUrl, getSupabaseBrowser } from "../../lib/supabase-browser";
 
 function ButtonSpinner({ className }: { className?: string }): JSX.Element {
@@ -22,16 +23,16 @@ function ButtonSpinner({ className }: { className?: string }): JSX.Element {
   );
 }
 
+const INPUT_CLASS =
+  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[0.95rem] text-slate-900 " +
+  "placeholder:text-slate-400 outline-none transition-shadow " +
+  "focus:border-hs-primary/50 focus:ring-4 focus:ring-hs-primary/15";
+
 export default function ForgotPasswordPage(): JSX.Element {
   const [email, setEmail] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
-
-  const inputClass =
-    "w-full rounded-md border border-stone-100 bg-white px-4 py-2.5 text-hs-ink " +
-    "placeholder:text-hs-text-tertiary outline-none transition " +
-    "focus:border-hs-primary/50 focus:ring-2 focus:ring-hs-primary/15";
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>): void {
     e.preventDefault();
@@ -62,74 +63,71 @@ export default function ForgotPasswordPage(): JSX.Element {
   }
 
   return (
-    <main id="main-content" className="min-h-screen bg-white font-sans">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12 sm:px-8">
-        <section
-          className="rounded-2xl border border-stone-100 bg-white p-8"
-          aria-labelledby="forgot-heading"
+    <AuthShell
+      eyebrow="Account recovery"
+      title="Reset your password"
+      description="Enter your clinic email and we'll send a secure link to choose a new password. The link opens this workspace."
+      panelTagline="Account safety, built into the workspace."
+      footerSlot={
+        <p>
+          <Link href="/login" className="font-semibold text-hs-primary hover:underline">
+            ← Back to sign in
+          </Link>
+        </p>
+      }
+    >
+      {done ? (
+        <div
+          className="rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/60 px-4 py-4 text-[0.92rem] leading-relaxed text-hs-primary-dark"
+          role="status"
         >
-          <h1 id="forgot-heading" className="font-heading text-2xl font-medium text-hs-ink">
-            Forgot password
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-hs-text-secondary">
-            Enter your work email. We will send a link to choose a new password. The link opens this app — add this URL in Supabase Auth → URL configuration if needed.
+          <p className="font-semibold">Check your inbox.</p>
+          <p className="mt-1 text-slate-700">
+            We sent a reset link to <span className="font-medium">{email}</span>. It may take a
+            minute to arrive — don't forget to check spam.
           </p>
-
-          {done ? (
-            <p
-              className="mt-6 rounded-md border border-hs-border bg-hs-primary-very-light/60 px-4 py-3 text-sm text-hs-ink"
-              role="status"
+        </div>
+      ) : (
+        <>
+          {formError ? (
+            <div
+              className="mb-5 rounded-xl border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-[0.88rem] text-rose-900/90"
+              role="alert"
             >
-              Check your email. We sent a reset link; it may take a minute to arrive.
-            </p>
-          ) : (
-            <>
-              {formError ? (
-                <div
-                  className="mt-5 rounded-md border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-sm text-rose-900/90"
-                  role="alert"
-                >
-                  {formError}
-                </div>
-              ) : null}
-              <form onSubmit={onSubmit} className="mt-6 grid gap-4">
-                <label className="grid gap-1.5">
-                  <span className="text-sm font-medium text-hs-ink">Email</span>
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-hs-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-hs-primary-dark focus:outline-none focus:ring-2 focus:ring-hs-primary/25 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-75"
-                >
-                  {pending ? (
-                    <>
-                      <ButtonSpinner className="h-4 w-4 animate-spin text-white" />
-                      <span>Sending…</span>
-                    </>
-                  ) : (
-                    "Send reset link"
-                  )}
-                </button>
-              </form>
-            </>
-          )}
-
-          <p className="mt-6 text-center text-sm">
-            <Link href="/login" className="font-medium text-hs-primary underline-offset-2 hover:underline">
-              ← Back to sign in
-            </Link>
-          </p>
-        </section>
-      </div>
-    </main>
+              {formError}
+            </div>
+          ) : null}
+          <form onSubmit={onSubmit} className="grid gap-4">
+            <label className="grid gap-1.5">
+              <span className="text-[0.85rem] font-semibold text-slate-700">Email</span>
+              <input
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@clinic.com"
+                className={INPUT_CLASS}
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={pending}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-hs-primary px-4 py-3 text-[0.95rem] font-semibold text-white shadow-[0_10px_28px_-12px_rgba(14,124,102,0.55)] transition-colors hover:bg-hs-primary-dark focus:outline-none focus:ring-4 focus:ring-hs-primary/25 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-75"
+            >
+              {pending ? (
+                <>
+                  <ButtonSpinner className="h-4 w-4 animate-spin text-white" />
+                  <span>Sending…</span>
+                </>
+              ) : (
+                "Send reset link"
+              )}
+            </button>
+          </form>
+        </>
+      )}
+    </AuthShell>
   );
 }

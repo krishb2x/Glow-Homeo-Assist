@@ -12,7 +12,7 @@
   .marketing-page-shell::before {
     content: "";
     @apply pointer-events-none absolute inset-0 z-0;
-    background: radial-gradient(ellipse 110% 50% at 50% -5%, rgb(61 141 123 / 0.09) 0%, transparent 60%);
+    background: radial-gradient(ellipse 110% 50% at 50% -5%, rgb(14 124 102 / 0.09) 0%, transparent 60%);
   }
   .marketing-page-shell::after {
     content: "";
@@ -52,12 +52,12 @@
   .marketing-hero-surface::before {
     content: "";
     @apply pointer-events-none absolute inset-0 opacity-40;
-    background: radial-gradient(ellipse 80% 50% at 20% 0%, rgb(61 141 123 / 0.1) 0%, transparent 55%);
+    background: radial-gradient(ellipse 80% 50% at 20% 0%, rgb(14 124 102 / 0.1) 0%, transparent 55%);
   }
   .marketing-hero-surface::after {
     content: "";
     @apply pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full opacity-20 blur-3xl md:h-80 md:w-80;
-    background: rgb(61 141 123 / 0.12);
+    background: rgb(14 124 102 / 0.12);
   }
   /* Subtle film grain; hero only (keeps flat colours from looking plastic) */
   .marketing-hero-noise {
@@ -89,11 +89,11 @@
   /* Marketing CTAs — same teal as in-app `Button` primary (hs-primary) */
   .marketing-cta-primary {
     @apply rounded-2xl bg-hs-primary font-semibold text-white;
-    box-shadow: 0 4px 14px -2px rgb(61 141 123 / 0.35), 0 1px 0 0 rgba(255, 255, 255, 0.15) inset;
+    box-shadow: 0 4px 14px -2px rgb(14 124 102 / 0.35), 0 1px 0 0 rgba(255, 255, 255, 0.15) inset;
   }
   .marketing-cta-primary:hover {
     @apply bg-hs-primary-light;
-    box-shadow: 0 8px 28px -4px rgb(61 141 123 / 0.38), 0 1px 0 0 rgba(255, 255, 255, 0.18) inset;
+    box-shadow: 0 8px 28px -4px rgb(14 124 102 / 0.38), 0 1px 0 0 rgba(255, 255, 255, 0.18) inset;
   }
   .marketing-cta-secondary {
     @apply rounded-2xl border border-slate-200/95 bg-white font-semibold text-slate-800;
@@ -101,17 +101,17 @@
   }
   .marketing-cta-secondary:hover {
     @apply border-hs-primary/30 bg-hs-primary-very-light/40 text-hs-primary-dark;
-    box-shadow: 0 4px 18px -6px rgb(61 141 123 / 0.12);
+    box-shadow: 0 4px 18px -6px rgb(14 124 102 / 0.12);
   }
 
   /* Navbar — compact pill CTAs (teal primary) */
   .marketing-nav-cta-primary {
     @apply inline-flex min-h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-hs-primary px-3.5 py-2 text-center text-[0.8125rem] font-semibold leading-snug text-white transition-all duration-200 sm:px-4 sm:text-sm;
-    box-shadow: 0 2px 8px -1px rgb(61 141 123 / 0.35), 0 1px 0 0 rgba(255, 255, 255, 0.12) inset;
+    box-shadow: 0 2px 8px -1px rgb(14 124 102 / 0.35), 0 1px 0 0 rgba(255, 255, 255, 0.12) inset;
   }
   .marketing-nav-cta-primary:hover {
     @apply bg-hs-primary-light;
-    box-shadow: 0 4px 14px -2px rgb(61 141 123 / 0.38), 0 1px 0 0 rgba(255, 255, 255, 0.15) inset;
+    box-shadow: 0 4px 14px -2px rgb(14 124 102 / 0.38), 0 1px 0 0 rgba(255, 255, 255, 0.15) inset;
   }
   .marketing-nav-cta-primary:active {
     @apply scale-[0.98];
@@ -131,7 +131,7 @@
   }
   .marketing-dots {
     @apply pointer-events-none absolute inset-0 z-0 opacity-[0.25];
-    background-image: radial-gradient(rgb(61 141 123 / 0.08) 1px, transparent 1px);
+    background-image: radial-gradient(rgb(14 124 102 / 0.08) 1px, transparent 1px);
     background-size: 28px 28px;
   }
   /* Unified cards: soft gradient, inner highlight, hover teal/violet rim (same family as CTA glow) */
@@ -141,8 +141,8 @@
     box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 4px 16px -4px rgba(15, 23, 42, 0.08), 0 1px 0 0 rgba(255,255,255,0.9) inset;
   }
   .marketing-card-premium:hover {
-    border-color: rgb(61 141 123 / 0.18);
-    box-shadow: 0 1px 0 0 #fff inset, 0 0 0 1px rgb(61 141 123 / 0.12), 0 8px 32px -8px rgba(15, 23, 42, 0.12), 0 24px 48px -20px rgba(61, 141, 123, 0.08);
+    border-color: rgb(14 124 102 / 0.18);
+    box-shadow: 0 1px 0 0 #fff inset, 0 0 0 1px rgb(14 124 102 / 0.12), 0 8px 32px -8px rgba(15, 23, 42, 0.12), 0 24px 48px -20px rgba(14, 124, 102, 0.08);
   }
   @media (prefers-reduced-motion: reduce) {
     .marketing-card-premium:hover {
@@ -160,8 +160,8 @@
   }
   .marketing-card-hover:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 32px -8px rgba(61, 141, 123, 0.14), 0 4px 12px -2px rgba(20, 40, 34, 0.08);
-    border-color: rgb(61 141 123 / 0.28) !important;
+    box-shadow: 0 12px 32px -8px rgba(14, 124, 102, 0.14), 0 4px 12px -2px rgba(20, 40, 34, 0.08);
+    border-color: rgb(14 124 102 / 0.28) !important;
   }
   .marketing-timeline-connector {
     @apply relative pl-0 before:absolute before:left-[11px] before:top-8 before:h-[calc(100%-0.5rem)] before:w-px before:bg-gradient-to-b before:from-hs-primary/50 before:via-hs-primary/20 before:to-transparent last:before:hidden;
@@ -184,7 +184,7 @@
   }
   .marketing-ambient-rose {
     @apply pointer-events-none absolute -right-1/4 top-0 h-72 w-72 rounded-full blur-3xl;
-    background: radial-gradient(circle, rgb(61 141 123 / 0.06) 0%, transparent 70%);
+    background: radial-gradient(circle, rgb(14 124 102 / 0.06) 0%, transparent 70%);
   }
   .marketing-ambient-sage {
     @apply pointer-events-none absolute -left-1/4 bottom-0 h-80 w-80 rounded-full blur-3xl;
@@ -390,8 +390,8 @@
   }
   .ds-app-card-interactive:hover {
     transform: translateY(-2px);
-    border-color: rgb(61 141 123 / 0.22);
-    box-shadow: 0 4px 16px -4px rgba(61, 141, 123, 0.10), 0 8px 24px -8px rgba(20, 40, 34, 0.06);
+    border-color: rgb(14 124 102 / 0.22);
+    box-shadow: 0 4px 16px -4px rgba(14, 124, 102, 0.10), 0 8px 24px -8px rgba(20, 40, 34, 0.06);
   }
   .ds-table-shell {
     @apply overflow-x-auto rounded-2xl border border-hs-border/60 bg-hs-paper shadow-ds-sm;
@@ -425,8 +425,8 @@
 
   /* ── Icon ring glow on hover ────────────────────────────────────────── */
   @keyframes ms-icon-glow {
-    from { box-shadow: 0 0 0 0 rgb(61 141 123 / 0.35); }
-    to   { box-shadow: 0 0 0 8px rgb(61 141 123 / 0);  }
+    from { box-shadow: 0 0 0 0 rgb(14 124 102 / 0.35); }
+    to   { box-shadow: 0 0 0 8px rgb(14 124 102 / 0);  }
   }
 
   /* ── Skeleton shimmer ───────────────────────────────────────────────── */

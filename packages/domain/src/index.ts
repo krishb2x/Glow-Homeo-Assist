@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// Canonical clinical record (Zod) + sub-shapes used by 9-step consult UI.
+// See docs/architecture/03_SCHEMA.md §6.
+export * from "./schemas/clinicalRecord";
+
 /** MVP: staff roles SUPER_ADMIN + DOCTOR; PATIENT is backend-only (no web app). */
 export const RoleSchema = z.enum(["SUPER_ADMIN", "DOCTOR", "PATIENT"]);
 

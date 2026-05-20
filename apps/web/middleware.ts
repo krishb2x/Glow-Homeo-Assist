@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
  * (ClinicAppShell) and the API via Bearer token; the browser does not send httpOnly
  * session cookies to localhost:3000 from localhost:4000 in dev.
  */
-export async function middleware(request: NextRequest) {
+export async function middleware(_request: NextRequest) {
   return addSecurityHeaders(NextResponse.next());
 }
 

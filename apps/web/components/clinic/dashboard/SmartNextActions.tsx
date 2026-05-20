@@ -69,6 +69,18 @@ function buildActions(
       icon: FileEdit
     });
   }
+  const pendingOutcome = (myDay?.pendingOutcomes ?? [])[0];
+  if (pendingOutcome) {
+    out.push({
+      id: "outcome",
+      title: "Document case outcome",
+      hint: `${pendingOutcome.patientName} — ${pendingOutcome.summary.slice(0, 60)}`,
+      href: `/consultation/${encodeURIComponent(pendingOutcome.consultationId)}`,
+      cta: "Record",
+      primary: out.length === 0,
+      icon: FileEdit
+    });
+  }
   if (out.length === 0) {
     out.push({
       id: "ok",

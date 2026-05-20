@@ -3,17 +3,24 @@
  * Tailwind `hs-*` / `typo-*` classes reference these; do not hardcode in components.
  */
 :root {
-  /* ─── RGB channels (R G B) for Tailwind alpha: `rgb(var(--ds-primary) / 0.5)` ─── */
-  --ds-primary: 61 141 123;
-  --ds-primary-light: 90 160 143;
-  --ds-primary-dark: 46 106 92;
-  --ds-primary-very-light: 230 241 237;
+  /* ─── RGB channels (R G B) for Tailwind alpha: `rgb(var(--ds-primary) / 0.5)` ───
+   * Premium clinical palette (2026 refresh):
+   *   primary       #0E7C66  — confident, deep clinical teal (Carepatron/Jane family)
+   *   primary-light #14A085  — energetic accent for hover & gradient stops
+   *   primary-dark  #0A5547  — used for shadows and on-light text emphasis
+   *   primary-vlt   #E2F2EE  — calm surface for hover states & subtle fills
+   */
+  --ds-primary: 14 124 102;
+  --ds-primary-light: 20 160 133;
+  --ds-primary-dark: 10 85 71;
+  --ds-primary-very-light: 226 242 238;
 
-  --ds-secondary: 212 165 116;
-  --ds-secondary-light: 232 201 166;
-  --ds-secondary-dark: 184 135 77;
+  /* Warm clinical accent — apricot/coral, used sparingly for highlights only. */
+  --ds-secondary: 236 139 113;
+  --ds-secondary-light: 248 180 158;
+  --ds-secondary-dark: 200 100 78;
 
-  --ds-accent: 30 125 141;
+  --ds-accent: 15 118 110;
 
   --ds-ink: 20 20 20;
   --ds-text: 20 20 20;
@@ -41,9 +48,9 @@
   --ds-complexity-urgent: 139 75 75;
 
   /* hex fallbacks for non-Tailwind consumers */
-  --ds-color-primary-hex: #3d8d7b;
-  --ds-color-primary-very-light-hex: #e6f1ed;
-  --ds-gradient-hero: linear-gradient(135deg, rgb(21 55 45) 0%, rgb(45 90 80) 45%, rgb(20 50 45) 100%);
+  --ds-color-primary-hex: #0e7c66;
+  --ds-color-primary-very-light-hex: #e2f2ee;
+  --ds-gradient-hero: linear-gradient(135deg, rgb(8 47 41) 0%, rgb(14 90 76) 45%, rgb(6 38 33) 100%);
 
   /* Spacing (8px grid) */
   --ds-space-xs: 0.25rem; /* 4 */
@@ -84,15 +91,65 @@
   --ds-shadow-input: inset 0 1px 2px rgba(45 90 80 / 0.04);
 }
 
+/* Dark theme — doctor workspace (data-theme on <html>) */
+[data-theme="dark"] {
+  --ds-primary: 32 170 142;
+  --ds-primary-light: 60 200 170;
+  --ds-primary-dark: 14 124 102;
+  --ds-primary-very-light: 12 38 33;
+
+  --ds-ink: 245 245 244;
+  --ds-text: 245 245 244;
+  --ds-text-secondary: 168 162 158;
+  --ds-text-tertiary: 120 113 108;
+
+  --ds-bg: 20 20 19;
+  --ds-surface: 28 27 26;
+  --ds-paper: 32 31 30;
+  --ds-card: 38 37 36;
+  --ds-cream: 42 41 40;
+
+  --ds-border: 68 64 60;
+  --ds-border-dark: 87 83 78;
+
+  --ds-success: 110 180 140;
+  --ds-warning: 230 180 80;
+  --ds-error: 220 120 120;
+  --ds-info: 100 180 195;
+
+  --ds-shadow-sm: 0 1px 2px rgba(0 0 0 / 0.35);
+  --ds-shadow-md: 0 4px 16px rgba(0 0 0 / 0.35);
+  --ds-shadow-card: 0 4px 24px rgba(0 0 0 / 0.4), 0 0 0 1px rgba(255 255 255 / 0.04);
+  --ds-shadow-input: inset 0 1px 2px rgba(0 0 0 / 0.25);
+
+  --gh-cream: #2a2928;
+  --gh-paper: #201f1e;
+  --gh-sand: #2a2928;
+  --gh-ink: #f5f5f4;
+  --gh-muted: #a8a29e;
+  --gh-subtle: #78716c;
+  --gh-accent-light: #1e3a32;
+  --gh-leaf: #6ab89a;
+}
+
+[data-theme="dark"] .marketing-page-shell,
+[data-theme="dark"] .marketing-site {
+  --ds-bg: 255 255 255;
+  --ds-surface: 255 255 255;
+  --ds-paper: 255 255 255;
+  --ds-ink: 20 20 20;
+  --ds-text: 20 20 20;
+}
+
 /* Legacy `gh-*` Tailwind colors — align with `hs-*` (single palette; prefer hs for new code) */
 :root {
   --gh-cream: #ffffff;
   --gh-paper: #ffffff;
   --gh-sand: #f5f5f5;
-  --gh-ink: #141414;
-  --gh-muted: #5a5a5a;
-  --gh-subtle: #8a8a8a;
+  --gh-ink: #0f172a;
+  --gh-muted: #475569;
+  --gh-subtle: #94a3b8;
   --gh-accent: var(--ds-color-primary-hex);
-  --gh-accent-light: #e6f1ed;
-  --gh-leaf: #2a6a58;
+  --gh-accent-light: #e2f2ee;
+  --gh-leaf: #0a5547;
 }

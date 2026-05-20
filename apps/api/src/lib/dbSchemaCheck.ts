@@ -3,6 +3,14 @@ import { logger } from "./logger";
 
 const REQUIRED_TABLES = ["clinics", "profiles", "consultations", "patients"] as const;
 
+const V2_OPTIONAL_TABLES = [
+  "audio_sessions",
+  "scribe_jobs",
+  "media_objects",
+  "notification_jobs",
+  "encounter_observations"
+] as const;
+
 /**
  * Service-role head query per table. Missing RLS/permission on service role is acceptable;
  * a missing *relation* fails startup in production.
@@ -29,5 +37,16 @@ export async function assertRequiredTablesExist(admin: SupabaseClient): Promise<
     .limit(0);
   if (mErr) {
     logger.warn("optional_table_missing", { table: "patient_inbox_messages", message: mErr.message });
+  }
+
+  for (const table of V2_OPTIONAL_TABLES) {
+    const { error: v2Err } = await admin.from(table).select("id", { count: "exact", head: true }).limit(0);
+    if (v2Err) {
+      logger.warn("v2_table_missing", {
+        table,
+        message: v2Err.message,
+        hint: "Apply supabase/migrations/20260520000000_v2_consult_workspace.sql via supabase db push"
+      });
+    }
   }
 }

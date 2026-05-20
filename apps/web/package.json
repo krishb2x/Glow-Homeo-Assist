@@ -10,9 +10,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@homeoassist/print": "0.1.0",
     "@supabase/supabase-js": "^2.104.1",
     "framer-motion": "^11.18.2",
-    "html2pdf.js": "^0.10.2",
     "lucide-react": "^1.8.0",
     "next": "^15.0.3",
     "react": "^18.3.1",

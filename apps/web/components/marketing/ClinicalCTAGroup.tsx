@@ -37,8 +37,8 @@ export function ClinicalCTAGroup({
       ? "min-h-[3.5rem] rounded-2xl px-6 py-4 text-[0.9375rem] leading-snug sm:min-h-[3.625rem] sm:px-8 sm:text-[1.0625rem] sm:leading-snug"
       : "min-h-[52px] rounded-2xl px-6 py-3.5 text-[0.9375rem] leading-snug",
     isDark
-      ? "bg-white text-hs-primary-dark shadow-[0_6px_24px_-8px_rgb(61_141_123/0.25)] ring-1 ring-white/20 hover:bg-hs-primary-very-light motion-safe:hover:-translate-y-0.5"
-      : "bg-hs-primary text-white shadow-[0_8px_32px_-8px_rgb(61_141_123/0.4)] ring-1 ring-hs-primary-dark/15 hover:bg-hs-primary-light hover:shadow-[0_14px_40px_-10px_rgb(61_141_123/0.45)] active:motion-safe:translate-y-0"
+      ? "bg-white text-hs-primary-dark shadow-[0_6px_24px_-8px_rgb(14_124_102/0.25)] ring-1 ring-white/20 hover:bg-hs-primary-very-light motion-safe:hover:-translate-y-0.5"
+      : "bg-hs-primary text-white shadow-[0_8px_32px_-8px_rgb(14_124_102/0.4)] ring-1 ring-hs-primary-dark/15 hover:bg-hs-primary-light hover:shadow-[0_14px_40px_-10px_rgb(14_124_102/0.45)] active:motion-safe:translate-y-0"
   );
 
   const secondaryClass = cn(

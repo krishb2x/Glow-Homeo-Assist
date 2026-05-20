@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, MessageSquare, Send } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   fetchDoctorInbox,
   getToken,
@@ -41,6 +41,8 @@ function mergeInbox(fetched: InboxMessageItem[], overlay: InboxMessageItem[]): I
 
 export function MessagesChatView(): JSX.Element {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const patientIdFromQuery = searchParams.get("patientId");
   const [items, setItems] = useState<InboxMessageItem[]>([]);
   const [localReplyOverlay, setLocalReplyOverlay] = useState<InboxMessageItem[]>([]);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -74,6 +76,10 @@ export function MessagesChatView(): JSX.Element {
     }
     load();
   }, [load, router]);
+
+  useEffect(() => {
+    if (patientIdFromQuery) setSelectedPatientId(patientIdFromQuery);
+  }, [patientIdFromQuery]);
 
   const threads: Thread[] = useMemo(() => {
     const map = new Map<string, InboxMessageItem[]>();

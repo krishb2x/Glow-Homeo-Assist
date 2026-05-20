@@ -1,22 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Calendar, FileText, Pill, User } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Calendar, FileText, MessageSquare, Pill, User } from "lucide-react";
 import { cn } from "../../lib/cn";
 
-const tabs: Array<{ segment: string; label: string; icon: typeof Calendar }> = [
+const tabs: Array<{ segment: string; label: string; icon: typeof Calendar; external?: boolean }> = [
   { segment: "timeline", label: "Timeline", icon: Calendar },
   { segment: "profile", label: "Profile & details", icon: User },
   { segment: "prescriptions", label: "Prescriptions", icon: Pill },
-  { segment: "documents", label: "Documents & media", icon: FileText }
+  { segment: "documents", label: "Documents & media", icon: FileText },
+  { segment: "messages", label: "Messages", icon: MessageSquare, external: true }
 ];
 
 type Props = { patientId: string };
 
 export function PatientSubNav({ patientId }: Props): JSX.Element {
   const path = usePathname();
+  const searchParams = useSearchParams();
   const root = `/patients/${patientId}`;
+  const messagesPatientId = searchParams.get("patientId");
 
   return (
     <nav
@@ -24,8 +27,10 @@ export function PatientSubNav({ patientId }: Props): JSX.Element {
       aria-label="Patient record sections"
     >
       {tabs.map((t) => {
-        const full = `${root}/${t.segment}`;
-        const isActive = path === full;
+        const full = t.external ? `/messages?patientId=${patientId}` : `${root}/${t.segment}`;
+        const isActive = t.external
+          ? path.startsWith("/messages") && messagesPatientId === patientId
+          : path === full;
         return (
           <Link
             key={t.segment}

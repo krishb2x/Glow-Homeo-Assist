@@ -17,6 +17,7 @@
     "@aws-sdk/s3-request-presigner": "^3.924.0",
     "@google/generative-ai": "^0.24.0",
     "@homeoassist/domain": "0.1.0",
+    "@homeoassist/print": "0.1.0",
     "@supabase/supabase-js": "^2.49.8",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -24,6 +25,7 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^11.0.3",
+    "puppeteer-core": "^24.8.2",
     "ws": "^8.18.0",
     "zod": "^3.24.1"
   },

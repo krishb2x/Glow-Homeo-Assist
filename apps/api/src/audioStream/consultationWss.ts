@@ -4,13 +4,14 @@ import { resolveAuthFromAccessTokenString, type AuthClaims } from "../auth";
 import { buildObjectKey, putObjectBuffer } from "../s3";
 import { emptyDraft, extractNoteDraftFromTranscript, transcribeAudioChunk, type LiveNoteDraft } from "./geminiPipeline";
 import { getClinicFeatures } from "../lib/features";
+import {
+  createScribeJob,
+  endAudioSession,
+  startAudioSession,
+  updateScribeJob
+} from "../modules/encounters/v2EncountersService";
 import { z } from "zod";
 import { logger } from "../lib/logger";
-
-type ClientMessage =
-  | { type: "start"; consultationId: string; saveAudio: boolean; mimeType?: string }
-  | { type: "chunk"; data: string; mimeType: string; seq?: number }
-  | { type: "stop" };
 
 const startSchema = z.object({
   type: z.literal("start"),
@@ -47,6 +48,9 @@ type Session = {
   noteDraft: LiveNoteDraft;
   tickInterval: ReturnType<typeof setInterval> | null;
   lastDbFlush: number;
+  audioSessionId: string | null;
+  scribeJobId: string | null;
+  startedAtMs: number;
 };
 
 const sessions = new Map<string, Session>();
@@ -97,6 +101,13 @@ async function runProcessTick(ws: WebSocket, session: Session): Promise<void> {
   const nextDraft = await extractNoteDraftFromTranscript(session.transcript, session.noteDraft);
   session.noteDraft = nextDraft;
   send(ws, { type: "noteDraft", draft: nextDraft, usedMock });
+  if (session.scribeJobId && session.transcript) {
+    void updateScribeJob(getDb(session.claims), session.scribeJobId, {
+      status: "STREAMING",
+      transcriptText: session.transcript,
+      draftRecord: nextDraft as unknown as Record<string, unknown>
+    });
+  }
   void updateConsultationThrottled(session.consultationId, session);
 }
 
@@ -224,11 +235,28 @@ async function handleMessage(ws: WebSocket, raw: import("ws").RawData, claims: A
       transcript: "",
       noteDraft: emptyDraft(),
       tickInterval: null,
-      lastDbFlush: 0
+      lastDbFlush: 0,
+      audioSessionId: null,
+      scribeJobId: null,
+      startedAtMs: Date.now()
     };
     connectionByWs.set(ws, m.consultationId);
     sessions.set(m.consultationId, s);
     const client = getDb(claims);
+    s.audioSessionId = await startAudioSession(client, {
+      clinicId: s.clinicId,
+      consultationId: s.consultationId,
+      doctorId: claims.userId,
+      storeRecording: m.saveAudio,
+      consentCaptured: true
+    });
+    s.scribeJobId = await createScribeJob(client, {
+      clinicId: s.clinicId,
+      consultationId: s.consultationId,
+      doctorId: claims.userId,
+      audioSessionId: s.audioSessionId,
+      status: "STREAMING"
+    });
     const { error } = await client
       .from("consultations")
       .update({ recording_enabled: true })
@@ -274,15 +302,16 @@ async function handleMessage(ws: WebSocket, raw: import("ws").RawData, claims: A
     if (s.parts.length > 0) {
       await runProcessTick(ws, s);
     }
+    let stagingKey: string | null = null;
     if (s.saveAudio && s.parts.length > 0) {
-      const key = buildObjectKey(s.clinicId, "audio-staging", `live-${s.consultationId}.webm`);
+      stagingKey = buildObjectKey(s.clinicId, "audio-staging", `live-${s.consultationId}.webm`);
       const body = Buffer.concat(s.parts);
       try {
-        await putObjectBuffer(key, body, s.mimeType);
+        await putObjectBuffer(stagingKey, body, s.mimeType);
         const client = getDb(claims);
         const { error: upErr } = await client
           .from("consultations")
-          .update({ audio_staging_object_key: key })
+          .update({ audio_staging_object_key: stagingKey })
           .eq("id", s.consultationId)
           .eq("clinic_id", s.clinicId);
         if (upErr) {
@@ -291,7 +320,7 @@ async function handleMessage(ws: WebSocket, raw: import("ws").RawData, claims: A
             message: upErr.message
           });
         }
-        send(ws, { type: "stopped", audioStagingObjectKey: key, saved: true, bytes: body.length });
+        send(ws, { type: "stopped", audioStagingObjectKey: stagingKey, saved: true, bytes: body.length });
       } catch (e) {
         send(ws, { type: "error", message: (e as Error).message });
       }
@@ -306,6 +335,20 @@ async function handleMessage(ws: WebSocket, raw: import("ws").RawData, claims: A
       .eq("clinic_id", s.clinicId);
     if (upErr2) {
       logger.warn("ws_consultation_final_flush_failed", { step: "stop" });
+    }
+    if (s.audioSessionId) {
+      await endAudioSession(client, s.audioSessionId, {
+        durationSeconds: Math.max(1, Math.round((Date.now() - s.startedAtMs) / 1000)),
+        recordingObjectKey: stagingKey
+      });
+    }
+    if (s.scribeJobId) {
+      await updateScribeJob(client, s.scribeJobId, {
+        status: "DRAFTED",
+        transcriptText: s.transcript,
+        draftRecord: s.noteDraft as unknown as Record<string, unknown>,
+        ended: true
+      });
     }
     s.parts = [];
     return;

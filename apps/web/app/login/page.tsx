@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { AuthShell } from "../../components/auth/AuthShell";
 import { BRAND_NAME, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../lib/brand";
 import { fetchStaffAuthMe } from "../../lib/staff-session";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
@@ -41,6 +42,11 @@ function mapSignInError(err: { message?: string } | null): string {
   return "Sign-in failed. Check your credentials or use Forgot password.";
 }
 
+const INPUT_CLASS =
+  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[0.95rem] text-slate-900 " +
+  "placeholder:text-slate-400 outline-none transition-shadow " +
+  "focus:border-hs-primary/50 focus:ring-4 focus:ring-hs-primary/15";
+
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
   const [showRequest, setShowRequest] = useState(false);
@@ -52,7 +58,11 @@ export default function LoginPage(): JSX.Element {
   const [formError, setFormError] = useState<string | null>(null);
   const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
 
-  const cardTitle = useMemo(() => (showRequest ? "Request access" : `Sign in to ${BRAND_NAME}`), [showRequest]);
+  const eyebrow = useMemo(() => (showRequest ? "Access" : "Sign in"), [showRequest]);
+  const title = useMemo(
+    () => (showRequest ? "Request clinic access" : `Sign in to ${BRAND_NAME}`),
+    [showRequest]
+  );
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -110,152 +120,156 @@ export default function LoginPage(): JSX.Element {
         } catch (verifyErr) {
           await supabase.auth.signOut();
           const msg = verifyErr instanceof Error ? verifyErr.message : "Could not verify your account.";
-          setFormError(msg.includes("Failed to fetch") ? "Cannot reach the backend server. Make sure the API is running." : msg);
+          setFormError(
+            msg.includes("Failed to fetch")
+              ? "Cannot reach the backend server. Make sure the API is running."
+              : msg
+          );
         }
       })();
     });
   }
 
-  const inputClass =
-    "w-full rounded-md border border-stone-100 bg-white px-4 py-2.5 text-hs-ink " +
-    "placeholder:text-hs-text-tertiary outline-none transition " +
-    "focus:border-hs-primary/50 focus:ring-2 focus:ring-hs-primary/15";
+  const description = showRequest
+    ? "Existing clinics can request access from their administrator."
+    : "Welcome back. Sign in with your clinic credentials.";
 
   return (
-    <main id="main-content" className="min-h-screen bg-white font-sans">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12 sm:px-8">
-        <section
-          className="rounded-2xl border border-stone-100 bg-white p-8"
-          aria-labelledby="login-heading"
-        >
-          <h1 id="login-heading" className="font-heading text-2xl font-medium text-hs-ink">
-            {cardTitle}
-          </h1>
-
-          {!showRequest ? (
-            <>
-              {bannerSuccess ? (
-                <div
-                  className="mt-5 rounded-md border border-hs-border bg-hs-primary-very-light/60 px-4 py-3 text-sm text-hs-ink"
-                  role="status"
-                >
-                  {bannerSuccess}
-                </div>
-              ) : null}
-
-              {formError ? (
-                <div
-                  className="mt-5 rounded-md border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-sm text-rose-900/90"
-                  role="alert"
-                >
-                  {formError}
-                </div>
-              ) : null}
-
-              <form onSubmit={onSubmit} className="mt-6 grid gap-4">
-                <div className="grid gap-1.5">
-                  <label htmlFor="email" className="text-sm font-medium text-hs-ink">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-1.5">
-                  <label htmlFor="password" className="text-sm font-medium text-hs-ink">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className={`${inputClass} pr-11`}
-                      required
-                      minLength={8}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-hs-text-tertiary transition hover:text-hs-ink"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm font-medium text-hs-primary underline-offset-2 hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-hs-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-hs-primary-dark focus:outline-none focus:ring-2 focus:ring-hs-primary/25 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-75"
-                >
-                  {pending ? (
-                    <>
-                      <ButtonSpinner className="h-4 w-4 animate-spin text-white" />
-                      <span>Signing in…</span>
-                    </>
-                  ) : (
-                    "Sign in"
-                  )}
-                </button>
-              </form>
-
-              <p className="mt-6 text-center text-sm text-hs-text-secondary">
-                Need access?{" "}
-                <a
-                  className="font-medium text-hs-primary underline-offset-2 hover:underline"
-                  href="/login?requestAccess=true"
-                >
-                  Contact admin
-                </a>
-              </p>
-            </>
-          ) : (
-            <div className="mt-5 space-y-3 text-sm text-hs-text-secondary">
-              <p>To request clinic access, contact your administrator:</p>
-              <p>
-                <a href={`mailto:${CONTACT_EMAIL}`} className="font-medium text-hs-primary hover:underline">
-                  {CONTACT_EMAIL}
-                </a>
-              </p>
-              <p>
-                <a href={`tel:${CONTACT_PHONE_TEL}`} className="font-medium text-hs-primary hover:underline">
-                  {CONTACT_PHONE_DISPLAY}
-                </a>
-              </p>
-              <p className="pt-2">
-                <a
-                  className="font-medium text-hs-primary underline-offset-2 hover:underline"
-                  href="/login"
-                >
-                  ← Back to sign in
-                </a>
-              </p>
+    <AuthShell
+      eyebrow={eyebrow}
+      title={title}
+      description={description}
+      panelTagline="A calm, clinical workspace — designed by practising homeopaths."
+      footerSlot={
+        showRequest ? (
+          <p>
+            <Link href="/login" className="font-semibold text-hs-primary hover:underline">
+              ← Back to sign in
+            </Link>
+          </p>
+        ) : (
+          <p>
+            Need access?{" "}
+            <a
+              className="font-semibold text-hs-primary hover:underline"
+              href="/login?requestAccess=true"
+            >
+              Contact your administrator
+            </a>
+          </p>
+        )
+      }
+    >
+      {!showRequest ? (
+        <>
+          {bannerSuccess ? (
+            <div
+              className="mb-5 rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/60 px-4 py-3 text-[0.88rem] text-hs-primary-dark"
+              role="status"
+            >
+              {bannerSuccess}
             </div>
-          )}
-        </section>
-      </div>
-    </main>
+          ) : null}
+
+          {formError ? (
+            <div
+              className="mb-5 rounded-xl border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-[0.88rem] text-rose-900/90"
+              role="alert"
+            >
+              {formError}
+            </div>
+          ) : null}
+
+          <form onSubmit={onSubmit} className="grid gap-4">
+            <div className="grid gap-1.5">
+              <label htmlFor="email" className="text-[0.85rem] font-semibold text-slate-700">
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@clinic.com"
+                className={INPUT_CLASS}
+                required
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="text-[0.85rem] font-semibold text-slate-700">
+                  Password
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-[0.78rem] font-semibold text-hs-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`${INPUT_CLASS} pr-11`}
+                  required
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={pending}
+              className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-hs-primary px-4 py-3 text-[0.95rem] font-semibold text-white shadow-[0_10px_28px_-12px_rgba(14,124,102,0.55)] transition-colors hover:bg-hs-primary-dark focus:outline-none focus:ring-4 focus:ring-hs-primary/25 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-75"
+            >
+              {pending ? (
+                <>
+                  <ButtonSpinner className="h-4 w-4 animate-spin text-white" />
+                  <span>Signing in…</span>
+                </>
+              ) : (
+                "Sign in"
+              )}
+            </button>
+          </form>
+        </>
+      ) : (
+        <div className="space-y-3 text-[0.92rem] text-slate-600">
+          <p>To request clinic access, contact your administrator:</p>
+          <p>
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="font-semibold text-hs-primary hover:underline"
+            >
+              {CONTACT_EMAIL}
+            </a>
+          </p>
+          <p>
+            <a
+              href={`tel:${CONTACT_PHONE_TEL}`}
+              className="font-semibold text-hs-primary hover:underline"
+            >
+              {CONTACT_PHONE_DISPLAY}
+            </a>
+          </p>
+        </div>
+      )}
+    </AuthShell>
   );
 }

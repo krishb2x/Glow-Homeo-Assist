@@ -7,6 +7,7 @@ import {
   createFollowUp,
   fetchPresignDownload,
   patchFollowUp,
+  type CaseOutcomeEvent,
   type ConsultationEvent,
   type DocumentEvent,
   type FollowupEvent,
@@ -14,33 +15,6 @@ import {
   type TimelineEvent
 } from "../../lib/doctor-api";
 import { cn } from "../../lib/cn";
-
-const FU_DONE_KEY = (pid: string) => `ha_fu_done_${pid}`;
-
-function isLocalFollowupComplete(patientId: string, taskId: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const raw = localStorage.getItem(FU_DONE_KEY(patientId));
-    if (!raw) return false;
-    const a = JSON.parse(raw) as string[];
-    return Array.isArray(a) && a.includes(taskId);
-  } catch {
-    return false;
-  }
-}
-
-function setLocalFollowupComplete(patientId: string, taskId: string, done: boolean): void {
-  try {
-    const raw = localStorage.getItem(FU_DONE_KEY(patientId));
-    const a: string[] = raw ? (JSON.parse(raw) as string[]) : [];
-    const set = new Set(a);
-    if (done) set.add(taskId);
-    else set.delete(taskId);
-    localStorage.setItem(FU_DONE_KEY(patientId), JSON.stringify([...set]));
-  } catch {
-    /* */
-  }
-}
 
 /** Real follow_ups (intentional source) carry a UUID; suggested rows are prefixed `fu-`. */
 function isSyntheticFollowup(f: FollowupEvent): boolean {
@@ -70,47 +44,41 @@ type Props = { patientId: string; events: TimelineEvent[]; onFollowupToggled?: (
 
 export function Timeline({ patientId, events, onFollowupToggled }: Props): JSX.Element {
   const [now, setNow] = useState(() => new Date());
-  const [fuTick, setFuTick] = useState(0);
+  const [fuError, setFuError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(i);
   }, []);
 
-  const ordered = useMemo(() => sortForDisplay(events, now), [events, now, fuTick]);
+  const ordered = useMemo(() => sortForDisplay(events, now), [events, now]);
 
   const onToggle = useCallback(
     async (f: FollowupEvent, v: boolean) => {
+      setFuError(null);
       if (isSyntheticFollowup(f)) {
-        // Materialise the suggested follow-up as a real DB row first, then mark it done.
         setPendingId(f.id);
         try {
           const newRow = await createFollowUp({
             patientId,
             dueAt: f.dueAt,
-            reason: f.reason ?? "Post-consultation check-in",
+            reason: f.reason ?? "Post-consultation check-in"
           });
-          // Immediately mark the real row as completed/pending.
           await patchFollowUp(newRow.id, { status: v ? "COMPLETED" : "PENDING" });
           onFollowupToggled?.();
-        } catch {
-          // Fallback: persist locally so the doctor isn't blocked in the UI.
-          setLocalFollowupComplete(patientId, f.id, v);
-          setFuTick((x) => x + 1);
+        } catch (e) {
+          setFuError(e instanceof Error ? e.message : "Could not update follow-up");
         } finally {
           setPendingId(null);
         }
         return;
       }
-      // Real follow_ups: PATCH server, then ask the parent to refetch.
       setPendingId(f.id);
       try {
         await patchFollowUp(f.id, { status: v ? "COMPLETED" : "PENDING" });
         onFollowupToggled?.();
-      } catch {
-        // On failure, fall back to local persistence so doctor isn't blocked.
-        setLocalFollowupComplete(patientId, f.id, v);
-        setFuTick((x) => x + 1);
+      } catch (e) {
+        setFuError(e instanceof Error ? e.message : "Could not update follow-up");
       } finally {
         setPendingId(null);
       }
@@ -124,10 +92,9 @@ export function Timeline({ patientId, events, onFollowupToggled }: Props): JSX.E
         if (e.kind !== "followup") return true;
         const f = e as FollowupEvent;
         if (f.status === "COMPLETED" || f.status === "CANCELLED") return false;
-        if (isSyntheticFollowup(f) && isLocalFollowupComplete(patientId, f.id)) return false;
         return true;
       }),
-    [ordered, patientId, fuTick]
+    [ordered]
   );
 
   if (events.length === 0) {
@@ -169,6 +136,11 @@ export function Timeline({ patientId, events, onFollowupToggled }: Props): JSX.E
 
   return (
     <div className="relative mx-auto w-full max-w-3xl">
+      {fuError ? (
+        <p className="mb-4 rounded-xl border border-rose-200/80 bg-rose-50/80 px-3 py-2 text-body-sm text-rose-800" role="alert">
+          {fuError}
+        </p>
+      ) : null}
       <div
         className="pointer-events-none absolute bottom-0 left-4 top-0 w-px bg-hs-border/90 md:left-1/2 md:-translate-x-1/2"
         aria-hidden
@@ -190,12 +162,14 @@ export function Timeline({ patientId, events, onFollowupToggled }: Props): JSX.E
                   e.kind === "consultation" && "bg-hs-primary",
                   e.kind === "prescription" && "bg-hs-text-tertiary",
                   e.kind === "followup" && "bg-hs-warning",
-                  e.kind === "document" && "bg-hs-text-secondary"
+                  e.kind === "document" && "bg-hs-text-secondary",
+                  e.kind === "case_outcome" && "bg-emerald-600"
                 )}
                 aria-hidden
               />
               {e.kind === "consultation" ? <ConsultationCard c={e} /> : null}
               {e.kind === "prescription" ? <PrescriptionCard p={e} /> : null}
+              {e.kind === "case_outcome" ? <CaseOutcomeCard o={e as CaseOutcomeEvent} /> : null}
               {e.kind === "followup" ? (
                 <FollowupCard
                   f={e as FollowupEvent}
@@ -410,6 +384,39 @@ function DocumentCard({ d }: { d: DocumentEvent }): JSX.Element {
           Download
         </button>
       </div>
+    </div>
+  );
+}
+
+const OUTCOME_LABELS: Record<string, string> = {
+  CURE: "Cure",
+  IMPROVEMENT: "Improvement",
+  PALLIATION: "Palliation",
+  NO_CHANGE: "No change",
+  WORSE: "Worse"
+};
+
+function CaseOutcomeCard({ o }: { o: CaseOutcomeEvent }): JSX.Element {
+  return (
+    <div className="ds-app-card p-4 sm:p-5">
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <HeartPulse className="h-4 w-4 text-emerald-700" aria-hidden />
+          <h3 className="font-heading text-body-md font-semibold text-hs-ink">Case outcome</h3>
+        </div>
+        <p className="text-caption-sm text-hs-text-tertiary">
+          {new Date(o.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+        </p>
+      </header>
+      <p className="mt-2 text-body-sm font-semibold text-hs-ink">{OUTCOME_LABELS[o.outcome] ?? o.outcome}</p>
+      {o.assessment ? <p className="mt-1 text-body-sm text-hs-text-secondary">{o.assessment}</p> : null}
+      {o.consultationId ? (
+        <p className="mt-2 text-caption-sm">
+          <Link href={`/consultation/${encodeURIComponent(o.consultationId)}`} className="font-semibold text-hs-primary hover:underline">
+            View consultation →
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -17,7 +17,6 @@ import {
   Video,
   X
 } from "lucide-react";
-import { appointmentDisplayTag } from "../../../lib/appointment-display-tag";
 import {
   fetchDashboardRecent,
   fetchDoctorInbox,
@@ -27,7 +26,6 @@ import {
   getToken,
   type DashboardRecentItem,
   type InboxMessageItem,
-  type MyDayAppointment,
   type MyDayResponse,
   type PatientListItem,
   type WorkspaceContext
@@ -35,6 +33,8 @@ import {
 import { getLastCase, type LastCase } from "../../../lib/workflow-storage";
 import { ErrorState } from "../../ui/LoadState";
 import { PatientTagBadges } from "../PatientTagBadges";
+import { ClinicalWorkflowOverview } from "../workflow/ClinicalWorkflowOverview";
+import { TodayScheduleTimeline } from "./TodayScheduleTimeline";
 import {
   formatTimeLabel,
   greetingForDate,
@@ -167,51 +167,6 @@ function ActiveVisitsBanner({
         })}
       </ul>
     </section>
-  );
-}
-
-function TodayTimeline({
-  appointments,
-  rosterById
-}: {
-  appointments: MyDayAppointment[];
-  rosterById: Map<string, PatientListItem | undefined>;
-}): JSX.Element {
-  if (appointments.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed border-hs-border/50 bg-hs-cream/40 px-4 py-6 text-center text-body-sm text-hs-text-tertiary">
-        No appointments scheduled for today.{" "}
-        <Link href="/appointments" className="font-semibold text-hs-primary hover:underline">
-          Add slots →
-        </Link>
-      </p>
-    );
-  }
-  return (
-    <ul className="space-y-2">
-      {appointments.map((a) => (
-        <li
-          key={a.id}
-          className="flex items-center justify-between gap-3 rounded-xl border border-hs-border/30 bg-hs-cream/40 px-3.5 py-3"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-body-sm font-medium text-hs-ink">{a.patientName}</p>
-              <PatientTagBadges tags={[appointmentDisplayTag(a, rosterById.get(a.patientId))]} />
-            </div>
-            <p className="mt-0.5 text-caption-sm text-hs-text-tertiary">
-              {formatTimeLabel(a.scheduledFor)} · {a.durationMinutes} min
-            </p>
-          </div>
-          <Link
-            href={`/consultation?patientId=${encodeURIComponent(a.patientId)}&appointmentId=${encodeURIComponent(a.id)}`}
-            className="shrink-0 rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
-          >
-            Start
-          </Link>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -423,7 +378,7 @@ export function HomeOverview(): JSX.Element {
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[#152521] via-hs-primary-dark to-[#0c1815]" />
         <div
-          className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_85%_0%,rgba(61,141,123,0.45),transparent_55%)]"
+          className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_85%_0%,rgba(14,124,102,0.45),transparent_55%)]"
           aria-hidden
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/[0.04]" aria-hidden />
@@ -531,6 +486,8 @@ export function HomeOverview(): JSX.Element {
                 urgent={unreadMessages > 0}
               />
             </div>
+
+            <ClinicalWorkflowOverview />
 
             {/* Active visits */}
             <ActiveVisitsBanner inClinic={inClinicActive} online={onlineActive} />
@@ -645,7 +602,7 @@ export function HomeOverview(): JSX.Element {
                   Full view →
                 </Link>
               </div>
-              <TodayTimeline appointments={todaysAppointments} rosterById={rosterById} />
+              <TodayScheduleTimeline appointments={todaysAppointments} rosterById={rosterById} now={now} />
             </section>
 
             {/* Recent patients */}

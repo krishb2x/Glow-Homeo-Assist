@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LandingHeader } from "../LandingHeader";
-import { BRAND_NAME, CONTACT_EMAIL } from "../../lib/brand";
+import { CONTACT_EMAIL } from "../../lib/brand";
 
 type MarketingLegalLayoutProps = {
   title: string;

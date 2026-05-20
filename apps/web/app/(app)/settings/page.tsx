@@ -10,13 +10,13 @@ import {
   Edit2,
   ImagePlus,
   Loader2,
+  Monitor,
   Plus,
   Salad,
   Save,
   Trash2,
   User,
-  Utensils,
-  X
+  Utensils
 } from "lucide-react";
 import { PageHeader } from "../../../components/platform/PageHeader";
 import {
@@ -38,6 +38,7 @@ import {
   type TreatmentPlan,
   type WorkspaceContext
 } from "../../../lib/doctor-api";
+import { ThemeSettingsSection } from "../../../components/clinic/settings/ThemeSettingsSection";
 import { DS_FIELD } from "../../../lib/ds-classes";
 import { cn } from "../../../lib/cn";
 
@@ -177,13 +178,11 @@ function DoctorProfileSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRef
 
 function SignatureSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRefresh: () => void }) {
   const [signatureUrl, setSignatureUrl] = useState<string | null>(ctx.signatureUrl ?? null);
-  const [signatureKey, setSignatureKey] = useState<string | null>(ctx.signatureObjectKey ?? null);
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSignatureUrl(ctx.signatureUrl ?? null);
-    setSignatureKey(ctx.signatureObjectKey ?? null);
   }, [ctx]);
 
   const uploadSignature = async (file: File) => {
@@ -201,7 +200,6 @@ function SignatureSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRefresh
       await patchPrescriptionBranding({ signatureObjectKey: objectKey });
       const previewUrl = URL.createObjectURL(file);
       setSignatureUrl(previewUrl);
-      setSignatureKey(objectKey);
       setUploadState("done");
       setTimeout(() => setUploadState("idle"), 3000);
       onRefresh();
@@ -214,10 +212,9 @@ function SignatureSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRefresh
     try {
       await patchPrescriptionBranding({ signatureObjectKey: null });
       setSignatureUrl(null);
-      setSignatureKey(null);
       onRefresh();
     } catch {
-      // ignore
+      /* signature delete is best-effort; UI stays in current state on failure. */
     }
   };
 
@@ -845,6 +842,10 @@ export default function SettingsPage(): JSX.Element {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <PageHeader title="Settings" />
+
+      <SectionCard title="Appearance" icon={Monitor} defaultOpen={false}>
+        <ThemeSettingsSection />
+      </SectionCard>
 
       {/* Doctor profile */}
       <SectionCard title="Doctor profile" icon={User} defaultOpen>

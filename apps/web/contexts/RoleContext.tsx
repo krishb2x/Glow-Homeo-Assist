@@ -93,17 +93,13 @@ export function RoleProvider({ children }: { children: ReactNode }): JSX.Element
         return;
       }
 
-      const ctx = (await fetchWorkspaceContext()) as WorkspaceContext & { role?: string };
-      setWorkspace(ctx);
-
-      if (me.role === "DOCTOR" && me.clinicId) {
-        applyActiveClinic(me.clinicId);
-        setClinics([]);
-        return;
-      }
-
       if (me.role === "SUPER_ADMIN") {
-        const { items } = await listAdminClinics();
+        // Workspace + clinic directory are independent — parallel saves one round-trip to first paint.
+        const [ctx, { items }] = await Promise.all([
+          fetchWorkspaceContext() as Promise<WorkspaceContext & { role?: string }>,
+          listAdminClinics()
+        ]);
+        setWorkspace(ctx);
         setClinics(items);
         const fromStorage = readLocalActiveClinicId();
         const first = items[0]?.id;
@@ -114,6 +110,14 @@ export function RoleProvider({ children }: { children: ReactNode }): JSX.Element
         } else {
           setActiveClinicIdState(null);
         }
+        return;
+      }
+
+      const ctx = (await fetchWorkspaceContext()) as WorkspaceContext & { role?: string };
+      setWorkspace(ctx);
+      setClinics([]);
+      if (me.role === "DOCTOR" && me.clinicId) {
+        applyActiveClinic(me.clinicId);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";

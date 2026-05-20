@@ -66,7 +66,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
-      <body className={`${inter.className} min-h-screen bg-white text-hs-ink antialiased`}>
+      <body className={`${inter.className} min-h-screen bg-hs-surface text-hs-ink antialiased`}>
         <a
           href="#main-content"
           className="fixed left-4 top-4 z-[200] -translate-y-[200%] rounded-lg bg-hs-primary px-4 py-2 text-sm font-semibold text-white shadow-lg transition focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-hs-primary focus:ring-offset-2"

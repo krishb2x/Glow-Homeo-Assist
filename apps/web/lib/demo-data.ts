@@ -257,7 +257,7 @@ export const DEMO_DASHBOARD_RECENT: DashboardRecentItem[] = [
     title: "Prescription created",
     subtitle: "Meera Patel (rhinitis plan)",
     at: hoursFromNow(-4),
-    href: `/patients/${P3}/prescription`
+    href: `/consultation?patientId=${P3}`
   },
   {
     id: "act-3",

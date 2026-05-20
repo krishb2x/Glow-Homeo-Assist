@@ -19,11 +19,6 @@ export const API_BASE =
     ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")
     : "http://localhost:4000";
 
-function apiPath(path: string): string {
-  if (path.startsWith("/")) path = path.slice(1);
-  return `${API_BASE}/${path}`;
-}
-
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("ha_token");
@@ -601,6 +596,20 @@ export type PatientListItem = {
   tags?: PatientTag[];
 };
 
+export type CaseOutcomeValue = "CURE" | "IMPROVEMENT" | "PALLIATION" | "NO_CHANGE" | "WORSE";
+
+export type PendingPriorOutcome = {
+  consultationId: string;
+  endedAt: string;
+  summary: string;
+};
+
+export type LastCaseOutcome = {
+  outcome: CaseOutcomeValue;
+  documentedAt: string;
+  assessment?: string;
+};
+
 export type FollowUpQueueItem = {
   id?: string;
   patientId: string;
@@ -1004,6 +1013,8 @@ export async function fetchFollowUpQueue(): Promise<FollowUpQueueItem[]> {
 
 export type PatientDetail = PatientListItem & {
   lastVisitAt: string | null;
+  pendingPriorOutcome?: PendingPriorOutcome | null;
+  lastCaseOutcome?: LastCaseOutcome | null;
   gender?: string;
   address?: string;
   patientNotes?: string;
@@ -1105,7 +1116,21 @@ export type DocumentEvent = {
   filename: string;
 };
 
-export type TimelineEvent = ConsultationEvent | PrescriptionEvent | FollowupEvent | DocumentEvent;
+export type CaseOutcomeEvent = {
+  kind: "case_outcome";
+  id: string;
+  at: string;
+  consultationId: string;
+  outcome: CaseOutcomeValue;
+  assessment?: string;
+};
+
+export type TimelineEvent =
+  | ConsultationEvent
+  | PrescriptionEvent
+  | FollowupEvent
+  | DocumentEvent
+  | CaseOutcomeEvent;
 
 export type PatientTimelineResponse = { events: TimelineEvent[] };
 
@@ -1313,6 +1338,9 @@ export type ConsultationDetail = {
   patientName: string;
   /** Prior completed visit, same patient, excluding this consultation (if any). */
   lastVisitAt?: string | null;
+  /** Most recent ended visit without a documented outcome (if any). */
+  pendingPriorOutcome?: PendingPriorOutcome | null;
+  lastCaseOutcome?: LastCaseOutcome | null;
   patientAge?: number | null;
   patientGender?: string | null;
   patientAddress?: string | null;
@@ -1405,6 +1433,26 @@ export async function patchPrescription(prescriptionId: string, items: unknown[]
   });
 }
 
+export type DistributionChannelStatus = "sent" | "queued" | "skipped" | "failed";
+
+export type PrescriptionDistributionResult = {
+  mediaObjectId: string | null;
+  pdfReady: boolean;
+  mimeType: string;
+  storageKey: string | null;
+  downloadUrl: string | null;
+  email: DistributionChannelStatus;
+  whatsapp: DistributionChannelStatus;
+  emailDetail?: string;
+  whatsappDetail?: string;
+};
+
+export type PrescriptionDistributeOptions = {
+  sendEmail?: boolean;
+  sendWhatsApp?: boolean;
+  notifyEmail?: string | null;
+};
+
 export async function completeConsultation(
   consultationId: string,
   options?: {
@@ -1413,15 +1461,25 @@ export async function completeConsultation(
     followUpRecommendedAt?: string | null;
     followUpNote?: string | null;
     createFollowUp?: { dueAt: string; reason: string };
+    distribute?: PrescriptionDistributeOptions;
   }
-): Promise<{ ok: boolean; alreadyEnded?: boolean }> {
+): Promise<{ ok: boolean; alreadyEnded?: boolean; distribution?: PrescriptionDistributionResult | null }> {
   if (isDemoMode()) {
-    return { ok: true, alreadyEnded: false };
+    return { ok: true, alreadyEnded: false, distribution: null };
   }
   return apiFetchJson(haProxyPath(`doctor/consultations/${encodeURIComponent(consultationId)}/complete`), {
     method: "POST",
     body: JSON.stringify(options ?? {})
   });
+}
+
+export async function fetchPrescriptionDownloadUrl(
+  consultationId: string
+): Promise<{ downloadUrl: string; expiresInSeconds: number; mimeType: string }> {
+  return apiFetchJson(
+    haProxyPath(`doctor/consultations/${encodeURIComponent(consultationId)}/prescription-download`),
+    { method: "GET" }
+  );
 }
 
 export function isLocalCalendarToday(iso: string): boolean {

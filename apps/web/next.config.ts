@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
   /** Ensure client bundles see NEXT_PUBLIC_API_URL (monorepo root .env is loaded above). */
   env: {
     NEXT_PUBLIC_API_URL: publicApi
+  },
+  /** Smaller client bundles when importing many icons from the barrel file. */
+  experimental: {
+    optimizePackageImports: ["lucide-react"]
   }
 };
 

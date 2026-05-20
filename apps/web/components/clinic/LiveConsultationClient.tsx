@@ -1,36 +1,19 @@
-"use client";
+﻿"use client";
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 // Imports
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertCircle,
   ArrowLeft,
-  Calendar,
   CheckCircle2,
-  ChevronRight,
-  ClipboardList,
-  FileSignature,
-  FileText,
-  FlaskConical,
-  Heart,
   Loader2,
   Mic,
-  MicOff,
   Pause,
   Play,
-  Pill,
-  Plus,
-  RefreshCw,
-  Settings,
-  Square,
-  Stethoscope,
-  Trash2,
-  User,
-  Zap
+  Square
 } from "lucide-react";
 import {
   apiFetchJson,
@@ -41,26 +24,24 @@ import {
   haProxyPath,
   patchConsultation,
   patchPrescription,
-  presignStorageUpload,
+  recordCaseOutcome,
   updatePatient,
+  type CaseOutcomeValue,
   type ConsultationDetail,
   type ConsultationLifecycle,
+  type PendingPriorOutcome,
   type PrescriptionDocumentPrefs,
   type WorkspaceContext
 } from "../../lib/doctor-api";
-import { isDemoMode } from "../../lib/demo-mode";
 import { friendlyLoadError } from "../../lib/friendly-error";
 import { clearLocalNoteDraft, loadLocalNoteDraft, saveLocalNoteDraft } from "../../lib/note-draft-local";
 import {
   buildPrescriptionDocumentHtml,
-  buildPrescriptionText,
-  downloadTextFile,
   openPrintWindow,
   type ClinicDocumentMeta,
   type DoctorChartExtras,
   type PrescriptionLine
 } from "../../lib/prescription-documents";
-import { downloadHtmlAsPdf } from "../../lib/prescription-pdf";
 import {
   getPrescriptionOutputPrefs,
   setPrescriptionOutputPrefs,
@@ -79,22 +60,28 @@ import { PrescriptionPreviewModal } from "../consultation/PrescriptionPreviewMod
 import { ErrorState } from "../ui/LoadState";
 import { SkeletonCard } from "./SkeletonCard";
 import { formatRecordingTime, useConsultationLiveAudio, type NoteShape } from "./useConsultationLiveAudio";
+import {
+  nextStep,
+  prevStep,
+  type ConsultationStep
+} from "../../lib/clinical-workflow-config";
+import { ConsultationPatientBar } from "./workflow/ConsultationPatientBar";
+import { ConsultationWorkflowFooter } from "./workflow/ConsultationWorkflowFooter";
+import { useConsultationKeyboardNav } from "./workflow/useConsultationKeyboardNav";
+import {
+  ConsultationContinuousFeed,
+  scrollFeedToWorkflowStep
+} from "./workflow/ConsultationContinuousFeed";
+import { buildConsultationStepExtras } from "./workflow/LiveConsultationStepExtras";
+import {
+  ConsultationWorkspaceShell,
+  type WorkspaceDrawer
+} from "./workflow/ConsultationWorkspaceShell";
+import { useConsultationWorkspaceShortcuts } from "./workflow/useConsultationWorkspaceShortcuts";
+import { AICopilotDrawer } from "./scribe/AICopilotDrawer";
+import { ScheduleFollowUpDrawer } from "./schedule/ScheduleFollowUpDrawer";
+import type { AdviceCard, AIStepStatus } from "./workflow/steps";
 import { cn } from "../../lib/cn";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-type ConsultationStep =
-  | "patient"
-  | "history"
-  | "examination"
-  | "notes"
-  | "ai"
-  | "prescription"
-  | "advice"
-  | "followup"
-  | "finalize";
 
 type TimingSlot = "morning" | "afternoon" | "evening" | "night";
 
@@ -123,7 +110,12 @@ type NoteDraft = {
 type ClinicalRecordState = {
   labs: Array<{ id: string; testName: string; result: string; notes: string }>;
   clinicalNotes: { observations: string; diagnosisThinking: string };
-  history: { pastDiseases: string; medications: string };
+  history: {
+    pastDiseases: string;
+    medications: string;
+    familyHistory: string;
+    drugAllergies: string;
+  };
 };
 
 type WorkspaceBranding = {
@@ -140,27 +132,9 @@ type WorkspaceBranding = {
   aiNotetakerEnabled: boolean;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 // Constants
-// ─────────────────────────────────────────────────────────────────────────────
-
-type StepDef = {
-  id: ConsultationStep;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
-
-const STEP_LIST: StepDef[] = [
-  { id: "patient", label: "Patient overview", icon: User },
-  { id: "history", label: "Clinical history", icon: ClipboardList },
-  { id: "examination", label: "Examination", icon: FlaskConical },
-  { id: "notes", label: "Case notes", icon: FileText },
-  { id: "ai", label: "AI notetaker", icon: Zap },
-  { id: "prescription", label: "Prescription", icon: Pill },
-  { id: "advice", label: "Advice", icon: Heart },
-  { id: "followup", label: "Follow-up", icon: Calendar },
-  { id: "finalize", label: "Finalize", icon: FileSignature }
-];
+// ──────────────────────────────────────────────────────────────────────────
 
 const FREQ_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "once", label: "Once daily" },
@@ -180,31 +154,23 @@ const SLOT_LABELS: Record<TimingSlot, string> = {
   night: "Night"
 };
 
-const SLOT_SHORT: Record<TimingSlot, string> = {
-  morning: "Mor",
-  afternoon: "Aft",
-  evening: "Eve",
-  night: "Ngt"
-};
-
-const POTENCY_OPTS = ["6C", "12C", "30C", "200C", "1M", "10M", "CM", "6X", "12X", "30X", "LM1", "LM2", "Q"];
-const DOSE_OPTS = ["1 pill", "2 pills", "3 pills", "4 pills", "5 pills", "10 drops", "15 drops", "20 drops", "1 tablet", "2 tablets"];
-const DURATION_OPTS = ["3 days", "5 days", "7 days", "10 days", "2 weeks", "1 month", "Until review"];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  diet: "border-emerald-200/80 bg-emerald-50/80 text-emerald-900",
-  lifestyle: "border-sky-200/80 bg-sky-50/80 text-sky-900",
-  restriction: "border-amber-200/80 bg-amber-50/80 text-amber-900"
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 // Pure helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 
 function randomId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function parseDifferentialHints(text: string): string[] {
+  if (!text.trim()) return [];
+  const parts = text
+    .split(/[,;\n]|(?:\s+vs\.?\s+)/i)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 1);
+  return [...new Set(parts)].slice(0, 8);
 }
 
 function emptyEntry(): PrescriptionEntry {
@@ -228,7 +194,7 @@ function entryToLine(e: PrescriptionEntry): PrescriptionLine {
       ? e.customFrequency
       : (FREQ_OPTIONS.find((f) => f.key === e.frequency)?.label ?? e.frequency);
   const slots = e.timingSlots.length > 0 ? e.timingSlots.map((s) => SLOT_LABELS[s]).join(" / ") : "";
-  const dosage = [e.doseCount, slots].filter(Boolean).join(" — ");
+  const dosage = [e.doseCount, slots].filter(Boolean).join(" · ");
   return {
     remedyName: e.kind === "remedy" ? e.name : `${e.name} (supplement)`,
     potency: e.kind === "remedy" ? e.potency : "",
@@ -264,7 +230,7 @@ function normalizeEntries(raw: unknown): PrescriptionEntry[] {
         kind: "remedy",
         name: o.remedyName,
         potency: String(o.potency ?? ""),
-        doseCount: String(o.dosage ?? "").split(" — ")[0] ?? "",
+        doseCount: String(o.dosage ?? "").split(/\s+[—–-]\s+/u)[0] ?? "",
         frequency: String(o.frequency ?? "twice"),
         customFrequency: "",
         timingSlots: [],
@@ -296,7 +262,7 @@ function emptyClinical(): ClinicalRecordState {
   return {
     labs: [],
     clinicalNotes: { observations: "", diagnosisThinking: "" },
-    history: { pastDiseases: "", medications: "" }
+    history: { pastDiseases: "", medications: "", familyHistory: "", drugAllergies: "" }
   };
 }
 
@@ -320,7 +286,12 @@ function mergeClinical(raw: unknown): ClinicalRecordState {
   return {
     labs,
     clinicalNotes: { observations: String(cn.observations ?? ""), diagnosisThinking: String(cn.diagnosisThinking ?? "") },
-    history: { pastDiseases: String(hist.pastDiseases ?? ""), medications: String(hist.medications ?? "") }
+    history: {
+      pastDiseases: String(hist.pastDiseases ?? ""),
+      medications: String(hist.medications ?? ""),
+      familyHistory: String(hist.familyHistory ?? ""),
+      drugAllergies: String(hist.drugAllergies ?? "")
+    }
   };
 }
 
@@ -353,148 +324,9 @@ function toDatetimeLocalValue(iso: string | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Small reusable UI helpers (module-level, no state)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("ds-app-card p-5", className)}>{children}</div>;
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="block text-caption-sm font-semibold text-hs-text-secondary">{children}</span>
-  );
-}
-
-function TaField({
-  value,
-  onChange,
-  rows,
-  placeholder,
-  disabled
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  rows?: number;
-  placeholder?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      rows={rows ?? 3}
-      placeholder={placeholder}
-      disabled={disabled}
-      className="mt-1 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 px-3 py-2.5 text-body-sm text-hs-ink placeholder:text-hs-text-tertiary/70 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15 disabled:opacity-60"
-    />
-  );
-}
-
-function InputField({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  type,
-  className
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  type?: string;
-  className?: string;
-}) {
-  return (
-    <input
-      type={type ?? "text"}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      disabled={disabled}
-      className={cn(
-        "mt-1 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 px-3 py-2 text-body-sm text-hs-ink placeholder:text-hs-text-tertiary/70 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15 disabled:opacity-60",
-        className
-      )}
-    />
-  );
-}
-
-function DatalistSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-  disabled,
-  listId
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  placeholder?: string;
-  disabled?: boolean;
-  listId: string;
-}) {
-  return (
-    <>
-      <input
-        list={listId}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="mt-1 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 px-3 py-2 text-body-sm text-hs-ink placeholder:text-hs-text-tertiary/70 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15 disabled:opacity-60"
-      />
-      <datalist id={listId}>
-        {options.map((o) => (
-          <option key={o} value={o} />
-        ))}
-      </datalist>
-    </>
-  );
-}
-
-function StepWrapper({
-  title,
-  description,
-  children,
-  onNext,
-  nextLabel
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  onNext?: () => void;
-  nextLabel?: string;
-}) {
-  return (
-    <div className="pb-8">
-      <div className="mb-5">
-        <h2 className="font-heading text-heading-sm font-bold text-hs-ink">{title}</h2>
-        {description ? <p className="mt-1 text-body-sm leading-relaxed text-hs-text-secondary">{description}</p> : null}
-      </div>
-      <div className="space-y-4">{children}</div>
-      {onNext ? (
-        <div className="mt-8 flex justify-end">
-          <button
-            type="button"
-            onClick={onNext}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-hs-primary px-5 text-body-sm font-semibold text-white shadow-ds-sm transition hover:bg-hs-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hs-primary/35"
-          >
-            {nextLabel ?? "Save & continue"}
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 // LiveConsultationClient
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 
 export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const router = useRouter();
@@ -506,8 +338,9 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const [statusMsg, setStatusMsg] = useState("");
 
   // Navigation
-  const [activeStep, setActiveStep] = useState<ConsultationStep>("notes");
+  const [activeStep, setActiveStep] = useState<ConsultationStep>("patient");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeDrawer, setActiveDrawer] = useState<WorkspaceDrawer>("none");
 
   // Patient
   const [patientId, setPatientId] = useState("");
@@ -539,6 +372,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     patientNotes: ""
   });
   const [patientEditOpen, setPatientEditOpen] = useState(false);
+  const feedRef = useRef<HTMLDivElement>(null);
 
   // Patient safety
   const [patientAllergies, setPatientAllergies] = useState<string | null>(null);
@@ -577,10 +411,19 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   // Finalize
   const [lockAfterFinalize, setLockAfterFinalize] = useState(false);
+  const [sendPrescriptionWhatsApp, setSendPrescriptionWhatsApp] = useState(true);
+  const [sendPrescriptionEmail, setSendPrescriptionEmail] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [pendingPriorOutcome, setPendingPriorOutcome] = useState<PendingPriorOutcome | null>(null);
+  const [lastCaseOutcome, setLastCaseOutcome] = useState<ConsultationDetail["lastCaseOutcome"]>(null);
+  const [priorOutcomeValue, setPriorOutcomeValue] = useState<CaseOutcomeValue | "">("");
+  const [priorOutcomeAssessment, setPriorOutcomeAssessment] = useState("");
+  const [priorOutcomeSaved, setPriorOutcomeSaved] = useState(false);
   const [rxOutPrefs, setRxOutPrefs] = useState<PrescriptionOutputPrefs>(getPrescriptionOutputPrefs);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewTitle, setPreviewTitle] = useState("Preview");
+  const [previewMode, setPreviewMode] = useState<"doctor" | "patient">("patient");
 
   // AI Notetaker state — kept separate from doctor's `draft` to prevent auto-overwrite
   const [transcriptInput, setTranscriptInput] = useState("");
@@ -596,8 +439,8 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   });
   const [aiDraftGenerated, setAiDraftGenerated] = useState(false);
 
-  // ── Audio hook ─────────────────────────────────────────────────────────────
-  // WebSocket noteDraft events → populate aiDraft (NOT the doctor's draft)
+  // ── Audio hook ─────────────────────────────────────────────────────────
+  // WebSocket noteDraft events â†’ populate aiDraft (NOT the doctor's draft)
   const onLiveNoteDraft = useCallback((d: NoteShape) => {
     setAiDraft((prev) => ({
       chiefComplaints: d.chiefComplaints || prev.chiefComplaints,
@@ -620,7 +463,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     onNoteDraft: onLiveNoteDraft
   });
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // ── Load ───────────────────────────────────────────────────────────────
   const reload = useCallback(() => {
     void (async () => {
       if (!getToken()) return;
@@ -663,6 +506,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
           initialChiefComplaint: cd.patientInitialComplaint ?? "",
           patientNotes: patNotes ?? ""
         });
+        setSendPrescriptionWhatsApp(Boolean(cd.patientPhone?.trim()));
         if (w) setWorkspace(mapWorkspaceBranding(w));
         setLastCase({
           patientId: cd.patientId,
@@ -696,6 +540,11 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
           setPrescriptionId(cd.prescription.id);
           setRxEntries(normalizeEntries(cd.prescription.items));
         }
+        setPendingPriorOutcome(cd.pendingPriorOutcome ?? null);
+        setLastCaseOutcome(cd.lastCaseOutcome ?? null);
+        setPriorOutcomeSaved(!cd.pendingPriorOutcome);
+        setPriorOutcomeValue("");
+        setPriorOutcomeAssessment("");
       } catch (e) {
         setLoadError(e);
       } finally {
@@ -727,7 +576,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     };
   }, []);
 
-  // ── Autosave ───────────────────────────────────────────────────────────────
+  // ── Autosave ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (loading || !id) return;
     setLocalSave("saving");
@@ -789,14 +638,14 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     sessionEnded
   ]);
 
-  // ── Status toast auto-clear ────────────────────────────────────────────────
+  // ── Status toast auto-clear ────────────────────────────────────────────
   useEffect(() => {
     if (!statusMsg) return;
     const t = setTimeout(() => setStatusMsg(""), 3500);
     return () => clearTimeout(t);
   }, [statusMsg]);
 
-  // ── Lazy-load previous prescription on first visit to that step ────────────
+  // ── Lazy-load previous prescription on first visit to that step ────────
   useEffect(() => {
     if (activeStep === "prescription" && !prevRxLoaded && patientId) {
       void loadPrevRx();
@@ -806,7 +655,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   const formDisabled = editingLocked && sessionEnded;
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────
   async function savePatient(): Promise<void> {
     if (!patientId || formDisabled) return;
     setBusy(true);
@@ -842,32 +691,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       );
       setPatientEditOpen(false);
       setStatusMsg("Patient details updated.");
-    } catch (e) {
-      setStatusMsg(friendlyLoadError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function savePrescription(): Promise<void> {
-    if (!id || !patientId) return;
-    const items = rxEntries.filter((e) => e.name.trim().length > 0);
-    if (items.length === 0) {
-      setStatusMsg("Add at least one remedy or medicine name.");
-      return;
-    }
-    setBusy(true);
-    try {
-      if (prescriptionId) {
-        await patchPrescription(prescriptionId, items as unknown[]);
-      } else {
-        const r = await apiFetchJson<{ id: string }>(haProxyPath("doctor/prescriptions"), {
-          method: "POST",
-          body: JSON.stringify({ patientId, consultationId: id, items })
-        });
-        if (r?.id) setPrescriptionId(r.id);
-      }
-      setStatusMsg("Prescription saved.");
     } catch (e) {
       setStatusMsg(friendlyLoadError(e));
     } finally {
@@ -946,6 +769,19 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     }
   }
 
+  async function savePriorOutcome(): Promise<void> {
+    if (!pendingPriorOutcome || !patientId || !priorOutcomeValue) return;
+    await recordCaseOutcome({
+      consultationId: pendingPriorOutcome.consultationId,
+      patientId,
+      outcome: priorOutcomeValue,
+      assessment: priorOutcomeAssessment.trim() || undefined
+    });
+    setPriorOutcomeSaved(true);
+    setPendingPriorOutcome(null);
+    setStatusMsg("Outcome from the previous visit saved.");
+  }
+
   async function finalizeConsultation(): Promise<void> {
     if (!id || !patientId) return;
     setBusy(true);
@@ -979,14 +815,36 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         createFollowUp:
           createFollowUpTask && fuIso
             ? { dueAt: fuIso, reason: followUpNote.trim() || "Follow-up visit" }
-            : undefined
+            : undefined,
+        distribute: {
+          sendEmail: sendPrescriptionEmail,
+          sendWhatsApp: sendPrescriptionWhatsApp,
+          notifyEmail: sendPrescriptionEmail ? notifyEmail.trim() || null : null
+        }
       });
       if (r?.ok) {
         setSessionEnded(true);
         setConsultationRunning(false);
         setLifecycleStatus("FINALIZED");
         if (lockAfterFinalize) setEditingLocked(true);
-        setStatusMsg("Consultation finalized.");
+        const dist = r.distribution;
+        if (dist?.pdfReady) {
+          const parts: string[] = ["Prescription saved."];
+          if (dist.whatsapp === "sent") parts.push("WhatsApp sent.");
+          else if (dist.whatsapp === "failed") parts.push("WhatsApp failed.");
+          else if (dist.whatsapp === "skipped" && sendPrescriptionWhatsApp) {
+            parts.push(dist.whatsappDetail ?? "WhatsApp skipped.");
+          }
+          if (dist.email === "sent") parts.push("Email sent.");
+          else if (dist.email === "failed") parts.push("Email failed.");
+          else if (dist.email === "skipped" && sendPrescriptionEmail) {
+            parts.push(dist.emailDetail ?? "Email skipped.");
+          }
+          setStatusMsg(parts.join(" "));
+        } else {
+          setStatusMsg("Consultation finalized.");
+        }
+        setActiveDrawer("schedule");
         reload();
       }
     } catch (e) {
@@ -996,7 +854,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     }
   }
 
-  // ── Computed ───────────────────────────────────────────────────────────────
+  // ── Computed ───────────────────────────────────────────────────────────
   const completePrescriptionLines = useMemo(
     () => rxEntries.filter((e) => e.name.trim().length > 0).map(entryToLine),
     [rxEntries]
@@ -1004,7 +862,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   const stepDone: Record<ConsultationStep, boolean> = useMemo(
     () => ({
-      patient: Boolean(ctx),
+      patient: Boolean((patientForm.initialChiefComplaint || ctx?.patientInitialComplaint || "").trim()),
       history: Boolean(clinicalRecord.history.pastDiseases || clinicalRecord.history.medications),
       examination:
         clinicalRecord.labs.length > 0 || Boolean(clinicalRecord.clinicalNotes.observations),
@@ -1015,7 +873,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       followup: followUpEnabled && Boolean(followUpRecommendedAt),
       finalize: sessionEnded && lifecycleStatus === "FINALIZED"
     }),
-    [ctx, clinicalRecord, draft, transcriptInput, rxEntries, advice, followUpEnabled, followUpRecommendedAt, sessionEnded, lifecycleStatus]
+    [patientForm.initialChiefComplaint, ctx, clinicalRecord, draft, transcriptInput, rxEntries, advice, followUpEnabled, followUpRecommendedAt, sessionEnded, lifecycleStatus]
   );
 
   const autosaveLabel =
@@ -1027,7 +885,423 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
           ? "Draft saved"
           : "";
 
-  // ── Document helpers ───────────────────────────────────────────────────────
+  const selectStep = useCallback((step: ConsultationStep) => {
+    setActiveStep(step);
+    scrollFeedToWorkflowStep(feedRef.current, step);
+  }, []);
+
+  const goNextStep = useCallback(() => {
+    const n = nextStep(activeStep);
+    if (n) selectStep(n);
+  }, [activeStep, selectStep]);
+
+  const goPrevStep = useCallback(() => {
+    const p = prevStep(activeStep);
+    if (p) selectStep(p);
+  }, [activeStep, selectStep]);
+
+  useConsultationKeyboardNav(goPrevStep, goNextStep, !loading && !loadError && !sessionEnded);
+
+  const toggleRecording = useCallback(() => {
+    if (!workspace?.aiNotetakerEnabled || !consultationRunning || sessionEnded || formDisabled) return;
+    if (liveAudio.phase === "recording") liveAudio.pauseRecording();
+    else if (liveAudio.phase === "paused") liveAudio.resumeRecording();
+    else void liveAudio.startRecording();
+  }, [workspace?.aiNotetakerEnabled, consultationRunning, sessionEnded, formDisabled, liveAudio]);
+
+  useConsultationWorkspaceShortcuts({
+    enabled: !loading && !loadError,
+    onToggleAiDrawer: () => setActiveDrawer((d) => (d === "ai" ? "none" : "ai")),
+    onToggleRecording: toggleRecording,
+    onFinalize: () => {
+      if (!sessionEnded && activeStep === "finalize") void finalizeConsultation();
+    },
+    recordingEnabled: Boolean(workspace?.aiNotetakerEnabled && consultationRunning && !sessionEnded)
+  });
+
+  const differentialHints = useMemo(
+    () => parseDifferentialHints(clinicalRecord.clinicalNotes.diagnosisThinking),
+    [clinicalRecord.clinicalNotes.diagnosisThinking]
+  );
+
+  useEffect(() => {
+    if (loading || loadError) return;
+    scrollFeedToWorkflowStep(feedRef.current, activeStep);
+  }, [activeStep, loading, loadError]);
+
+  const insertAiIntoNotes = useCallback(() => {
+    setDraft((prev) => ({
+      chiefComplaints: aiDraft.chiefComplaints
+        ? prev.chiefComplaints
+          ? `${prev.chiefComplaints}\n\n${aiDraft.chiefComplaints}`
+          : aiDraft.chiefComplaints
+        : prev.chiefComplaints,
+      emotionalState: aiDraft.emotionalState
+        ? prev.emotionalState
+          ? `${prev.emotionalState}\n\n${aiDraft.emotionalState}`
+          : aiDraft.emotionalState
+        : prev.emotionalState,
+      physicalSymptoms: aiDraft.physicalSymptoms
+        ? prev.physicalSymptoms
+          ? `${prev.physicalSymptoms}\n\n${aiDraft.physicalSymptoms}`
+          : aiDraft.physicalSymptoms
+        : prev.physicalSymptoms,
+      modalities: aiDraft.modalities
+        ? prev.modalities
+          ? `${prev.modalities}\n\n${aiDraft.modalities}`
+          : aiDraft.modalities
+        : prev.modalities,
+      timeline: aiDraft.timeline
+        ? prev.timeline
+          ? `${prev.timeline}\n\n${aiDraft.timeline}`
+          : aiDraft.timeline
+        : prev.timeline
+    }));
+    setStatusMsg("AI notes merged into Case Notes — review and edit them there.");
+    selectStep("notes");
+  }, [aiDraft, selectStep]);
+
+  const applyAdviceTemplate = useCallback((t: AdviceTemplate) => {
+    if (t.category === "diet" || t.category === "restriction") {
+      setAdvice((prev) => ({
+        ...prev,
+        diet: prev.diet ? `${prev.diet}\n\n${t.content}` : t.content
+      }));
+    } else {
+      setAdvice((prev) => ({
+        ...prev,
+        lifestyle: prev.lifestyle ? `${prev.lifestyle}\n\n${t.content}` : t.content
+      }));
+    }
+  }, []);
+
+  const applyTreatmentPlan = useCallback((plan: TreatmentPlan) => {
+    setAdvice((prev) => {
+      const parts: { diet: string; lifestyle: string } = { diet: prev.diet, lifestyle: prev.lifestyle };
+      if (plan.dietAdvice || plan.restrictionAdvice) {
+        const combined = [plan.dietAdvice, plan.restrictionAdvice].filter(Boolean).join("\n\n");
+        parts.diet = prev.diet ? `${prev.diet}\n\n${combined}` : combined;
+      }
+      if (plan.lifestyleAdvice) {
+        parts.lifestyle = prev.lifestyle ? `${prev.lifestyle}\n\n${plan.lifestyleAdvice}` : plan.lifestyleAdvice;
+      }
+      return parts;
+    });
+    setStatusMsg(`Treatment plan "${plan.title}" applied.`);
+  }, []);
+
+  const saveNewAdviceTemplate = useCallback(() => {
+    if (!newTemplate?.title.trim() || !newTemplate.content.trim()) return;
+    void createAdviceTemplate({
+      title: newTemplate.title.trim(),
+      category: newTemplate.category,
+      content: newTemplate.content.trim()
+    })
+      .then(() => fetchAdviceTemplates().then((t) => setAdviceTemplates(t)).catch(() => {}))
+      .catch(() => {});
+    setNewTemplate(null);
+  }, [newTemplate]);
+
+  const aiStepStatus: AIStepStatus = useMemo(() => {
+    if (isGeneratingDraft) return "processing";
+    if (liveAudio.phase === "recording") return "recording";
+    if (liveAudio.phase === "paused") return "paused";
+    if (aiDraftGenerated) return "ready";
+    return "idle";
+  }, [isGeneratingDraft, liveAudio.phase, aiDraftGenerated]);
+
+  const adviceCards = useMemo((): AdviceCard[] => {
+    const cards: AdviceCard[] = [];
+    if (advice.diet.trim()) {
+      cards.push({ id: "diet-main", category: "diet", title: "Diet & restrictions", detail: advice.diet });
+    }
+    if (advice.lifestyle.trim()) {
+      cards.push({ id: "lifestyle-main", category: "lifestyle", title: "Lifestyle", detail: advice.lifestyle });
+    }
+    return cards;
+  }, [advice]);
+
+  const onAdviceCardsChange = useCallback((cards: AdviceCard[]) => {
+    setAdvice({
+      diet: cards
+        .filter((x) => x.category === "diet" || x.category === "restriction")
+        .map((x) => [x.title, x.detail].filter(Boolean).join(": "))
+        .join("\n\n"),
+      lifestyle: cards
+        .filter((x) => x.category === "lifestyle")
+        .map((x) => [x.title, x.detail].filter(Boolean).join(": "))
+        .join("\n\n")
+    });
+  }, []);
+
+  const patientSnapshot = useMemo(
+    () => ({
+      name: patientName || "Patient",
+      age: ctx?.patientAge ?? null,
+      gender: ctx?.patientGender ?? null,
+      phone: ctx?.patientPhone ?? null,
+      allergies: patientAllergies,
+      visitType: (ctx?.consultationType === "INITIAL" ? "INITIAL" : "FOLLOW_UP") as "INITIAL" | "FOLLOW_UP",
+      lastVisitAt: ctx?.lastVisitAt ?? null,
+      chiefComplaint: ctx?.patientInitialComplaint ?? null
+    }),
+    [patientName, ctx, patientAllergies]
+  );
+
+  const patientStepValue = useMemo(
+    () => ({
+      chiefComplaint: patientForm.initialChiefComplaint || ctx?.patientInitialComplaint || ""
+    }),
+    [patientForm.initialChiefComplaint, ctx?.patientInitialComplaint]
+  );
+
+  const historyStepValue = useMemo(
+    () => ({
+      pastDiseases: clinicalRecord.history.pastDiseases,
+      medications: clinicalRecord.history.medications,
+      familyHistory: clinicalRecord.history.familyHistory,
+      drugAllergies:
+        clinicalRecord.history.drugAllergies.trim().length > 0
+          ? clinicalRecord.history.drugAllergies
+          : patientAllergies ?? ""
+    }),
+    [clinicalRecord.history, patientAllergies]
+  );
+
+  const examinationStepValue = useMemo(
+    () => ({
+      labs: clinicalRecord.labs,
+      bp: "",
+      pulse: "",
+      temperature: "",
+      spO2: "",
+      general: clinicalRecord.clinicalNotes.observations
+    }),
+    [clinicalRecord]
+  );
+
+  const notesStepValue = useMemo(
+    () => ({
+      chiefComplaints: draft.chiefComplaints,
+      emotionalState: draft.emotionalState,
+      physicalSymptoms: draft.physicalSymptoms,
+      modalities: draft.modalities,
+      timeline: draft.timeline,
+      observations: clinicalRecord.clinicalNotes.observations,
+      diagnosisThinking: clinicalRecord.clinicalNotes.diagnosisThinking
+    }),
+    [draft, clinicalRecord.clinicalNotes]
+  );
+
+  const followUpStepValue = useMemo(
+    () => ({
+      enabled: followUpEnabled,
+      recommendedAt: followUpRecommendedAt,
+      reason: followUpNote,
+      symptomsToMonitor: ""
+    }),
+    [followUpEnabled, followUpRecommendedAt, followUpNote]
+  );
+
+  const finalizeItems = useMemo(
+    () =>
+      (
+        [
+          { id: "patient", label: "Chief complaint", step: "patient" as ConsultationStep },
+          { id: "history", label: "History captured", step: "history" as ConsultationStep },
+          { id: "examination", label: "Examination notes", step: "examination" as ConsultationStep },
+          { id: "notes", label: "Case notes", step: "notes" as ConsultationStep },
+          { id: "prescription", label: "Prescription", step: "prescription" as ConsultationStep },
+          { id: "advice", label: "Advice for patient", step: "advice" as ConsultationStep }
+        ] as const
+      ).map(({ id, label, step }) => ({
+        id,
+        label,
+        status: stepDone[step] ? ("done" as const) : ("missing" as const),
+        hint: stepDone[step] ? undefined : "Complete this section before finalizing"
+      })),
+    [stepDone]
+  );
+
+  const stepExtras = useMemo(
+    () =>
+      buildConsultationStepExtras({
+        formDisabled,
+        busy,
+        patientId,
+        patientName,
+        patientAllergies,
+        sessionEnded,
+        consultationRunning,
+        workspace,
+        ctx,
+        lastCaseOutcome: lastCaseOutcome ?? null,
+        patientForm,
+        patientEditOpen,
+        setPatientEditOpen,
+        setPatientForm,
+        savePatient,
+        pendingPriorOutcome,
+        priorOutcomeSaved,
+        priorOutcomeValue,
+        priorOutcomeAssessment,
+        setPriorOutcomeValue,
+        setPriorOutcomeAssessment,
+        savePriorOutcome,
+        aiDraftGenerated,
+        aiDraft,
+        setActiveStep: selectStep,
+        transcriptInput,
+        setTranscriptInput,
+        isGeneratingDraft,
+        generateAiNotes,
+        setAiDraft,
+        setAiDraftGenerated,
+        insertAiIntoNotes,
+        liveAudio,
+        prevRx,
+        showPrevRx,
+        setShowPrevRx,
+        setRxEntries,
+        setStatusMsg,
+        advice,
+        setAdvice,
+        adviceTemplates,
+        treatmentPlans,
+        templateSearch,
+        setTemplateSearch,
+        newTemplate,
+        setNewTemplate,
+        applyAdviceTemplate,
+        applyTreatmentPlan,
+        saveNewAdviceTemplate,
+        followUpEnabled,
+        createFollowUpTask,
+        setCreateFollowUpTask,
+        lockAfterFinalize,
+        setLockAfterFinalize,
+        sendPrescriptionWhatsApp,
+        setSendPrescriptionWhatsApp,
+        sendPrescriptionEmail,
+        setSendPrescriptionEmail,
+        notifyEmail,
+        setNotifyEmail,
+        patientHasPhone: Boolean(ctx?.patientPhone?.trim()),
+        finalizeConsultation,
+        rxOutPrefs,
+        setRxOutPrefs: (prefs) => setRxOutPrefs(setPrescriptionOutputPrefs(prefs)),
+        openPreview
+      }),
+    [
+      formDisabled,
+      busy,
+      patientId,
+      patientName,
+      patientAllergies,
+      sessionEnded,
+      consultationRunning,
+      workspace,
+      ctx,
+      lastCaseOutcome,
+      patientForm,
+      patientEditOpen,
+      savePatient,
+      pendingPriorOutcome,
+      priorOutcomeSaved,
+      priorOutcomeValue,
+      priorOutcomeAssessment,
+      savePriorOutcome,
+      aiDraftGenerated,
+      aiDraft,
+      selectStep,
+      transcriptInput,
+      isGeneratingDraft,
+      generateAiNotes,
+      insertAiIntoNotes,
+      liveAudio,
+      prevRx,
+      showPrevRx,
+      advice,
+      adviceTemplates,
+      treatmentPlans,
+      templateSearch,
+      newTemplate,
+      applyAdviceTemplate,
+      applyTreatmentPlan,
+      saveNewAdviceTemplate,
+      followUpEnabled,
+      createFollowUpTask,
+      lockAfterFinalize,
+      sendPrescriptionWhatsApp,
+      sendPrescriptionEmail,
+      notifyEmail,
+      ctx,
+      finalizeConsultation,
+      rxOutPrefs,
+      openPreview
+    ]
+  );
+
+  const onHistoryStepChange = useCallback(
+    (v: typeof historyStepValue) => {
+      setClinicalRecord((p) => ({
+        ...p,
+        history: {
+          pastDiseases: v.pastDiseases,
+          medications: v.medications,
+          familyHistory: v.familyHistory,
+          drugAllergies: v.drugAllergies
+        }
+      }));
+    },
+    []
+  );
+
+  const onExaminationStepChange = useCallback(
+    (v: typeof examinationStepValue) => {
+      setClinicalRecord((p) => ({
+        ...p,
+        labs: v.labs,
+        clinicalNotes: { ...p.clinicalNotes, observations: v.general }
+      }));
+    },
+    []
+  );
+
+  const onNotesStepChange = useCallback(
+    (v: typeof notesStepValue) => {
+      setDraft({
+        chiefComplaints: v.chiefComplaints,
+        emotionalState: v.emotionalState,
+        physicalSymptoms: v.physicalSymptoms,
+        modalities: v.modalities,
+        timeline: v.timeline
+      });
+      setClinicalRecord((p) => ({
+        ...p,
+        clinicalNotes: { observations: v.observations, diagnosisThinking: v.diagnosisThinking }
+      }));
+    },
+    []
+  );
+
+  const onPatientStepChange = useCallback(
+    (v: typeof patientStepValue) => {
+      setPatientForm((p) => ({ ...p, initialChiefComplaint: v.chiefComplaint }));
+    },
+    []
+  );
+
+  const onFollowUpStepChange = useCallback(
+    (v: typeof followUpStepValue) => {
+      setFollowUpEnabled(v.enabled);
+      setFollowUpRecommendedAt(v.recommendedAt);
+      setFollowUpNote(v.reason);
+    },
+    []
+  );
+
+  // ── Document helpers ───────────────────────────────────────────────────
   function docMeta(): ClinicDocumentMeta {
     const started = ctx?.startedAt ? new Date(ctx.startedAt) : new Date();
     const dn = workspace?.doctorName?.trim() || "Doctor";
@@ -1086,1450 +1360,18 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   }
 
   function openPreview(mode: "doctor" | "patient"): void {
-    setPreviewTitle(mode === "doctor" ? "Doctor copy" : "Patient copy");
+    setPreviewMode(mode);
+    setPreviewTitle(mode === "doctor" ? "Clinical summary" : "Patient prescription");
     setPreviewHtml(buildPrescriptionDocumentHtml(buildDocOptions(mode)));
     setPreviewOpen(true);
   }
 
-  async function handlePdfDownload(mode: "doctor" | "patient"): Promise<void> {
-    try {
-      await downloadHtmlAsPdf(
-        `prescription-${mode}-${id.slice(0, 8)}.pdf`,
-        buildPrescriptionDocumentHtml(buildDocOptions(mode))
-      );
-    } catch {
-      setStatusMsg("PDF download failed. Use Print → Save as PDF.");
-    }
-  }
-
-  // ── Step renderers (called as regular functions, not JSX components) ────────
-
-  function renderPatientStep() {
-    const caseLabel =
-      ctx?.consultationType === "INITIAL" ? "Acute / new" : "Chronic / follow-up";
-    const lastVisitText = ctx?.lastVisitAt
-      ? new Date(ctx.lastVisitAt).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric"
-        })
-      : "—";
-
-    return (
-      <StepWrapper
-        title="Patient overview"
-        description="Verify and update patient details for this visit. All fields are optional to change."
-        onNext={() => setActiveStep("history")}
-      >
-        <SectionCard>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-heading text-body-lg font-bold text-hs-ink">{patientName || "Patient"}</p>
-              <p className="mt-0.5 text-caption-sm text-hs-text-tertiary">
-                {ctx?.patientAge != null ? `${ctx.patientAge} yrs` : "Age not set"} ·{" "}
-                {ctx?.patientGender?.trim() || "Gender not set"} ·{" "}
-                {ctx?.patientPhone || "No contact"}
-              </p>
-              <p className="mt-0.5 text-caption-sm text-hs-text-tertiary">
-                Case: <span className="font-medium text-hs-ink">{caseLabel}</span> · Last visit:{" "}
-                <span className="font-medium text-hs-ink">{lastVisitText}</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setPatientEditOpen((v) => !v)}
-              disabled={formDisabled}
-              className="shrink-0 text-caption-sm font-semibold text-hs-primary hover:underline disabled:opacity-40"
-            >
-              {patientEditOpen ? "Close" : "Edit details"}
-            </button>
-          </div>
-          {ctx?.patientInitialComplaint ? (
-            <div className="mt-3 rounded-xl border border-hs-border/40 bg-hs-cream/60 px-3 py-2.5">
-              <p className="text-caption-sm font-semibold uppercase tracking-wide text-hs-text-tertiary">
-                Initial complaint
-              </p>
-              <p className="mt-1 text-body-sm text-hs-ink">{ctx.patientInitialComplaint}</p>
-            </div>
-          ) : null}
-          {ctx?.patientNotes ? (
-            <div className="mt-2 rounded-xl border border-hs-border/30 bg-hs-cream/40 px-3 py-2">
-              <p className="text-caption-sm font-semibold uppercase tracking-wide text-hs-text-tertiary">Chart notes</p>
-              <p className="mt-0.5 text-body-sm text-hs-ink">{ctx.patientNotes}</p>
-            </div>
-          ) : null}
-          {patientEditOpen ? (
-            <div className="mt-4 space-y-3 border-t border-hs-border/40 pt-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <FieldLabel>Name</FieldLabel>
-                  <InputField value={patientForm.name} onChange={(v) => setPatientForm((p) => ({ ...p, name: v }))} />
-                </label>
-                <label className="block">
-                  <FieldLabel>Age</FieldLabel>
-                  <InputField
-                    value={patientForm.age}
-                    onChange={(v) => setPatientForm((p) => ({ ...p, age: v.replace(/\D/g, "") }))}
-                    placeholder="years"
-                  />
-                </label>
-                <label className="block">
-                  <FieldLabel>Gender</FieldLabel>
-                  <InputField value={patientForm.gender} onChange={(v) => setPatientForm((p) => ({ ...p, gender: v }))} />
-                </label>
-                <label className="block">
-                  <FieldLabel>Phone</FieldLabel>
-                  <InputField value={patientForm.phone} onChange={(v) => setPatientForm((p) => ({ ...p, phone: v }))} />
-                </label>
-              </div>
-              <label className="block">
-                <FieldLabel>Address</FieldLabel>
-                <TaField
-                  value={patientForm.address}
-                  onChange={(v) => setPatientForm((p) => ({ ...p, address: v }))}
-                  rows={2}
-                  disabled={formDisabled}
-                />
-              </label>
-              <label className="block">
-                <FieldLabel>Initial chief complaint</FieldLabel>
-                <TaField
-                  value={patientForm.initialChiefComplaint}
-                  onChange={(v) => setPatientForm((p) => ({ ...p, initialChiefComplaint: v }))}
-                  rows={2}
-                  disabled={formDisabled}
-                />
-              </label>
-              <label className="block">
-                <FieldLabel>Chart notes</FieldLabel>
-                <TaField
-                  value={patientForm.patientNotes}
-                  onChange={(v) => setPatientForm((p) => ({ ...p, patientNotes: v }))}
-                  rows={2}
-                  disabled={formDisabled}
-                />
-              </label>
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => void savePatient()}
-                  disabled={busy || formDisabled}
-                  className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-hs-primary px-4 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light disabled:opacity-50"
-                >
-                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPatientEditOpen(false)}
-                  className="text-caption-sm text-hs-text-secondary hover:underline"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </SectionCard>
-        {patientId ? (
-          <Link
-            href={`/patients/${patientId}/timeline`}
-            className="text-caption-sm font-semibold text-hs-primary hover:underline"
-          >
-            View full chart →
-          </Link>
-        ) : null}
-      </StepWrapper>
+  function handlePrintPrescription(mode: "doctor" | "patient"): void {
+    openPrintWindow(
+      buildPrescriptionDocumentHtml(buildDocOptions(mode)),
+      mode === "doctor" ? "Clinical summary" : "Patient prescription"
     );
   }
-
-  function renderHistoryStep() {
-    return (
-      <StepWrapper
-        title="Clinical history"
-        description="Past diseases, surgeries, and ongoing medications outside this clinic. All fields are optional."
-        onNext={() => setActiveStep("examination")}
-      >
-        <SectionCard>
-          <label className="block">
-            <FieldLabel>Past diseases &amp; surgeries</FieldLabel>
-            <TaField
-              value={clinicalRecord.history.pastDiseases}
-              onChange={(v) => setClinicalRecord((p) => ({ ...p, history: { ...p.history, pastDiseases: v } }))}
-              rows={4}
-              placeholder="e.g. Typhoid 2018, Appendicectomy 2020, recurring sinusitis…"
-              disabled={formDisabled}
-            />
-          </label>
-          <label className="mt-4 block">
-            <FieldLabel>Ongoing medications (outside this clinic)</FieldLabel>
-            <TaField
-              value={clinicalRecord.history.medications}
-              onChange={(v) => setClinicalRecord((p) => ({ ...p, history: { ...p.history, medications: v } }))}
-              rows={3}
-              placeholder="e.g. Metformin 500 mg BD for T2DM, Paracetamol PRN…"
-              disabled={formDisabled}
-            />
-          </label>
-        </SectionCard>
-      </StepWrapper>
-    );
-  }
-
-  function renderExaminationStep() {
-    return (
-      <StepWrapper
-        title="Examination &amp; findings"
-        description="Lab results and clinical observations. Add only what was done today — nothing is mandatory."
-        onNext={() => setActiveStep("notes")}
-      >
-        <SectionCard>
-          <div className="flex items-center justify-between">
-            <p className="text-body-sm font-semibold text-hs-ink">Lab investigations</p>
-          </div>
-          {clinicalRecord.labs.length === 0 ? (
-            <p className="mt-2 text-body-sm text-hs-text-tertiary">No tests added yet.</p>
-          ) : null}
-          <div className="mt-3 space-y-2">
-            {clinicalRecord.labs.map((lab) => (
-              <div
-                key={lab.id}
-                className="grid grid-cols-[1fr_1fr_auto] gap-2 rounded-xl border border-hs-border/40 bg-hs-cream/50 p-3 sm:grid-cols-[2fr_2fr_1fr_auto]"
-              >
-                <input
-                  value={lab.testName}
-                  onChange={(e) =>
-                    setClinicalRecord((p) => ({
-                      ...p,
-                      labs: p.labs.map((l) => (l.id === lab.id ? { ...l, testName: e.target.value } : l))
-                    }))
-                  }
-                  placeholder="Test name"
-                  disabled={formDisabled}
-                  className="col-span-2 rounded-lg border border-hs-border/40 px-2.5 py-2 text-caption-md text-hs-ink focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15 sm:col-span-1"
-                />
-                <input
-                  value={lab.result}
-                  onChange={(e) =>
-                    setClinicalRecord((p) => ({
-                      ...p,
-                      labs: p.labs.map((l) => (l.id === lab.id ? { ...l, result: e.target.value } : l))
-                    }))
-                  }
-                  placeholder="Result"
-                  disabled={formDisabled}
-                  className="rounded-lg border border-hs-border/40 px-2.5 py-2 text-caption-md text-hs-ink focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15"
-                />
-                <input
-                  value={lab.notes}
-                  onChange={(e) =>
-                    setClinicalRecord((p) => ({
-                      ...p,
-                      labs: p.labs.map((l) => (l.id === lab.id ? { ...l, notes: e.target.value } : l))
-                    }))
-                  }
-                  placeholder="Notes"
-                  disabled={formDisabled}
-                  className="hidden rounded-lg border border-hs-border/40 px-2.5 py-2 text-caption-md text-hs-ink focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15 sm:block"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setClinicalRecord((p) => ({ ...p, labs: p.labs.filter((l) => l.id !== lab.id) }))
-                  }
-                  disabled={formDisabled}
-                  className="flex items-center justify-center text-rose-700 hover:text-rose-900 disabled:opacity-40"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              setClinicalRecord((p) => ({
-                ...p,
-                labs: [...p.labs, { id: randomId(), testName: "", result: "", notes: "" }]
-              }))
-            }
-            disabled={formDisabled}
-            className="mt-3 inline-flex items-center gap-1.5 text-body-sm font-semibold text-hs-primary hover:underline disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add test
-          </button>
-        </SectionCard>
-        <SectionCard>
-          <label className="block">
-            <FieldLabel>Clinical observations / physical examination</FieldLabel>
-            <TaField
-              value={clinicalRecord.clinicalNotes.observations}
-              onChange={(v) => setClinicalRecord((p) => ({ ...p, clinicalNotes: { ...p.clinicalNotes, observations: v } }))}
-              rows={4}
-              placeholder="Pulse, tongue, skin, reflexes, local examination findings…"
-              disabled={formDisabled}
-            />
-          </label>
-          <label className="mt-4 block">
-            <FieldLabel>Assessment / case analysis</FieldLabel>
-            <TaField
-              value={clinicalRecord.clinicalNotes.diagnosisThinking}
-              onChange={(v) => setClinicalRecord((p) => ({ ...p, clinicalNotes: { ...p.clinicalNotes, diagnosisThinking: v } }))}
-              rows={4}
-              placeholder="Miasmatic assessment, totality of symptoms, differential remedies considered…"
-              disabled={formDisabled}
-            />
-          </label>
-        </SectionCard>
-      </StepWrapper>
-    );
-  }
-
-  function renderCaseNotesStep() {
-    const noteFields: Array<[keyof NoteDraft, string, string, number]> = [
-      ["chiefComplaints", "Chief complaints", "Main presenting complaints, onset, duration, character, location…", 3],
-      ["emotionalState", "Emotional / mental state", "Mood, anxieties, fears, sleep, grief, dreams, anger patterns…", 2],
-      ["physicalSymptoms", "Physical symptoms & generals", "Location, sensation, modalities, concomitants, generals…", 3],
-      ["modalities", "Modalities", "Better / worse with: heat, cold, motion, rest, time of day, weather…", 2],
-      ["timeline", "History & timeline", "Onset, causation, triggering events, evolution of complaints…", 2]
-    ];
-
-    return (
-      <StepWrapper
-        title="Case notes"
-        description="Structured symptom capture for homeopathic case analysis. Skip any field that isn't relevant today."
-        onNext={() => setActiveStep("ai")}
-      >
-        {aiDraftGenerated && (aiDraft.chiefComplaints || aiDraft.physicalSymptoms || aiDraft.emotionalState) ? (
-          <SectionCard className="border-hs-primary/25 bg-hs-primary-very-light/40">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 shrink-0 text-hs-primary" aria-hidden />
-                <div>
-                  <p className="text-body-sm font-semibold text-hs-primary">AI draft ready — not yet inserted</p>
-                  <p className="text-caption-sm text-hs-text-secondary">Review the draft in the AI Notetaker step before merging here.</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveStep("ai")}
-                className="shrink-0 rounded-lg border border-hs-primary/35 bg-hs-primary-very-light px-3 py-1.5 text-caption-sm font-semibold text-hs-primary transition hover:bg-hs-primary/15"
-              >
-                Review →
-              </button>
-            </div>
-          </SectionCard>
-        ) : null}
-        <SectionCard>
-          <div className="space-y-4">
-            {noteFields.map(([key, label, placeholder, rows]) => (
-              <label key={key} className="block">
-                <FieldLabel>{label}</FieldLabel>
-                <TaField
-                  value={draft[key]}
-                  onChange={(v) => setDraft((p) => ({ ...p, [key]: v }))}
-                  rows={rows}
-                  placeholder={placeholder}
-                  disabled={formDisabled}
-                />
-              </label>
-            ))}
-          </div>
-        </SectionCard>
-      </StepWrapper>
-    );
-  }
-
-  function renderAiStep() {
-    // ── Feature gate: show lock screen when AI Notetaker is disabled for this clinic ──
-    if (!workspace?.aiNotetakerEnabled) {
-      return (
-        <div className="flex flex-col items-center justify-center gap-6 rounded-2xl border border-dashed border-hs-border/60 bg-hs-cream/30 px-8 py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
-            <Zap className="h-8 w-8" />
-          </div>
-          <div className="max-w-sm">
-            <p className="text-base font-semibold text-hs-ink">AI Notetaker — Pro Feature</p>
-            <p className="mt-2 text-sm leading-relaxed text-hs-text-secondary">
-              Real-time transcription and AI-assisted clinical notes are available on the{" "}
-              <span className="font-semibold text-hs-primary">Pro plan</span>. Contact your clinic admin to enable
-              this feature.
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-              <Zap className="h-3 w-3" />
-              Upgrade to Pro
-            </span>
-            <p className="text-xs text-hs-text-tertiary">You can still add case notes manually in the Case Notes step.</p>
-          </div>
-        </div>
-      );
-    }
-
-    const isRecording = liveAudio.phase === "recording";
-    const isPaused = liveAudio.phase === "paused";
-    const isReviewing = liveAudio.phase === "reviewing";
-    const isIdle = liveAudio.phase === "idle";
-    const canRecord = (isIdle || isPaused) && consultationRunning && !formDisabled;
-    const hasAiContent =
-      aiDraftGenerated &&
-      (aiDraft.chiefComplaints || aiDraft.emotionalState || aiDraft.physicalSymptoms ||
-        aiDraft.modalities || aiDraft.timeline);
-
-    // Helper: merge aiDraft into case notes (doctor's draft)
-    function insertIntoNotes() {
-      setDraft((prev) => ({
-        chiefComplaints: aiDraft.chiefComplaints
-          ? (prev.chiefComplaints ? `${prev.chiefComplaints}\n\n${aiDraft.chiefComplaints}` : aiDraft.chiefComplaints)
-          : prev.chiefComplaints,
-        emotionalState: aiDraft.emotionalState
-          ? (prev.emotionalState ? `${prev.emotionalState}\n\n${aiDraft.emotionalState}` : aiDraft.emotionalState)
-          : prev.emotionalState,
-        physicalSymptoms: aiDraft.physicalSymptoms
-          ? (prev.physicalSymptoms ? `${prev.physicalSymptoms}\n\n${aiDraft.physicalSymptoms}` : aiDraft.physicalSymptoms)
-          : prev.physicalSymptoms,
-        modalities: aiDraft.modalities
-          ? (prev.modalities ? `${prev.modalities}\n\n${aiDraft.modalities}` : aiDraft.modalities)
-          : prev.modalities,
-        timeline: aiDraft.timeline
-          ? (prev.timeline ? `${prev.timeline}\n\n${aiDraft.timeline}` : aiDraft.timeline)
-          : prev.timeline
-      }));
-      setStatusMsg("AI notes merged into Case Notes — review and edit them there.");
-      setActiveStep("notes");
-    }
-
-    return (
-      <StepWrapper title="AI notetaker" description="Record the consultation, then generate structured notes with one click. You always review — AI never overwrites your work.">
-
-        {/* ── Recording controls ─────────────────────────────────────────── */}
-        <SectionCard>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Status indicator */}
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                  isRecording
-                    ? "animate-pulse bg-rose-100 text-rose-600 ring-2 ring-rose-300/60"
-                    : isPaused
-                      ? "bg-amber-100 text-amber-600 ring-2 ring-amber-300/60"
-                      : isReviewing
-                        ? "bg-hs-cream text-hs-text-secondary"
-                        : "bg-hs-primary-very-light text-hs-primary"
-                )}
-                aria-hidden
-              >
-                <Mic className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-body-sm font-semibold text-hs-ink">
-                  {isRecording
-                    ? `Recording  ${formatRecordingTime(liveAudio.elapsedSeconds)}`
-                    : isPaused
-                      ? `Paused  ${formatRecordingTime(liveAudio.elapsedSeconds)}`
-                      : isReviewing
-                        ? "Stopped — audio saved"
-                        : consultationRunning
-                          ? "Ready to record"
-                          : "Session not active"}
-                </p>
-                <p className="text-caption-sm text-hs-text-secondary">
-                  {isRecording
-                    ? "Transcribing live…"
-                    : isPaused
-                      ? "Recording paused"
-                      : isReviewing
-                        ? "Review audio below before deciding to keep or discard"
-                        : "Tap Start to begin live transcription"}
-                </p>
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div className="flex shrink-0 items-center gap-2">
-              {isRecording ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => liveAudio.pauseRecording()}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300/80 bg-amber-50 px-3 py-2 text-caption-sm font-semibold text-amber-800 transition hover:bg-amber-100"
-                  >
-                    <Pause className="h-3.5 w-3.5" aria-hidden />
-                    Pause
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => liveAudio.stopRecording()}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300/80 bg-rose-50 px-3 py-2 text-caption-sm font-semibold text-rose-800 transition hover:bg-rose-100"
-                  >
-                    <Square className="h-3.5 w-3.5" aria-hidden />
-                    Stop
-                  </button>
-                </>
-              ) : isPaused ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => liveAudio.resumeRecording()}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-hs-primary px-3 py-2 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
-                  >
-                    <Play className="h-3.5 w-3.5" aria-hidden />
-                    Resume
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => liveAudio.stopRecording()}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300/80 bg-rose-50 px-3 py-2 text-caption-sm font-semibold text-rose-800 transition hover:bg-rose-100"
-                  >
-                    <Square className="h-3.5 w-3.5" aria-hidden />
-                    Stop
-                  </button>
-                </>
-              ) : canRecord ? (
-                <button
-                  type="button"
-                  onClick={() => void liveAudio.startRecording()}
-                  disabled={liveAudio.busy}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-hs-primary px-4 py-2 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light disabled:opacity-50"
-                >
-                  {liveAudio.busy ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                  ) : (
-                    <Mic className="h-3.5 w-3.5" aria-hidden />
-                  )}
-                  {liveAudio.busy ? "Starting…" : "Start recording"}
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {liveAudio.err ? (
-            <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-caption-sm text-rose-900" role="alert">
-              {liveAudio.err}
-            </p>
-          ) : null}
-
-          {/* Audio staging */}
-          {isReviewing && liveAudio.hasStagingAudio ? (
-            <div className="mt-4 rounded-xl border border-amber-200/70 bg-amber-50/60 p-3">
-              <p className="text-body-sm font-semibold text-amber-900">Audio staged for review</p>
-              <p className="text-caption-sm text-amber-800">Save recording to the consultation record or discard it permanently.</p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => void liveAudio.keepStagingAudio()}
-                  disabled={liveAudio.busy}
-                  className="rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Save recording
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void liveAudio.discardStagingAudio()}
-                  disabled={liveAudio.busy}
-                  className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-caption-sm font-semibold text-rose-800 disabled:opacity-50"
-                >
-                  Discard
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </SectionCard>
-
-        {/* ── Live transcript ────────────────────────────────────────────── */}
-        <SectionCard>
-          <p className="text-body-sm font-semibold text-hs-ink">Live transcript</p>
-          <p className="text-caption-sm text-hs-text-secondary">
-            Speech is transcribed here as you record. You can also paste notes manually.
-          </p>
-
-          {/* Live stream preview */}
-          {liveAudio.liveTranscript ? (
-            <div
-              className="mt-3 max-h-32 overflow-y-auto rounded-xl border border-hs-primary/20 bg-hs-primary-very-light/30 p-3 text-body-sm text-hs-ink"
-              aria-live="polite"
-              aria-label="Live transcription"
-            >
-              <p className="whitespace-pre-wrap">{liveAudio.liveTranscript}</p>
-            </div>
-          ) : isRecording ? (
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-hs-border/40 bg-hs-cream/40 p-3">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" aria-hidden />
-              <p className="text-caption-sm text-hs-text-tertiary">Listening…</p>
-            </div>
-          ) : null}
-
-          <label className="mt-3 block">
-            <FieldLabel>Full transcript (editable)</FieldLabel>
-            <TaField
-              value={transcriptInput}
-              onChange={(v) => {
-                setTranscriptInput(v);
-              }}
-              rows={6}
-              placeholder="Transcript appears here as recording progresses. You can paste, edit, or add notes manually before generating AI notes…"
-              disabled={formDisabled}
-            />
-          </label>
-          <p className="mt-1.5 text-caption-sm text-hs-text-tertiary">
-            {transcriptInput.length > 0 ? `${transcriptInput.length} characters` : "Empty — record or type manually"}
-          </p>
-        </SectionCard>
-
-        {/* ── Generate AI notes ──────────────────────────────────────────── */}
-        <SectionCard>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-body-sm font-semibold text-hs-ink">Generate structured notes</p>
-              <p className="text-caption-sm text-hs-text-secondary">
-                Sends the transcript to AI and returns structured clinical fields. Review before using — AI is a draft, not final.
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void generateAiNotes()}
-                disabled={isGeneratingDraft || formDisabled || !transcriptInput.trim()}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-hs-ink/90 px-4 py-2 text-caption-sm font-semibold text-white transition hover:bg-hs-ink disabled:opacity-50"
-              >
-                {isGeneratingDraft ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Zap className="h-3.5 w-3.5" aria-hidden />
-                )}
-                {isGeneratingDraft ? "Generating…" : "Generate notes"}
-              </button>
-              {aiDraftGenerated ? (
-                <button
-                  type="button"
-                  onClick={() => void generateAiNotes()}
-                  disabled={isGeneratingDraft || formDisabled || !transcriptInput.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-hs-border/50 bg-hs-paper px-3 py-2 text-caption-sm font-semibold text-hs-ink transition hover:border-hs-primary/30 disabled:opacity-50"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                  Regenerate
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {/* AI Draft panel — shown only after generation */}
-          {hasAiContent ? (
-            <div className="mt-4 rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/30">
-              <div className="flex items-center justify-between gap-2 border-b border-hs-primary/15 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-hs-primary" aria-hidden />
-                  <p className="text-body-sm font-bold text-hs-primary">AI Draft — Review Required</p>
-                  {aiDraft.needsReview ? (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-caption-sm font-semibold text-amber-800">
-                      Needs review
-                    </span>
-                  ) : null}
-                </div>
-                {aiDraft.generatedAt ? (
-                  <p className="text-caption-sm text-hs-text-tertiary">
-                    {new Date(aiDraft.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="space-y-3 p-4">
-                <p className="text-caption-sm text-hs-text-secondary">
-                  Edit these fields freely — they are an AI draft and will not be saved until you click "Insert into Case Notes".
-                </p>
-
-                {(
-                  [
-                    ["chiefComplaints", "Chief complaints"] as const,
-                    ["emotionalState", "Emotional / mental state"] as const,
-                    ["physicalSymptoms", "Physical symptoms & generals"] as const,
-                    ["modalities", "Modalities (better / worse)"] as const,
-                    ["timeline", "History & timeline"] as const
-                  ] as const
-                ).map(([field, label]) => (
-                  <label key={field} className="block">
-                    <FieldLabel>{label}</FieldLabel>
-                    <TaField
-                      value={aiDraft[field]}
-                      onChange={(v) => setAiDraft((prev) => ({ ...prev, [field]: v }))}
-                      rows={3}
-                      placeholder={`AI-extracted ${label.toLowerCase()}…`}
-                      disabled={formDisabled}
-                    />
-                  </label>
-                ))}
-
-                <div className="flex flex-wrap gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={insertIntoNotes}
-                    disabled={formDisabled}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-hs-primary px-4 py-2.5 text-body-sm font-semibold text-white shadow-sm transition hover:bg-hs-primary-light disabled:opacity-50"
-                  >
-                    <ChevronRight className="h-4 w-4" aria-hidden />
-                    Insert into Case Notes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAiDraft((p) => ({ ...p, chiefComplaints: "", emotionalState: "", physicalSymptoms: "", modalities: "", timeline: "" }));
-                      setAiDraftGenerated(false);
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-hs-border/50 bg-hs-paper px-3 py-2.5 text-caption-sm font-semibold text-hs-text-secondary transition hover:border-rose-300/60 hover:text-rose-800"
-                  >
-                    Clear draft
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : isGeneratingDraft ? (
-            <div className="mt-4 flex items-center gap-3 rounded-xl border border-hs-border/40 bg-hs-cream/50 px-4 py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-hs-primary" aria-hidden />
-              <p className="text-body-sm text-hs-text-secondary">AI is reading the transcript and extracting clinical notes…</p>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-dashed border-hs-border/60 bg-hs-cream/30 px-4 py-4 text-center">
-              <p className="text-body-sm text-hs-text-secondary">
-                AI notes will appear here after generation.
-                {!transcriptInput.trim() ? " Start recording or type a transcript above first." : ""}
-              </p>
-            </div>
-          )}
-        </SectionCard>
-
-        {/* ── Continue to case notes ─────────────────────────────────────── */}
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setActiveStep("notes")}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-hs-border/50 bg-hs-paper px-4 py-2 text-body-sm font-semibold text-hs-ink transition hover:border-hs-primary/30 hover:text-hs-primary"
-          >
-            Skip to Case Notes
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-      </StepWrapper>
-    );
-  }
-
-  function renderPrescriptionStep() {
-    function addEntry(kind: "remedy" | "medicine") {
-      setRxEntries((prev) => [...prev, { ...emptyEntry(), id: randomId(), kind }]);
-    }
-    function update(entryId: string, patch: Partial<PrescriptionEntry>) {
-      setRxEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, ...patch } : e)));
-    }
-    function remove(entryId: string) {
-      setRxEntries((prev) => (prev.length > 1 ? prev.filter((e) => e.id !== entryId) : prev));
-    }
-    function toggleSlot(entryId: string, slot: TimingSlot) {
-      setRxEntries((prev) =>
-        prev.map((e) => {
-          if (e.id !== entryId) return e;
-          const slots = e.timingSlots.includes(slot)
-            ? e.timingSlots.filter((s) => s !== slot)
-            : [...e.timingSlots, slot];
-          return { ...e, timingSlots: slots };
-        })
-      );
-    }
-
-    return (
-      <StepWrapper title="Prescription">
-        {patientAllergies ? (
-          <div className="mb-2 flex items-start gap-3 rounded-xl border border-rose-200/80 bg-rose-50/80 px-4 py-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" aria-hidden />
-            <div>
-              <p className="text-body-sm font-semibold text-rose-900">Recorded allergies / sensitivities</p>
-              <p className="mt-0.5 text-caption-sm text-rose-800">{patientAllergies}</p>
-              <p className="mt-1 text-caption-sm text-rose-700/80">
-                Verify no prescribed remedy or supplement conflicts with the above before saving the prescription.
-              </p>
-            </div>
-          </div>
-        ) : null}
-        {prevRx && prevRx.length > 0 ? (
-          <SectionCard className="border-hs-border/50 bg-hs-cream/40">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-body-sm font-semibold text-hs-ink">Previous prescription</p>
-                <p className="text-caption-sm text-hs-text-secondary">{prevRx.length} item{prevRx.length !== 1 ? "s" : ""} from last visit</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPrevRx((x) => !x)}
-                  className="text-caption-sm font-semibold text-hs-primary underline-offset-2 hover:underline"
-                >
-                  {showPrevRx ? "Hide" : "View"}
-                </button>
-                {!formDisabled ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRxEntries(prevRx.map((e) => ({ ...e, id: randomId() })));
-                      setStatusMsg("Previous prescription loaded — review and adjust before saving.");
-                    }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-hs-primary/10 px-3 py-1.5 text-caption-sm font-semibold text-hs-primary transition hover:bg-hs-primary/20"
-                  >
-                    Repeat all
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            {showPrevRx ? (
-              <div className="mt-3 space-y-1">
-                {prevRx.map((e) => (
-                  <div key={e.id} className="flex items-start gap-2 rounded-lg bg-hs-paper px-3 py-2 text-body-sm">
-                    <span className="rounded-full bg-hs-primary-very-light px-2 py-0.5 text-caption-sm font-bold uppercase text-hs-primary">
-                      {e.kind === "remedy" ? "Rx" : "Med"}
-                    </span>
-                    <span className="font-medium text-hs-ink">{e.name}</span>
-                    {e.potency ? <span className="text-hs-text-secondary">{e.potency}</span> : null}
-                    {e.instructions ? <span className="text-hs-text-tertiary">· {e.instructions}</span> : null}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </SectionCard>
-        ) : null}
-
-        <div className="space-y-4">
-          {rxEntries.map((entry, idx) => (
-            <SectionCard
-              key={entry.id}
-              className={entry.kind === "remedy" ? "border-hs-primary/20" : "border-hs-border/60"}
-            >
-              <div className="mb-4 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "rounded-full px-2.5 py-0.5 text-caption-sm font-bold uppercase tracking-wide",
-                      entry.kind === "remedy"
-                        ? "bg-hs-primary-very-light text-hs-primary"
-                        : "bg-hs-cream text-hs-text-secondary"
-                    )}
-                  >
-                    {entry.kind === "remedy" ? "Remedy" : "Medicine"}
-                  </span>
-                  <span className="text-caption-sm text-hs-text-tertiary">#{idx + 1}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      update(entry.id, { kind: entry.kind === "remedy" ? "medicine" : "remedy" })
-                    }
-                    disabled={formDisabled}
-                    className="text-caption-sm font-medium text-hs-text-tertiary hover:text-hs-ink disabled:opacity-40"
-                  >
-                    Switch type
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(entry.id)}
-                    disabled={formDisabled}
-                    className="text-rose-700 hover:text-rose-900 disabled:opacity-40"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block">
-                    <FieldLabel>{entry.kind === "remedy" ? "Remedy name" : "Medicine / supplement name"}</FieldLabel>
-                    <InputField
-                      value={entry.name}
-                      onChange={(v) => update(entry.id, { name: v })}
-                      placeholder={entry.kind === "remedy" ? "e.g. Nux Vomica, Pulsatilla…" : "e.g. Vitamin D3, Zinc…"}
-                      disabled={formDisabled}
-                    />
-                  </label>
-                  {entry.kind === "remedy" ? (
-                    <label className="block">
-                      <FieldLabel>Potency</FieldLabel>
-                      <DatalistSelect
-                        value={entry.potency}
-                        onChange={(v) => update(entry.id, { potency: v })}
-                        options={POTENCY_OPTS}
-                        placeholder="e.g. 30C, 200C, 1M"
-                        disabled={formDisabled}
-                        listId={`potency-${entry.id}`}
-                      />
-                    </label>
-                  ) : null}
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block">
-                    <FieldLabel>Dose</FieldLabel>
-                    <DatalistSelect
-                      value={entry.doseCount}
-                      onChange={(v) => update(entry.id, { doseCount: v })}
-                      options={DOSE_OPTS}
-                      placeholder="e.g. 4 pills, 10 drops"
-                      disabled={formDisabled}
-                      listId={`dose-${entry.id}`}
-                    />
-                  </label>
-                  <label className="block">
-                    <FieldLabel>Duration</FieldLabel>
-                    <DatalistSelect
-                      value={entry.duration}
-                      onChange={(v) => update(entry.id, { duration: v })}
-                      options={DURATION_OPTS}
-                      placeholder="e.g. 7 days, 2 weeks"
-                      disabled={formDisabled}
-                      listId={`duration-${entry.id}`}
-                    />
-                  </label>
-                </div>
-
-                {/* Frequency chips */}
-                <div>
-                  <FieldLabel>Frequency</FieldLabel>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {FREQ_OPTIONS.map(({ key, label }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => update(entry.id, { frequency: key })}
-                        disabled={formDisabled}
-                        className={cn(
-                          "rounded-full border px-2.5 py-1 text-caption-sm font-medium transition",
-                          entry.frequency === key
-                            ? "border-hs-primary/50 bg-hs-primary-very-light text-hs-primary"
-                            : "border-hs-border/50 bg-hs-paper text-hs-text-secondary hover:border-hs-primary/30"
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {entry.frequency === "custom" ? (
-                    <InputField
-                      value={entry.customFrequency}
-                      onChange={(v) => update(entry.id, { customFrequency: v })}
-                      placeholder="e.g. Every 4 hours, twice weekly"
-                      disabled={formDisabled}
-                      className="mt-2"
-                    />
-                  ) : null}
-                </div>
-
-                {/* Timing slots */}
-                <div>
-                  <FieldLabel>Timing (when to take)</FieldLabel>
-                  <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-                    {(["morning", "afternoon", "evening", "night"] as TimingSlot[]).map((slot) => {
-                      const on = entry.timingSlots.includes(slot);
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => toggleSlot(entry.id, slot)}
-                          disabled={formDisabled}
-                          className={cn(
-                            "rounded-lg border py-2 text-caption-sm font-semibold transition",
-                            on
-                              ? "border-hs-primary/50 bg-hs-primary text-white shadow-ds-sm"
-                              : "border-hs-border/50 bg-hs-paper text-hs-text-secondary hover:border-hs-primary/30"
-                          )}
-                        >
-                          {SLOT_SHORT[slot]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {entry.timingSlots.length > 0 ? (
-                    <p className="mt-1 text-caption-sm text-hs-text-tertiary">
-                      {entry.timingSlots.map((s) => SLOT_LABELS[s]).join(" + ")}
-                    </p>
-                  ) : null}
-                </div>
-
-                {/* Instructions */}
-                <label className="block">
-                  <FieldLabel>Patient instructions</FieldLabel>
-                  <TaField
-                    value={entry.instructions}
-                    onChange={(v) => update(entry.id, { instructions: v })}
-                    rows={2}
-                    placeholder="e.g. Take with milk. Avoid 30 min before/after food. Keep in mouth until dissolved."
-                    disabled={formDisabled}
-                  />
-                </label>
-              </div>
-            </SectionCard>
-          ))}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => addEntry("remedy")}
-            disabled={formDisabled}
-            className="inline-flex items-center gap-1.5 rounded-xl border-2 border-dashed border-hs-primary/30 bg-hs-primary-very-light/50 px-4 py-2 text-body-sm font-semibold text-hs-primary transition hover:border-hs-primary/60 disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add remedy
-          </button>
-          <button
-            type="button"
-            onClick={() => addEntry("medicine")}
-            disabled={formDisabled}
-            className="inline-flex items-center gap-1.5 rounded-xl border-2 border-dashed border-hs-border/50 px-4 py-2 text-body-sm font-semibold text-hs-text-secondary transition hover:border-hs-border-dark/60 disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add medicine / supplement
-          </button>
-        </div>
-
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => void savePrescription()}
-            disabled={busy || formDisabled}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-hs-primary/35 bg-hs-primary-very-light px-4 text-body-sm font-semibold text-hs-primary transition hover:bg-hs-primary/15 disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            Save prescription
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveStep("advice")}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-hs-primary px-5 text-body-sm font-semibold text-white shadow-ds-sm transition hover:bg-hs-primary-light"
-          >
-            Continue
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </StepWrapper>
-    );
-  }
-
-  function renderAdviceStep() {
-    const filtered = adviceTemplates.filter(
-      (t) =>
-        t.title.toLowerCase().includes(templateSearch.toLowerCase()) ||
-        t.content.toLowerCase().includes(templateSearch.toLowerCase()) ||
-        t.category.toLowerCase().includes(templateSearch.toLowerCase())
-    );
-
-    function applyTemplate(t: AdviceTemplate) {
-      if (t.category === "diet" || t.category === "restriction") {
-        setAdvice((prev) => ({
-          ...prev,
-          diet: prev.diet ? `${prev.diet}\n\n${t.content}` : t.content
-        }));
-      } else {
-        setAdvice((prev) => ({
-          ...prev,
-          lifestyle: prev.lifestyle ? `${prev.lifestyle}\n\n${t.content}` : t.content
-        }));
-      }
-    }
-
-    function applyPlan(plan: TreatmentPlan) {
-      setAdvice((prev) => {
-        const parts: { diet: string; lifestyle: string } = { diet: prev.diet, lifestyle: prev.lifestyle };
-        if (plan.dietAdvice || plan.restrictionAdvice) {
-          const combined = [plan.dietAdvice, plan.restrictionAdvice].filter(Boolean).join("\n\n");
-          parts.diet = prev.diet ? `${prev.diet}\n\n${combined}` : combined;
-        }
-        if (plan.lifestyleAdvice) {
-          parts.lifestyle = prev.lifestyle ? `${prev.lifestyle}\n\n${plan.lifestyleAdvice}` : plan.lifestyleAdvice;
-        }
-        return parts;
-      });
-      setStatusMsg(`Treatment plan "${plan.title}" applied.`);
-    }
-
-    return (
-      <StepWrapper
-        title="Advice"
-        description="Diet, lifestyle, and restrictions. Select from saved templates or type freely. Both are printed on the prescription."
-        onNext={() => setActiveStep("followup")}
-      >
-        {treatmentPlans.length > 0 ? (
-          <SectionCard>
-            <p className="text-body-sm font-semibold text-hs-ink">Treatment plans</p>
-            <p className="text-caption-sm text-hs-text-secondary">
-              Apply an entire plan in one click — diet, lifestyle, and restrictions all populated at once.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {treatmentPlans.map((plan) => (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => applyPlan(plan)}
-                  disabled={formDisabled}
-                  className="inline-flex flex-col rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/60 px-3 py-2 text-left text-caption-sm text-hs-primary transition hover:bg-hs-primary/10 disabled:opacity-40"
-                >
-                  <span className="font-semibold">{plan.title}</span>
-                  {plan.description ? <span className="mt-0.5 text-hs-primary/70">{plan.description}</span> : null}
-                </button>
-              ))}
-            </div>
-          </SectionCard>
-        ) : null}
-        <SectionCard>
-          <p className="text-body-sm font-semibold text-hs-ink">Quick templates</p>
-          <p className="text-caption-sm text-hs-text-secondary">
-            Tap any template to append it. Saves typing the same advice repeatedly.
-          </p>
-          <input
-            value={templateSearch}
-            onChange={(e) => setTemplateSearch(e.target.value)}
-            placeholder="Search templates…"
-            className="mt-2 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 px-3 py-2 text-body-sm text-hs-ink placeholder:text-hs-text-tertiary/70 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15"
-          />
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {filtered.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => applyTemplate(t)}
-                disabled={formDisabled}
-                className={cn(
-                  "rounded-lg border px-2.5 py-1.5 text-left text-caption-sm transition hover:opacity-80 disabled:opacity-40",
-                  CATEGORY_COLORS[t.category] ?? "border-hs-border/50 bg-hs-cream text-hs-ink"
-                )}
-                title={t.content}
-              >
-                <span className="font-semibold">{t.title}</span>
-              </button>
-            ))}
-            {filtered.length === 0 ? (
-              <p className="text-caption-sm text-hs-text-tertiary">No templates match.</p>
-            ) : null}
-          </div>
-
-          {/* Create new template */}
-          {newTemplate ? (
-            <div className="mt-4 space-y-2 rounded-xl border border-hs-border/50 bg-hs-cream/50 p-3">
-              <p className="text-caption-sm font-semibold text-hs-ink">Save new template</p>
-              <input
-                value={newTemplate.title}
-                onChange={(e) => setNewTemplate((t) => t ? { ...t, title: e.target.value } : t)}
-                placeholder="Template title"
-                className="w-full rounded-lg border border-hs-border/40 px-2.5 py-1.5 text-body-sm"
-              />
-              <select
-                value={newTemplate.category}
-                onChange={(e) => setNewTemplate((t) => t ? { ...t, category: e.target.value as AdviceTemplate["category"] } : t)}
-                className="w-full rounded-lg border border-hs-border/40 px-2.5 py-1.5 text-body-sm"
-              >
-                <option value="diet">Diet</option>
-                <option value="lifestyle">Lifestyle</option>
-                <option value="restriction">Restriction</option>
-              </select>
-              <textarea
-                value={newTemplate.content}
-                onChange={(e) => setNewTemplate((t) => t ? { ...t, content: e.target.value } : t)}
-                placeholder="Template content…"
-                rows={3}
-                className="w-full rounded-lg border border-hs-border/40 px-2.5 py-1.5 text-body-sm"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!newTemplate.title.trim() || !newTemplate.content.trim()) return;
-                    void createAdviceTemplate({
-                      title: newTemplate.title.trim(),
-                      category: newTemplate.category,
-                      content: newTemplate.content.trim()
-                    }).then(() =>
-                      fetchAdviceTemplates().then((t) => setAdviceTemplates(t)).catch(() => {})
-                    ).catch(() => {});
-                    setNewTemplate(null);
-                  }}
-                  className="rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-semibold text-white"
-                >
-                  Save template
-                </button>
-                <button type="button" onClick={() => setNewTemplate(null)} className="text-caption-sm text-hs-text-secondary">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setNewTemplate({ title: "", category: "lifestyle", content: "" })}
-              className="mt-2 inline-flex items-center gap-1 text-caption-sm font-semibold text-hs-primary hover:underline"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Create template
-            </button>
-          )}
-        </SectionCard>
-
-        <SectionCard>
-          <label className="block">
-            <p className="text-body-sm font-semibold text-hs-ink">Diet &amp; restrictions</p>
-            <TaField
-              value={advice.diet}
-              onChange={(v) => setAdvice((p) => ({ ...p, diet: v }))}
-              rows={4}
-              placeholder="Diet recommendations and food restrictions for this case…"
-              disabled={formDisabled}
-            />
-          </label>
-          <label className="mt-4 block">
-            <p className="text-body-sm font-semibold text-hs-ink">Lifestyle &amp; routines</p>
-            <TaField
-              value={advice.lifestyle}
-              onChange={(v) => setAdvice((p) => ({ ...p, lifestyle: v }))}
-              rows={4}
-              placeholder="Daily routines, exercise, sleep, emotional wellness…"
-              disabled={formDisabled}
-            />
-          </label>
-        </SectionCard>
-      </StepWrapper>
-    );
-  }
-
-  function renderFollowUpStep() {
-    return (
-      <StepWrapper
-        title="Follow-up plan"
-        description="Completely optional. Set a follow-up only if you want to schedule one now."
-        onNext={() => setActiveStep("finalize")}
-      >
-        <SectionCard>
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={followUpEnabled}
-              onChange={(e) => setFollowUpEnabled(e.target.checked)}
-              disabled={formDisabled}
-              className="h-4 w-4 rounded border-hs-border/60 text-hs-primary focus:ring-hs-primary/30"
-            />
-            <span className="text-body-sm font-semibold text-hs-ink">
-              Schedule a follow-up for this patient
-            </span>
-          </label>
-          {followUpEnabled ? (
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <FieldLabel>Follow-up date &amp; time</FieldLabel>
-                <input
-                  type="datetime-local"
-                  value={followUpRecommendedAt}
-                  onChange={(e) => setFollowUpRecommendedAt(e.target.value)}
-                  disabled={formDisabled}
-                  className="mt-1 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 px-3 py-2 text-body-sm text-hs-ink focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15 disabled:opacity-60"
-                />
-              </label>
-              <label className="block">
-                <FieldLabel>Reminder note (shown on prescription footer)</FieldLabel>
-                <TaField
-                  value={followUpNote}
-                  onChange={setFollowUpNote}
-                  rows={2}
-                  placeholder="e.g. Come back if symptoms worsen. Review in 3 weeks."
-                  disabled={formDisabled}
-                />
-              </label>
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={createFollowUpTask}
-                  onChange={(e) => setCreateFollowUpTask(e.target.checked)}
-                  disabled={formDisabled}
-                  className="h-4 w-4 rounded border-hs-border/60 text-hs-primary focus:ring-hs-primary/30"
-                />
-                <span className="text-body-sm text-hs-ink">
-                  Create a follow-up task in the queue when consultation is finalized
-                </span>
-              </label>
-            </div>
-          ) : null}
-        </SectionCard>
-      </StepWrapper>
-    );
-  }
-
-  function renderFinalizeStep() {
-    return (
-      <StepWrapper title="Finalize consultation">
-        {/* Letterhead — read-only from profile */}
-        <SectionCard className="border-hs-border/40">
-          <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-hs-cream text-hs-text-tertiary" aria-hidden>
-              <Settings className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-body-sm font-semibold text-hs-ink">Prescription letterhead</p>
-              <p className="text-caption-sm text-hs-text-secondary">
-                Your name, clinic, registration number, and signature come from your profile automatically — no re-entry needed here.
-              </p>
-              <div className="mt-2 space-y-0.5 text-caption-sm text-hs-text-secondary">
-                <p>
-                  <span className="font-medium text-hs-ink">{workspace?.doctorName ?? "—"}</span>
-                  {workspace?.qualification ? ` · ${workspace.qualification}` : ""}
-                </p>
-                <p>{workspace?.clinicName ?? "No clinic"}</p>
-                {!workspace?.qualification || !workspace.registrationNumber ? (
-                  <Link href="/settings" className="inline-block font-semibold text-hs-primary hover:underline">
-                    Complete letterhead in Settings →
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Patient copy visibility */}
-        <SectionCard>
-          <p className="text-body-sm font-semibold text-hs-ink">Patient copy — visible sections</p>
-          <div className="mt-3 space-y-2">
-            {(
-              [
-                ["showSymptoms", "Include complaints"] as const,
-                ["showNotes", "Include clinical notes"] as const,
-                ["showInstructions", "Include instructions list"] as const
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 text-body-sm text-hs-ink">
-                <input
-                  type="checkbox"
-                  checked={rxOutPrefs[key]}
-                  onChange={() =>
-                    setRxOutPrefs(setPrescriptionOutputPrefs({ [key]: !rxOutPrefs[key] }))
-                  }
-                  className="h-4 w-4 rounded border-hs-border/60 text-hs-primary"
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </SectionCard>
-
-        {/* Preview & export */}
-        <SectionCard>
-          <p className="text-body-sm font-semibold text-hs-ink">Preview &amp; export</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => openPreview("doctor")}
-              disabled={formDisabled}
-              className="rounded-xl border border-hs-border/60 bg-hs-paper py-2.5 text-body-sm font-semibold text-hs-ink transition hover:border-hs-primary/35 disabled:opacity-50"
-            >
-              Preview — doctor
-            </button>
-            <button
-              type="button"
-              onClick={() => openPreview("patient")}
-              disabled={formDisabled}
-              className="rounded-xl border border-hs-border/60 bg-hs-paper py-2.5 text-body-sm font-semibold text-hs-ink transition hover:border-hs-primary/35 disabled:opacity-50"
-            >
-              Preview — patient
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                openPrintWindow(buildPrescriptionDocumentHtml(buildDocOptions("doctor")), "Prescription")
-              }
-              disabled={formDisabled}
-              className="rounded-xl border border-hs-border/60 bg-hs-cream/60 py-2.5 text-body-sm font-semibold text-hs-ink transition hover:border-hs-primary/35 disabled:opacity-50"
-            >
-              Print — doctor
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                openPrintWindow(buildPrescriptionDocumentHtml(buildDocOptions("patient")), "Prescription")
-              }
-              disabled={formDisabled}
-              className="rounded-xl border border-hs-border/60 bg-hs-cream/60 py-2.5 text-body-sm font-semibold text-hs-ink transition hover:border-hs-primary/35 disabled:opacity-50"
-            >
-              Print — patient
-            </button>
-            <button
-              type="button"
-              onClick={() => void handlePdfDownload("doctor")}
-              disabled={formDisabled}
-              className="rounded-xl border border-hs-primary/30 bg-hs-primary-very-light py-2.5 text-body-sm font-semibold text-hs-primary transition hover:bg-hs-primary/15 disabled:opacity-50"
-            >
-              PDF — doctor
-            </button>
-            <button
-              type="button"
-              onClick={() => void handlePdfDownload("patient")}
-              disabled={formDisabled}
-              className="rounded-xl border border-hs-primary/30 bg-hs-primary-very-light py-2.5 text-body-sm font-semibold text-hs-primary transition hover:bg-hs-primary/15 disabled:opacity-50"
-            >
-              PDF — patient
-            </button>
-          </div>
-        </SectionCard>
-
-        {/* Finalize CTA or completion */}
-        {!sessionEnded ? (
-          <SectionCard className="border-hs-primary/20 bg-hs-primary-very-light/30">
-            <p className="text-body-md font-bold text-hs-ink">Ready to finalize?</p>
-            <p className="mt-1 text-body-sm text-hs-text-secondary">
-              This saves notes, prescription, and follow-up to the chart. You can still print and download after.
-            </p>
-            <label className="mt-3 flex items-center gap-2 text-body-sm text-hs-ink">
-              <input
-                type="checkbox"
-                checked={lockAfterFinalize}
-                onChange={(e) => setLockAfterFinalize(e.target.checked)}
-                className="h-4 w-4 rounded border-hs-border/60 text-hs-primary"
-              />
-              Lock editing after finalization
-            </label>
-            <button
-              type="button"
-              onClick={() => void finalizeConsultation()}
-              disabled={busy || sessionEnded}
-              className="mt-4 flex w-full min-h-12 items-center justify-center rounded-xl bg-hs-primary px-4 text-body-sm font-bold text-white shadow-ds-md transition hover:bg-hs-primary-light disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hs-primary/40"
-            >
-              {busy ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  Finalizing…
-                </>
-              ) : (
-                "✓ Finalize consultation"
-              )}
-            </button>
-          </SectionCard>
-        ) : (
-          <SectionCard className="border-emerald-200/70 bg-emerald-50/60">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600" aria-hidden />
-              <div>
-                <p className="text-body-sm font-bold text-emerald-900">Consultation finalized</p>
-                <p className="text-caption-sm text-emerald-800">
-                  Chart updated. Use the buttons above to print or download documents.
-                </p>
-              </div>
-            </div>
-            {patientId ? (
-              <Link
-                href={`/patients/${patientId}/timeline`}
-                className="mt-3 inline-flex items-center gap-1.5 text-body-sm font-semibold text-hs-primary hover:underline"
-              >
-                View patient chart →
-              </Link>
-            ) : null}
-          </SectionCard>
-        )}
-      </StepWrapper>
-    );
-  }
-
-  // ── Loading / error states ─────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -2554,33 +1396,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     );
   }
 
-  // ── Main render ────────────────────────────────────────────────────────────
-
-  function renderStep() {
-    switch (activeStep) {
-      case "patient":
-        return renderPatientStep();
-      case "history":
-        return renderHistoryStep();
-      case "examination":
-        return renderExaminationStep();
-      case "notes":
-        return renderCaseNotesStep();
-      case "ai":
-        return renderAiStep();
-      case "prescription":
-        return renderPrescriptionStep();
-      case "advice":
-        return renderAdviceStep();
-      case "followup":
-        return renderFollowUpStep();
-      case "finalize":
-        return renderFinalizeStep();
-      default:
-        return null;
-    }
-  }
-
   const LIFECYCLE_COLORS: Record<string, string> = {
     FINALIZED: "border-emerald-300/70 bg-emerald-50 text-emerald-900",
     REVIEWING: "border-amber-300/70 bg-amber-50 text-amber-900",
@@ -2590,57 +1405,43 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   return (
     <div className="flex h-[calc(100vh-var(--header-h,3.5rem))] flex-col overflow-hidden bg-hs-surface">
-      {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
       <header className="flex shrink-0 items-center gap-2 border-b border-hs-border/50 bg-hs-paper px-3 py-2 sm:gap-3 sm:px-4">
         <Link
           href="/consultation"
           className="inline-flex items-center gap-1.5 rounded-lg border border-hs-border/50 bg-hs-cream/60 px-2.5 py-1.5 text-caption-sm font-semibold text-hs-ink transition hover:border-hs-primary/30"
+          aria-label="Back to consultation hub"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           <span className="hidden sm:inline">Hub</span>
         </Link>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h1 className="font-heading truncate text-body-md font-bold text-hs-ink">
-              {patientName || "Consultation"}
-            </h1>
-            <span
-              className="rounded-full border border-hs-primary/25 bg-hs-primary-very-light px-2 py-0.5 text-caption-sm font-semibold text-hs-primary"
-              title={consultationMode === "ONLINE" ? "Online mode — video link coming soon" : undefined}
-            >
-              {consultationMode === "ONLINE" ? "Online (coming soon)" : "In-clinic"}
-            </span>
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-caption-sm font-medium",
-                LIFECYCLE_COLORS[lifecycleStatus] ?? "border-hs-border/50 bg-hs-cream text-hs-text-secondary"
-              )}
-            >
-              {lifecycleStatus.charAt(0) + lifecycleStatus.slice(1).toLowerCase()}
-            </span>
-          </div>
-        </div>
+        <span
+          className={cn(
+            "rounded-full border px-2 py-0.5 text-caption-sm font-medium",
+            LIFECYCLE_COLORS[lifecycleStatus] ?? "border-hs-border/50 bg-hs-cream text-hs-text-secondary"
+          )}
+        >
+          {lifecycleStatus.charAt(0) + lifecycleStatus.slice(1).toLowerCase()}
+        </span>
 
-        {/* Autosave */}
+        <div className="flex-1" />
+
         {autosaveLabel ? (
-          <span className="hidden items-center gap-1 text-caption-sm text-hs-text-tertiary sm:flex">
+          <span className="inline-flex items-center gap-1 text-caption-sm text-hs-text-tertiary">
             {serverSave === "saving" ? (
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             ) : (
               <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-hidden />
             )}
-            {autosaveLabel}
+            <span className="hidden sm:inline">{autosaveLabel}</span>
           </span>
         ) : null}
 
-        {/* AI Recording — PERSISTENT controls in top bar (hidden when feature is disabled) */}
         {!sessionEnded && workspace?.aiNotetakerEnabled ? (
           <div className="flex shrink-0 items-center gap-1.5">
             {liveAudio.phase === "recording" ? (
               <>
-                {/* Timer + recording indicator */}
-                <span className="hidden items-center gap-1.5 rounded-full border border-rose-300/70 bg-rose-50 px-2.5 py-1 text-caption-sm font-bold text-rose-700 sm:flex">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/70 bg-rose-50 px-2.5 py-1 text-caption-sm font-bold text-rose-700">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" aria-hidden />
                   {formatRecordingTime(liveAudio.elapsedSeconds)}
                 </span>
@@ -2648,22 +1449,22 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
                   type="button"
                   onClick={() => liveAudio.pauseRecording()}
                   className="inline-flex items-center gap-1 rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1.5 text-caption-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                  aria-label="Pause recording"
                 >
                   <Pause className="h-3 w-3" aria-hidden />
-                  <span className="hidden sm:inline">Pause</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => liveAudio.stopRecording()}
                   className="inline-flex items-center gap-1 rounded-full border border-rose-300/80 bg-rose-50 px-2.5 py-1.5 text-caption-sm font-bold text-rose-800 transition hover:bg-rose-100"
+                  aria-label="Stop recording"
                 >
                   <Square className="h-3 w-3" aria-hidden />
-                  <span className="hidden sm:inline">Stop</span>
                 </button>
               </>
             ) : liveAudio.phase === "paused" ? (
               <>
-                <span className="hidden items-center gap-1.5 rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-caption-sm font-bold text-amber-700 sm:flex">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-caption-sm font-bold text-amber-700">
                   <Pause className="h-3 w-3" aria-hidden />
                   {formatRecordingTime(liveAudio.elapsedSeconds)}
                 </span>
@@ -2689,107 +1490,135 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             ) : null}
           </div>
         ) : null}
-
-        {patientId ? (
-          <Link
-            href={`/patients/${encodeURIComponent(patientId)}/timeline`}
-            className="hidden rounded-lg border border-hs-border/50 px-2.5 py-1.5 text-caption-sm font-medium text-hs-primary transition hover:border-hs-primary/40 sm:inline-flex"
-          >
-            Chart
-          </Link>
-        ) : null}
       </header>
 
-      {/* ── SIDEBAR + MAIN ──────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside
-          className={cn(
-            "flex shrink-0 flex-col border-r border-hs-border/40 bg-hs-cream/50 transition-[width] duration-200",
-            sidebarCollapsed ? "w-12" : "w-48"
-          )}
-        >
-          <nav className="flex-1 overflow-y-auto py-2" aria-label="Consultation steps">
-            {STEP_LIST.map((step, idx) => {
-              const Icon = step.icon;
-              const done = stepDone[step.id];
-              const active = activeStep === step.id;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setActiveStep(step.id)}
-                  title={sidebarCollapsed ? step.label : undefined}
-                  className={cn(
-                    "group flex w-full items-center gap-2.5 px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-hs-primary/30",
-                    active
-                      ? "bg-hs-primary-very-light/90 text-hs-primary"
-                      : "text-hs-text-secondary hover:bg-hs-cream hover:text-hs-ink"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition",
-                      active
-                        ? "bg-hs-primary text-white shadow-ds-sm"
-                        : "bg-hs-paper/80 text-hs-text-secondary group-hover:text-hs-ink"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden />
-                    {done && !active ? (
-                      <span
-                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-hs-cream"
-                        aria-hidden
-                      />
-                    ) : null}
-                  </span>
-                  {!sidebarCollapsed ? (
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 text-left leading-tight",
-                        active ? "font-semibold" : "font-medium"
-                      )}
-                    >
-                      <span className="block text-[10px] font-medium text-hs-text-tertiary">
-                        {String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <span className="block text-caption-sm">{step.label}</span>
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
+      {patientId && ctx ? (
+        <ConsultationPatientBar
+          patientId={patientId}
+          patientName={patientName}
+          age={ctx.patientAge}
+          gender={ctx.patientGender}
+          phone={ctx.patientPhone}
+          allergies={patientAllergies}
+          visitType={ctx.consultationType}
+          lastVisitAt={ctx.lastVisitAt}
+          lastCaseOutcome={lastCaseOutcome}
+          consultationMode={consultationMode}
+        />
+      ) : null}
 
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed((v) => !v)}
-            className="flex items-center justify-center border-t border-hs-border/30 py-2.5 text-hs-text-tertiary transition hover:text-hs-ink"
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <ChevronRight
-              className={cn("h-4 w-4 transition-transform duration-200", !sidebarCollapsed && "rotate-180")}
-            />
-          </button>
-        </aside>
-
-        {/* Main content */}
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">{renderStep()}</div>
-        </main>
-      </div>
+      <ConsultationWorkspaceShell
+        mode={consultationMode}
+        patientId={patientId}
+        consultationId={id}
+        activeStep={activeStep}
+        stepDone={stepDone}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+        onSelectStep={selectStep}
+        activeDrawer={activeDrawer}
+        onActiveDrawerChange={setActiveDrawer}
+        aiEnabled={Boolean(workspace?.aiNotetakerEnabled)}
+        center={
+          <ConsultationContinuousFeed
+            ref={feedRef}
+            activeStep={activeStep}
+            readOnly={formDisabled}
+            stepExtras={stepExtras}
+            patient={patientSnapshot}
+            patientStep={patientStepValue}
+            onPatientStepChange={onPatientStepChange}
+            historyStep={historyStepValue}
+            onHistoryStepChange={onHistoryStepChange}
+            examinationStep={examinationStepValue}
+            onExaminationStepChange={onExaminationStepChange}
+            notesStep={notesStepValue}
+            onNotesStepChange={onNotesStepChange}
+            aiEnabled={Boolean(workspace?.aiNotetakerEnabled)}
+            aiStatus={aiStepStatus}
+            aiTranscript={transcriptInput}
+            aiDurationSec={liveAudio.elapsedSeconds}
+            aiIsMock={liveAudio.lastMock}
+            onAiStart={() => void liveAudio.startRecording()}
+            onAiPause={() => liveAudio.pauseRecording()}
+            onAiStop={() => liveAudio.stopRecording()}
+            onAiResume={() => liveAudio.resumeRecording()}
+            onAiTranscriptChange={setTranscriptInput}
+            prescriptionEntries={rxEntries}
+            onPrescriptionChange={setRxEntries}
+            adviceCards={adviceCards}
+            onAdviceChange={onAdviceCardsChange}
+            followUpStep={followUpStepValue}
+            onFollowUpChange={onFollowUpStepChange}
+            finalizeItems={finalizeItems}
+            alreadyFinalized={sessionEnded && lifecycleStatus === "FINALIZED"}
+          />
+        }
+        footer={
+          <ConsultationWorkflowFooter
+            activeStep={activeStep}
+            onPrev={goPrevStep}
+            onNext={goNextStep}
+            disableNext={formDisabled}
+            disablePrev={formDisabled}
+            sessionEnded={sessionEnded}
+            nextLabel={activeStep === "followup" ? "Review & finalize" : undefined}
+          />
+        }
+        aiDrawer={
+          <AICopilotDrawer
+            open={activeDrawer === "ai"}
+            onClose={() => setActiveDrawer("none")}
+            isRecording={liveAudio.phase === "recording"}
+            isMock={liveAudio.lastMock}
+            transcript={transcriptInput}
+            onTranscriptChange={setTranscriptInput}
+            aiDraft={aiDraft}
+            aiDraftReady={aiDraftGenerated}
+            isGenerating={isGeneratingDraft}
+            onGenerate={() => void generateAiNotes()}
+            onInsertIntoNotes={insertAiIntoNotes}
+            differentialHints={differentialHints}
+            readOnly={formDisabled}
+          />
+        }
+        scheduleDrawer={
+          <ScheduleFollowUpDrawer
+            open={activeDrawer === "schedule"}
+            onClose={() => setActiveDrawer("none")}
+            value={followUpStepValue}
+            onChange={onFollowUpStepChange}
+            createTaskOnFinalize={createFollowUpTask}
+            onCreateTaskChange={setCreateFollowUpTask}
+            readOnly={formDisabled}
+          />
+        }
+      />
 
       <PrescriptionPreviewModal
         open={previewOpen}
         title={previewTitle}
         html={previewHtml}
         onClose={() => setPreviewOpen(false)}
+        onPrint={() => handlePrintPrescription(previewMode)}
       />
 
-      {/* Toast */}
       {statusMsg ? (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 px-4">
-          <p className="rounded-xl border border-hs-border/60 bg-hs-paper px-4 py-2.5 text-caption-sm font-medium text-hs-ink shadow-ds-md">
+        <div
+          className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 px-4"
+          role="status"
+          aria-live="polite"
+        >
+          <p
+            className={cn(
+              "rounded-xl border px-4 py-2.5 text-caption-sm font-medium shadow-ds-md",
+              /failed|error|invalid|could not/i.test(statusMsg)
+                ? "border-rose-300/70 bg-rose-50 text-rose-900"
+                : /finalized|sent|saved/i.test(statusMsg)
+                  ? "border-emerald-300/70 bg-emerald-50 text-emerald-900"
+                  : "border-hs-border/60 bg-hs-paper text-hs-ink"
+            )}
+          >
             {statusMsg}
           </p>
         </div>
