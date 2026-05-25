@@ -11,6 +11,9 @@ const V2_OPTIONAL_TABLES = [
   "encounter_observations"
 ] as const;
 
+/** Telemedicine / online appointments — required for production if ONLINE visits are used. */
+const TELEMEDICINE_TABLES = ["patient_access_tokens", "appointments"] as const;
+
 /**
  * Service-role head query per table. Missing RLS/permission on service role is acceptable;
  * a missing *relation* fails startup in production.
@@ -47,6 +50,26 @@ export async function assertRequiredTablesExist(admin: SupabaseClient): Promise<
         message: v2Err.message,
         hint: "Apply supabase/migrations/20260520000000_v2_consult_workspace.sql via supabase db push"
       });
+    }
+  }
+
+  for (const table of TELEMEDICINE_TABLES) {
+    const probe =
+      table === "appointments"
+        ? admin.from(table).select("consultation_mode").limit(0)
+        : admin.from(table).select("id", { count: "exact", head: true }).limit(0);
+    const { error: telErr } = await probe;
+    if (telErr) {
+      logger.error("telemedicine_schema_check_failed", {
+        table,
+        message: telErr.message,
+        hint: "Apply supabase/migrations/20260524000000_online_consultation.sql — see docs/SUPABASE_MIGRATIONS.md"
+      });
+      if (isProd) {
+        throw new Error(
+          `Database schema not ready for telemedicine: "${table}" is missing required objects. ${telErr.message}`
+        );
+      }
     }
   }
 }

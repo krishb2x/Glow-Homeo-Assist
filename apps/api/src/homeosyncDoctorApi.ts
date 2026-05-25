@@ -6,6 +6,7 @@ import { authRequired, requireAppRoles } from "./auth";
 import { getDb } from "./db";
 import { resolveClinicScope } from "./lib/clinicScope";
 import { jsonError, jsonSuccess } from "./lib/apiEnvelope";
+import { AppError } from "./lib/errors";
 import { jsonErrorDb } from "./lib/safeError";
 import {
   buildMyDay,
@@ -131,17 +132,25 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
       let joinToken: string | null = null;
 
       if (parsed.data.consultationMode === "ONLINE") {
-        const prep = await prepareOnlineAppointment({
-          client,
-          admin: supabaseAdmin,
-          clinicId,
-          appointmentId,
-          patientId: parsed.data.patientId,
-          doctorId: docId,
-          scheduledFor: parsed.data.scheduledFor
-        });
-        meetingUrl = prep.meetingUrl;
-        joinToken = prep.joinToken;
+        try {
+          const prep = await prepareOnlineAppointment({
+            client,
+            admin: supabaseAdmin,
+            clinicId,
+            appointmentId,
+            patientId: parsed.data.patientId,
+            doctorId: docId,
+            scheduledFor: parsed.data.scheduledFor
+          });
+          meetingUrl = prep.meetingUrl;
+          joinToken = prep.joinToken;
+        } catch (e) {
+          if (e instanceof AppError && e.code === "SCHEMA_NOT_READY") {
+            jsonError(res, e.statusCode, e.message, { code: e.code });
+            return;
+          }
+          throw e;
+        }
       }
 
       const { data, error } = await client

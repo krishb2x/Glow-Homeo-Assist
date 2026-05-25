@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuid } from "uuid";
+import { AppError } from "../../lib/errors";
+import { isMissingDbObjectError, SCHEMA_MIGRATION_HINT } from "../../lib/dbErrors";
 import type { PatientAccessPurpose } from "./types";
 
 function publicAppBase(): string {
@@ -40,7 +42,16 @@ export async function createPatientAccessToken(args: {
     token,
     expires_at: expiresAt
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingDbObjectError(error)) {
+      throw new AppError(`patient_access_tokens table is missing. ${SCHEMA_MIGRATION_HINT}`, {
+        code: "SCHEMA_NOT_READY",
+        statusCode: 503,
+        kind: "operational"
+      });
+    }
+    throw new Error(error.message);
+  }
 
   const url =
     args.purpose === "view_prescription" || args.purpose === "view_report"
