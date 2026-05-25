@@ -3052,6 +3052,19 @@ if (process.env.VITEST !== "true") {
       logger.error("db_schema_bootstrap_failed", { message: e instanceof Error ? e.message : String(e) });
       process.exit(1);
     }
+    server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        logger.error("port_in_use", {
+          port,
+          message: err.message,
+          hint: `Port ${port} is already in use. Stop the other API process or set PORT to a free port (e.g. 4001). On Windows: netstat -ano | findstr :${port}`
+        });
+        process.exit(1);
+        return;
+      }
+      logger.error("server_listen_failed", { message: err.message });
+      process.exit(1);
+    });
     server.listen(port, () => {
       logger.info("HomeoSync API listening", { port, ws: "/ws/consultation" });
       startBackgroundJobs(supabaseAdmin);

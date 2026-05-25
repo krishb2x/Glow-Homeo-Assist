@@ -972,10 +972,15 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     [clinicalRecord.clinicalNotes.diagnosisThinking]
   );
 
+  // Re-scroll after data finishes loading so the initially selected step lines up
+  // under the sticky strip. Step changes inside the session are already handled by
+  // `selectStep`, so we don't add `activeStep` to the deps (avoids double scroll
+  // and double-render-induced jank).
   useEffect(() => {
     if (loading || loadError) return;
     scrollFeedToWorkflowStep(feedRef.current, activeStep);
-  }, [activeStep, loading, loadError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, loadError]);
 
   const insertAiIntoNotes = useCallback(() => {
     setDraft((prev) => ({
@@ -1242,6 +1247,11 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         setRxOutPrefs: (prefs) => setRxOutPrefs(setPrescriptionOutputPrefs(prefs)),
         openPreview
       }),
+    // We deliberately exclude function expressions (`savePatient`, `generateAiNotes`,
+    // `insertAiIntoNotes`, `finalizeConsultation`, `openPreview`, `savePriorOutcome`)
+    // because they are re-created every render and would force `stepExtras` to be
+    // rebuilt on every keystroke. Their *inputs* are tracked, which is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       formDisabled,
       busy,
@@ -1255,19 +1265,15 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       lastCaseOutcome,
       patientForm,
       patientEditOpen,
-      savePatient,
       pendingPriorOutcome,
       priorOutcomeSaved,
       priorOutcomeValue,
       priorOutcomeAssessment,
-      savePriorOutcome,
       aiDraftGenerated,
       aiDraft,
       selectStep,
       transcriptInput,
       isGeneratingDraft,
-      generateAiNotes,
-      insertAiIntoNotes,
       liveAudio,
       prevRx,
       showPrevRx,
@@ -1285,10 +1291,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       sendPrescriptionWhatsApp,
       sendPrescriptionEmail,
       notifyEmail,
-      ctx,
-      finalizeConsultation,
-      rxOutPrefs,
-      openPreview
+      rxOutPrefs
     ]
   );
 
@@ -1589,6 +1592,8 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             aiTranscript={transcriptInput}
             aiDurationSec={liveAudio.elapsedSeconds}
             aiIsMock={liveAudio.lastMock}
+            aiError={liveAudio.err}
+            onAiDismissError={liveAudio.clearError}
             onAiStart={() => void liveAudio.startRecording()}
             onAiPause={() => liveAudio.pauseRecording()}
             onAiStop={() => liveAudio.stopRecording()}

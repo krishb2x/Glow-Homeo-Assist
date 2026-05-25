@@ -60,16 +60,19 @@ export async function assertRequiredTablesExist(admin: SupabaseClient): Promise<
         : admin.from(table).select("id", { count: "exact", head: true }).limit(0);
     const { error: telErr } = await probe;
     if (telErr) {
-      logger.error("telemedicine_schema_check_failed", {
+      const payload = {
         table,
         message: telErr.message,
         hint: "Apply supabase/migrations/20260524000000_online_consultation.sql — see docs/SUPABASE_MIGRATIONS.md"
-      });
+      };
       if (isProd) {
+        logger.error("telemedicine_schema_check_failed", payload);
         throw new Error(
           `Database schema not ready for telemedicine: "${table}" is missing required objects. ${telErr.message}`
         );
       }
+      // Dev: warn only — in-clinic visits work; online appointments need the migration.
+      logger.warn("telemedicine_schema_check_failed", payload);
     }
   }
 }

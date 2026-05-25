@@ -21,14 +21,24 @@ export type NoteShape = {
 };
 
 function pickMimeType(): { mime: string; ok: boolean } {
-  const candidates = ["audio/webm;codecs=opus", "audio/webm;codecs=vp8,opus", "audio/webm"];
+  if (typeof MediaRecorder === "undefined") {
+    return { mime: "audio/webm", ok: false };
+  }
+  // Ordered from "ideal" → "acceptable". Mp4 covers Safari ≥ 14.5.
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm;codecs=vp8,opus",
+    "audio/webm",
+    "audio/mp4;codecs=mp4a.40.2",
+    "audio/mp4",
+    "audio/ogg;codecs=opus"
+  ];
   for (const c of candidates) {
-    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c)) {
+    if (MediaRecorder.isTypeSupported(c)) {
       return { mime: c, ok: true };
     }
   }
-  if (typeof MediaRecorder !== "undefined") return { mime: "audio/webm", ok: true };
-  return { mime: "audio/wav", ok: false };
+  return { mime: "", ok: false };
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -210,46 +220,92 @@ export function useConsultationLiveAudio(consultationId: string, opts: Options) 
 
   // ── Start recording ────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
-    if (!sessionOpen) return;
-    setErr(null);
-    const t = await getAccessTokenForClient();
-    if (!t) { setErr("Not signed in"); return; }
-    const { mime, ok: mimeOk } = pickMimeType();
-    if (!mimeOk) {
-      setErr("This browser does not support audio recording");
+    if (!sessionOpen) {
+      setErr("Consultation is not active — recording is disabled.");
       return;
     }
+    setErr(null);
+
+    // Guard: if a previous session left state behind, clean it before opening a new one.
+    stopStreams();
+    closeWs();
+
+    const t = await getAccessTokenForClient();
+    if (!t) {
+      setErr("Your session expired — please sign in again to record.");
+      return;
+    }
+    const { mime, ok: mimeOk } = pickMimeType();
+    if (!mimeOk) {
+      setErr("Your browser does not support audio recording. Try the latest Chrome, Edge, or Safari.");
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setErr("Microphone APIs are unavailable in this browser context.");
+      return;
+    }
+
     setBusy(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true }
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
       streamRef.current = stream;
+
       const ws = new WebSocket(buildConsultationWebSocketUrl(t));
       wsRef.current = ws;
       const saveAudio = saveAudioForReview;
       ws.addEventListener("message", (ev) => onMsgRef.current?.(String(ev.data)));
+      // Surface unexpected socket closures so the doctor sees a real status.
+      ws.addEventListener("close", (ev) => {
+        if (ev.code !== 1000 && recRef.current && recRef.current.state !== "inactive") {
+          setErr("Live transcription disconnected. Tap Stop & Draft, then Start to retry.");
+        }
+      });
+      ws.addEventListener("error", () => {
+        setErr("Transcription connection error. Check your network and try again.");
+      });
+
       await whenOpen(ws);
       await whenMessageType(ws, "hello", 12_000);
       ws.send(JSON.stringify({ type: "start", consultationId, saveAudio, mimeType: mime }));
       await whenMessageType(ws, "ready", 15_000);
+
       const rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 128_000 });
       recRef.current = rec;
       rec.ondataavailable = (e) => {
         const w = wsRef.current;
         if (!e.data.size || w?.readyState !== WebSocket.OPEN) return;
         void (async () => {
-          const b64 = await blobToBase64(e.data);
-          const seq = seqRef.current++;
-          w.send(JSON.stringify({ type: "chunk", data: b64, mimeType: mime, seq }));
+          try {
+            const b64 = await blobToBase64(e.data);
+            const seq = seqRef.current++;
+            w.send(JSON.stringify({ type: "chunk", data: b64, mimeType: mime, seq }));
+          } catch {
+            // a single dropped chunk is non-fatal — the model windows the last 1.5 MB.
+          }
         })();
       };
+      rec.onerror = () => {
+        setErr("Microphone capture error. Try again or check device permissions.");
+      };
+
       setPhase("recording");
       resetTimer();
       startTimer();
       rec.start(2000);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not start live capture");
+      const msg = e instanceof Error ? e.message : "Could not start live capture";
+      // Friendly messaging for the common permission and timeout cases.
+      if (/permission|denied|NotAllowedError/i.test(msg)) {
+        setErr("Microphone permission denied. Allow access in your browser settings to record.");
+      } else if (/NotFoundError|requested device/i.test(msg)) {
+        setErr("No microphone detected. Plug one in (or check audio settings) and try again.");
+      } else if (/handshake timeout/i.test(msg)) {
+        setErr("AI transcription server did not respond in time. Try again in a moment.");
+      } else {
+        setErr(msg);
+      }
       stopStreams();
       closeWs();
       setPhase("idle");
@@ -299,10 +355,18 @@ export function useConsultationLiveAudio(consultationId: string, opts: Options) 
     stopStreams();
     pauseTimer();
     setTimeout(() => { closeWs(); }, 500);
-    setPhase("reviewing");
-    if (saveAudioForReview) setHasStagingAudio(true);
-    else setHasStagingAudio(false);
+    if (saveAudioForReview) {
+      setHasStagingAudio(true);
+      setPhase("reviewing");
+    } else {
+      setHasStagingAudio(false);
+      // Skip the staging-review screen when nothing is being kept — let the
+      // doctor immediately see the draft and continue the visit.
+      setPhase("idle");
+    }
   }, [closeWs, phase, saveAudioForReview, stopStreams, pauseTimer]);
+
+  const clearError = useCallback(() => setErr(null), []);
 
   // ── Finalize / discard audio ───────────────────────────────────────────────
   const discardStagingAudio = useCallback(async () => {
@@ -345,6 +409,7 @@ export function useConsultationLiveAudio(consultationId: string, opts: Options) 
     lastMock,
     hasStagingAudio,
     err,
+    clearError,
     busy,
     elapsedSeconds,
     startRecording,

@@ -57,6 +57,8 @@ export type ConsultationContinuousFeedProps = {
   aiTranscript: string;
   aiDurationSec: number;
   aiIsMock: boolean;
+  aiError?: string | null;
+  onAiDismissError?: () => void;
   aiDrawerSlot?: ReactNode;
   onAiStart: () => void;
   onAiPause: () => void;
@@ -99,8 +101,9 @@ function StepBlock({
   const on = activeStep === stepId;
   return (
     <div
+      // scroll-mt clears the sticky progress strip (~5rem on mobile, ~6rem with chip row on lg)
       className={cn(
-        "scroll-mt-4 rounded-xl transition",
+        "scroll-mt-24 rounded-xl transition lg:scroll-mt-28",
         on && "ring-2 ring-hs-primary/15 ring-offset-2 ring-offset-hs-surface"
       )}
       data-workflow-step={stepId}
@@ -137,6 +140,8 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
       aiTranscript,
       aiDurationSec,
       aiIsMock,
+      aiError,
+      onAiDismissError,
       aiDrawerSlot,
       onAiStart,
       onAiPause,
@@ -221,6 +226,8 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
             transcript={aiTranscript}
             durationSec={aiDurationSec}
             isMock={aiIsMock}
+            error={aiError ?? null}
+            onDismissError={onAiDismissError}
             drawerSlot={aiDrawerSlot}
             onStart={onAiStart}
             onPause={onAiPause}
@@ -286,16 +293,32 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
 
 /** Scroll the feed container to the numbered step (1–9). */
 export function scrollFeedToStep(feedEl: HTMLElement | null, stepNumber: number): void {
-  feedEl?.querySelector(`[data-step-number="${stepNumber}"]`)?.scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-  });
+  const idx = Math.max(0, Math.min(stepNumber - 1, 8));
+  scrollFeedToWorkflowStep(feedEl, [
+    "patient",
+    "history",
+    "examination",
+    "notes",
+    "ai",
+    "prescription",
+    "advice",
+    "followup",
+    "finalize"
+  ][idx] as ConsultationStep);
 }
 
-/** Scroll by workflow step id (uses stepIndex + 1). */
+/**
+ * Scroll the feed container so the targeted step's outer block sits just below the
+ * sticky progress strip. We select the outer `[data-workflow-step]` (not the inner
+ * StepShell number badge) so the ring + extras stay visually anchored.
+ */
 export function scrollFeedToWorkflowStep(
   feedEl: HTMLElement | null,
   step: ConsultationStep
 ): void {
-  scrollFeedToStep(feedEl, stepIndex(step) + 1);
+  const node = feedEl?.querySelector<HTMLElement>(`[data-workflow-step="${step}"]`);
+  if (!node) return;
+  // `scroll-mt-24/lg:scroll-mt-28` on the block tells the browser to add top
+  // padding so the heading isn't hidden under the sticky strip.
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
 }
