@@ -97,6 +97,8 @@ export type MemoSummary = {
   pinnedCount: number;
   dueTodayCount: number;
   topUrgent: MemoOut[];
+  /** Priority-sorted actionable reminders (up to 12). */
+  actionQueue: MemoOut[];
 };
 
 export async function getMemoSummary(
@@ -123,7 +125,7 @@ export async function getMemoSummary(
     return t >= startOfDay.getTime() && t < endOfDay.getTime();
   });
 
-  const topUrgent = [...open]
+  const actionQueue = [...open]
     .sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
@@ -132,7 +134,7 @@ export async function getMemoSummary(
       const bd = b.dueAt ? new Date(b.dueAt).getTime() : now + 86400000 * 365;
       return ad - bd;
     })
-    .slice(0, 6);
+    .slice(0, 12);
 
   return {
     openCount: open.length,
@@ -140,7 +142,8 @@ export async function getMemoSummary(
     overdueCount: overdue.length,
     pinnedCount: pinned.length,
     dueTodayCount: dueToday.length,
-    topUrgent
+    topUrgent: actionQueue.slice(0, 6),
+    actionQueue
   };
 }
 

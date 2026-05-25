@@ -6,12 +6,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, UserPlus } from "lucide-react";
 import { PatientListSkeleton } from "../../../components/clinic/SkeletonCard";
 import { PatientVisitCard } from "../../../components/clinic/workflow/PatientVisitCard";
+import { OperationalQueuePanel } from "../../../components/clinic/dashboard/OperationalQueuePanel";
 import { PageHeader } from "../../../components/platform/PageHeader";
 import {
-  fetchPatients,
+  fetchMyDay,
+  fetchPatientsPage,
   getToken,
   isLocalCalendarToday,
+  searchPatientsLight,
   startConsultation,
+  type MyDayResponse,
   type PatientListItem
 } from "../../../lib/doctor-api";
 import { ErrorState } from "../../../components/ui/LoadState";
@@ -43,9 +47,14 @@ export default function ConsultationStartPage(): JSX.Element {
   const searchParams = useSearchParams();
   const appointmentIdFromQuery = searchParams.get("appointmentId");
   const [list, setList] = useState<PatientListItem[]>([]);
+  const [totalPatients, setTotalPatients] = useState(0);
+  const [myDay, setMyDay] = useState<MyDayResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<unknown>(null);
   const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<PatientListItem[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [browseAll, setBrowseAll] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
   const autoStartedRef = useRef(false);
 
@@ -53,7 +62,14 @@ export default function ConsultationStartPage(): JSX.Element {
     setErr(null);
     setLoading(true);
     try {
-      setList(await fetchPatients());
+      const [page, day] = await Promise.all([
+        fetchPatientsPage({ limit: 50, offset: 0, sort: "last_visit_at", sortDir: "desc" }),
+        fetchMyDay(3)
+      ]);
+      setList(page.items);
+      setTotalPatients(page.total);
+      setMyDay(day);
+      if (page.total <= 30) setBrowseAll(true);
     } catch (e) {
       setErr(e);
     } finally {
@@ -105,13 +121,32 @@ export default function ConsultationStartPage(): JSX.Element {
   }, [list, patientIdFromQuery]);
 
   useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      void searchPatientsLight(q, 20)
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 280);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
     if (autoStartedRef.current) return;
-    if (!patientIdFromQuery || list.length === 0) return;
-    const p = list.find((x) => x.id === patientIdFromQuery);
+    if (!patientIdFromQuery) return;
+    const p =
+      list.find((x) => x.id === patientIdFromQuery) ??
+      searchResults?.find((x) => x.id === patientIdFromQuery);
     if (!p) return;
     autoStartedRef.current = true;
     void quickStart(p.id);
-  }, [list, patientIdFromQuery, quickStart]);
+  }, [list, searchResults, patientIdFromQuery, quickStart]);
 
   const { today, other } = useMemo(() => {
     const t: PatientListItem[] = [];
@@ -123,6 +158,9 @@ export default function ConsultationStartPage(): JSX.Element {
     return { today: t, other: o };
   }, [list]);
 
+  const largeRoster = totalPatients > 30;
+  const showSearchOnly = largeRoster && !browseAll && !search.trim();
+
   const filteredToday = useMemo(
     () => (search.trim() ? today.filter((p) => matchesSearch(p, search)) : today),
     [today, search]
@@ -131,10 +169,10 @@ export default function ConsultationStartPage(): JSX.Element {
     () => (search.trim() ? other.filter((p) => matchesSearch(p, search)) : other),
     [other, search]
   );
-  const searchFlat = useMemo(
-    () => (search.trim() ? list.filter((p) => matchesSearch(p, search)) : null),
-    [list, search]
-  );
+  const searchFlat = useMemo(() => {
+    if (!search.trim()) return null;
+    return searchResults ?? list.filter((p) => matchesSearch(p, search));
+  }, [list, search, searchResults]);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -183,12 +221,15 @@ export default function ConsultationStartPage(): JSX.Element {
           {consultationModeFromQuery === "ONLINE" ? "Online video" : "In-clinic"}
         </span>
         <p className="text-caption-sm text-hs-text-secondary">
-          {list.length > 0 ? `${list.length} patients in roster` : "No patients yet"}
+          {totalPatients > 0 ? `${totalPatients} patients in roster` : "No patients yet"}
+          {largeRoster && !browseAll ? " · search to find a patient quickly" : null}
           {consultationModeFromQuery === "ONLINE"
             ? " · Patient receives join link on WhatsApp/email when booked from Schedule"
             : null}
         </p>
       </div>
+
+      {!loading ? <OperationalQueuePanel myDay={myDay} className="mb-6" /> : null}
 
       {err ? (
         <div className="mb-6">
@@ -218,12 +259,29 @@ export default function ConsultationStartPage(): JSX.Element {
             </Link>
           </div>
         </div>
+      ) : showSearchOnly ? (
+        <section className={cn(DS_SURFACE_DASHED, "p-8 text-center")} aria-label="Patient search">
+          <p className="font-heading text-body-md font-semibold text-hs-ink">Search to start a visit</p>
+          <p className="mx-auto mt-2 max-w-md text-body-sm text-hs-text-secondary">
+            Your clinic has {totalPatients} patients. Type a name or phone number above — we won&apos;t load the full roster
+            until you need it.
+          </p>
+          <button
+            type="button"
+            onClick={() => setBrowseAll(true)}
+            className="mt-4 text-caption-sm font-semibold text-hs-primary hover:underline"
+          >
+            Browse recent 50 anyway →
+          </button>
+        </section>
       ) : searchFlat ? (
         <section aria-label="Search results">
           <h2 className="mb-3 text-caption-sm font-bold uppercase tracking-[0.14em] text-hs-text-tertiary">
-            Search results · {searchFlat.length}
+            Search results · {searching ? "…" : searchFlat.length}
           </h2>
-          {searchFlat.length === 0 ? (
+          {searching ? (
+            <PatientListSkeleton count={3} />
+          ) : searchFlat.length === 0 ? (
             <p className={cn(DS_SURFACE_DASHED, "p-6 text-body-sm text-hs-text-secondary")}>
               No match — try a shorter name or the phone number.
             </p>

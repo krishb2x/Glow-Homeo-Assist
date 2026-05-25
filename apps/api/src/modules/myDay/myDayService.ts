@@ -337,10 +337,18 @@ export async function buildMyDay(
     .from("consultations")
     .select("id,patient_id,started_at,consultation_mode,attending_user_id")
     .eq("clinic_id", clinicId)
-    .is("ended_at", null);
+    .is("ended_at", null)
+    .order("started_at", { ascending: false })
+    .limit(80);
 
   const livePatientIds = (liveRows ?? []).map((c) => (c as { patient_id: string }).patient_id);
   const liveNames = await loadPatientNames(client, livePatientIds);
+
+  /** One row per patient — newest open visit wins (avoids duplicate patient noise on dashboard). */
+  const liveByPatient = new Map<
+    string,
+    { id: string; patient_id: string; started_at: string; consultation_mode: string }
+  >();
 
   for (const c of liveRows ?? []) {
     const cr = c as {
@@ -353,6 +361,12 @@ export async function buildMyDay(
     if (claims.role === "DOCTOR" && cr.attending_user_id && cr.attending_user_id !== claims.userId) {
       continue;
     }
+    if (!liveByPatient.has(cr.patient_id)) {
+      liveByPatient.set(cr.patient_id, cr);
+    }
+  }
+
+  for (const cr of liveByPatient.values()) {
     const row = {
       id: cr.id,
       patientId: cr.patient_id,

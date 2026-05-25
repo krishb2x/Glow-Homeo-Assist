@@ -4,17 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Activity,
   Calendar,
-  CheckCircle2,
   Clock,
-  MessageCircle,
   Mic,
-  Pill,
   Search,
-  Stethoscope,
   Users,
-  Video,
   X
 } from "lucide-react";
 import {
@@ -24,6 +18,7 @@ import {
   fetchPatientsPage,
   fetchWorkspaceContext,
   getToken,
+  searchPatientsLight,
   type DashboardRecentItem,
   type InboxMessageItem,
   type MyDayResponse,
@@ -36,6 +31,8 @@ import { PatientTagBadges } from "../PatientTagBadges";
 import { ClinicalWorkflowOverview } from "../workflow/ClinicalWorkflowOverview";
 import { DashboardMemoWidget } from "../memos/DashboardMemoWidget";
 import { TodayScheduleTimeline } from "./TodayScheduleTimeline";
+import { OperationalQueuePanel } from "./OperationalQueuePanel";
+import { DashboardRightRail } from "./DashboardRightRail";
 import {
   formatTimeLabel,
   greetingForDate,
@@ -44,20 +41,6 @@ import {
   nextTodaySlot,
   sameLocalDay
 } from "./home-utils";
-
-function formatRelative(iso: string): string {
-  try {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.round(diff / 60_000);
-    if (mins < 2) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.round(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  } catch {
-    return "";
-  }
-}
 
 function DoctorAvatar({ name }: { name: string }): JSX.Element {
   const i = initialsFromName(name);
@@ -87,169 +70,6 @@ function MetricPill({ label, value, href }: { label: string; value: number; href
   return inner;
 }
 
-function ActiveVisitsBanner({
-  inClinic,
-  online
-}: {
-  inClinic: Array<{ id: string; patientName: string; startedAt: string }>;
-  online: Array<{ id: string; patientName: string; startedAt: string }>;
-}): JSX.Element | null {
-  const all = [...inClinic, ...online];
-  if (all.length === 0) return null;
-  return (
-    <section
-      className="ds-card border-hs-primary/20 bg-hs-primary-very-light/50 p-4"
-      aria-label="Visits in progress"
-    >
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-hs-primary" aria-hidden />
-        <h2 className="font-heading text-body-md font-semibold text-hs-ink">
-          {all.length === 1 ? "1 visit in progress" : `${all.length} visits in progress`}
-        </h2>
-      </div>
-      <ul className="mt-3 space-y-2">
-        {all.map((v) => {
-          const isOnline = online.some((o) => o.id === v.id);
-          return (
-            <li key={v.id}>
-              <Link
-                href={`/consultation/${encodeURIComponent(v.id)}`}
-                className="flex items-center justify-between gap-2 rounded-xl border border-hs-border/30 bg-hs-paper px-3.5 py-2.5 text-body-sm transition hover:border-hs-primary/35 hover:bg-hs-primary-very-light/30"
-              >
-                <span className="flex items-center gap-2 font-medium text-hs-ink">
-                  {isOnline ? (
-                    <Video className="h-4 w-4 text-sky-600" aria-hidden />
-                  ) : (
-                    <Stethoscope className="h-4 w-4 text-hs-primary" aria-hidden />
-                  )}
-                  {v.patientName}
-                </span>
-                <span className="shrink-0 text-caption-sm font-semibold text-hs-primary">Resume →</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-function DashboardRightRail({
-  followUps,
-  activity,
-  overdueCount
-}: {
-  followUps: NonNullable<MyDayResponse["followUps"]>;
-  activity: DashboardRecentItem[];
-  overdueCount: number;
-}): JSX.Element {
-  return (
-    <section className="ds-card ds-card-pad">
-      <h2 className="font-heading text-body-md font-semibold text-hs-ink">
-        Follow-ups
-        {followUps.length > 0 ? (
-          <span className="ml-1.5 font-normal text-hs-text-tertiary">({followUps.length})</span>
-        ) : null}
-      </h2>
-
-      {followUps.length === 0 ? (
-        <p className="mt-3 text-caption-sm text-hs-text-tertiary">No follow-ups due today.</p>
-      ) : (
-        <>
-          {overdueCount > 0 ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-caption-sm font-medium text-amber-900">
-              <Activity className="h-3.5 w-3.5" aria-hidden />
-              {overdueCount} overdue
-            </p>
-          ) : null}
-          <ul className="mt-2 divide-y divide-hs-border/20">
-            {followUps.slice(0, 5).map((f) => (
-              <li key={f.id}>
-                <Link
-                  href={`/consultation?patientId=${encodeURIComponent(f.patientId)}`}
-                  className="flex items-center justify-between gap-2 py-2.5 text-body-sm transition hover:text-hs-primary"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-hs-ink">{f.patientName}</p>
-                    <p className="text-caption-sm text-hs-text-tertiary">
-                      {f.overdue
-                        ? "Overdue"
-                        : new Date(f.dueAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric"
-                          })}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-caption-sm font-semibold text-hs-primary">Visit →</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {followUps.length > 5 ? (
-            <Link
-              href="/follow-ups"
-              className="mt-2 block text-caption-sm font-semibold text-hs-primary hover:underline"
-            >
-              View all {followUps.length} →
-            </Link>
-          ) : null}
-        </>
-      )}
-
-      <details className="mt-4 border-t border-hs-border/20 pt-3">
-        <summary className="cursor-pointer list-none text-caption-sm font-semibold text-hs-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
-          Recent activity
-          {activity.length > 0 ? (
-            <span className="ml-1 font-normal text-hs-text-tertiary">({activity.length})</span>
-          ) : null}
-        </summary>
-        <div className="mt-2">
-          <RecentActivity items={activity} />
-        </div>
-      </details>
-    </section>
-  );
-}
-
-function RecentActivity({ items }: { items: DashboardRecentItem[] }): JSX.Element {
-  const IconFor = (k: DashboardRecentItem["kind"]) => {
-    if (k === "message") return MessageCircle;
-    if (k === "prescription") return Pill;
-    return CheckCircle2;
-  };
-  if (items.length === 0) {
-    return (
-      <p className="text-body-sm text-hs-text-tertiary">No recent activity.</p>
-    );
-  }
-  return (
-    <ul className="space-y-1" role="list">
-      {items.map((item) => {
-        const Icon = IconFor(item.kind);
-        const row = (
-          <div className="flex gap-3 rounded-xl px-2 py-2 transition hover:bg-hs-cream/60">
-            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hs-primary-very-light text-hs-primary">
-              <Icon className="h-3.5 w-3.5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-body-sm font-medium text-hs-ink">{item.title}</p>
-              {item.subtitle ? (
-                <p className="line-clamp-1 text-caption-sm text-hs-text-secondary">{item.subtitle}</p>
-              ) : null}
-              <p className="text-caption-sm text-hs-text-tertiary">{formatRelative(item.at)}</p>
-            </div>
-          </div>
-        );
-        return (
-          <li key={item.id}>
-            {item.href ? <Link href={item.href} className="block">{row}</Link> : row}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 export function HomeOverview(): JSX.Element {
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -263,6 +83,8 @@ export function HomeOverview(): JSX.Element {
   const [lastCase, setLastCaseState] = useState<LastCase | null>(null);
   const [activity, setActivity] = useState<DashboardRecentItem[]>([]);
   const [inbox, setInbox] = useState<InboxMessageItem[]>([]);
+  const [searchResults, setSearchResults] = useState<PatientListItem[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const reload = useCallback(() => {
     void (async () => {
@@ -292,6 +114,24 @@ export function HomeOverview(): JSX.Element {
       }
     })();
   }, []);
+
+  // Server-side patient search — scales to large rosters (200+ patients).
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      void searchPatientsLight(q, 12)
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 280);
+    return () => clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !getToken()) {
@@ -353,23 +193,16 @@ export function HomeOverview(): JSX.Element {
     [roster]
   );
 
-  // Patient search
-  const filteredRoster = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return roster
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.phone?.toLowerCase() ?? "").includes(q) ||
-          (p.initialChiefComplaint?.toLowerCase() ?? "").includes(q)
-      )
-      .slice(0, 8);
-  }, [roster, search]);
+  // Patient search uses server-side results; roster slice is for recent patients only.
+  const filteredRoster = searchResults;
 
   const selectedPatient = useMemo(
-    () => (selectedPatientId ? roster.find((p) => p.id === selectedPatientId) : undefined),
-    [roster, selectedPatientId]
+    () =>
+      selectedPatientId
+        ? (searchResults.find((p) => p.id === selectedPatientId) ??
+          roster.find((p) => p.id === selectedPatientId))
+        : undefined,
+    [roster, searchResults, selectedPatientId]
   );
 
   const onKeySearch = useCallback(
@@ -381,11 +214,7 @@ export function HomeOverview(): JSX.Element {
     [filteredRoster, router]
   );
 
-  // Active visits
-  const inClinicActive = myDay?.activeConsultations?.inClinic ?? [];
-  const onlineActive = myDay?.activeConsultations?.online ?? [];
-
-  // CTA: resume in-progress, next appointment, or start fresh
+  // Active visits — rendered via OperationalQueuePanel
   const primaryCta = useMemo(() => {
     if (lastCase?.visitStatus === "in_progress") {
       return {
@@ -512,8 +341,8 @@ export function HomeOverview(): JSX.Element {
 
             <ClinicalWorkflowOverview />
 
-            {/* Active visits */}
-            <ActiveVisitsBanner inClinic={inClinicActive} online={onlineActive} />
+            {/* Operational queue — active visits, draft notes, pending outcomes */}
+            <OperationalQueuePanel myDay={myDay} />
 
             {/* Patient search + start visit */}
             <section className="ds-card ds-card-pad">
@@ -547,9 +376,22 @@ export function HomeOverview(): JSX.Element {
                   className="h-11 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 pl-10 pr-3 text-body-sm shadow-input placeholder:text-hs-text-tertiary/80 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15"
                   placeholder="Name, phone, or complaint · Enter to start"
                 />
+                {searching ? (
+                  <p className="mt-1 text-caption-sm text-hs-text-tertiary">Searching…</p>
+                ) : null}
               </div>
 
-              {search && filteredRoster.length > 0 ? (
+              {search.trim().length >= 2 && !searching && filteredRoster.length === 0 ? (
+                <p className="mt-2 text-caption-sm text-hs-text-tertiary">
+                  No patients match — try phone number or add a{" "}
+                  <Link href="/patients/new" className="font-semibold text-hs-primary hover:underline">
+                    new patient
+                  </Link>
+                  .
+                </p>
+              ) : null}
+
+              {filteredRoster.length > 0 ? (
                 <ul className="mt-2 max-h-52 divide-y divide-hs-border/15 overflow-y-auto rounded-xl border border-hs-border/25 bg-hs-paper/95 shadow-ds-sm">
                   {filteredRoster.map((p) => (
                     <li key={p.id} className="flex items-stretch">

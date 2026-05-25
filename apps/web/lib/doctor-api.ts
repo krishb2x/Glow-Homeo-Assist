@@ -1499,6 +1499,8 @@ export type DoctorMemoSummary = {
   pinnedCount: number;
   dueTodayCount: number;
   topUrgent: DoctorMemo[];
+  /** Priority-sorted reminders for the dashboard queue (up to 12). */
+  actionQueue?: DoctorMemo[];
 };
 
 export async function fetchDoctorMemos(params?: {

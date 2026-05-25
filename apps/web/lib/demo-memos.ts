@@ -129,21 +129,22 @@ export function getDemoMemoSummary(): DoctorMemoSummary {
     const t = new Date(m.dueAt).getTime();
     return t >= start.getTime() && t < end.getTime();
   });
-  const topUrgent = [...open]
+  const actionQueue = [...open]
     .sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
       if (a.priority !== b.priority) return a.priority === "urgent" ? -1 : 1;
       return 0;
     })
-    .slice(0, 6);
+    .slice(0, 12);
   return {
     openCount: open.length,
     urgentCount: open.filter((m) => m.priority === "urgent").length,
     overdueCount: open.filter((m) => m.overdue).length,
     pinnedCount: open.filter((m) => m.pinned).length,
     dueTodayCount: dueToday.length,
-    topUrgent
+    topUrgent: actionQueue.slice(0, 6),
+    actionQueue
   };
 }
 
