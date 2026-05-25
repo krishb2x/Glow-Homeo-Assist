@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Activity,
   Calendar,
   CheckCircle2,
   Clock,
   MessageCircle,
   Mic,
   Pill,
-  Plus,
   Search,
   Stethoscope,
   Users,
@@ -21,7 +21,7 @@ import {
   fetchDashboardRecent,
   fetchDoctorInbox,
   fetchMyDay,
-  fetchPatients,
+  fetchPatientsPage,
   fetchWorkspaceContext,
   getToken,
   type DashboardRecentItem,
@@ -34,6 +34,7 @@ import { getLastCase, type LastCase } from "../../../lib/workflow-storage";
 import { ErrorState } from "../../ui/LoadState";
 import { PatientTagBadges } from "../PatientTagBadges";
 import { ClinicalWorkflowOverview } from "../workflow/ClinicalWorkflowOverview";
+import { DashboardMemoWidget } from "../memos/DashboardMemoWidget";
 import { TodayScheduleTimeline } from "./TodayScheduleTimeline";
 import {
   formatTimeLabel,
@@ -86,43 +87,6 @@ function MetricPill({ label, value, href }: { label: string; value: number; href
   return inner;
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-  href,
-  urgent
-}: {
-  label: string;
-  value: number;
-  sub?: string;
-  href?: string;
-  urgent?: boolean;
-}): JSX.Element {
-  const inner = (
-    <div className="ds-app-card-interactive p-4">
-      <p className="font-heading text-caption-sm font-medium uppercase tracking-[0.14em] text-hs-text-tertiary">
-        {label}
-      </p>
-      <p
-        className={`mt-1.5 text-2xl font-semibold tabular-nums tracking-tight ${
-          urgent && value > 0 ? "text-amber-700" : "text-hs-ink"
-        }`}
-      >
-        {value}
-      </p>
-      {sub ? <p className="mt-0.5 text-caption-sm text-hs-text-secondary">{sub}</p> : null}
-    </div>
-  );
-  if (href)
-    return (
-      <Link href={href} className="block rounded-2xl focus:outline-none focus:ring-2 focus:ring-hs-primary/30">
-        {inner}
-      </Link>
-    );
-  return inner;
-}
-
 function ActiveVisitsBanner({
   inClinic,
   online
@@ -134,7 +98,7 @@ function ActiveVisitsBanner({
   if (all.length === 0) return null;
   return (
     <section
-      className="rounded-2xl border border-hs-primary/25 bg-hs-primary-very-light/60 p-4 sm:p-5"
+      className="ds-card border-hs-primary/20 bg-hs-primary-very-light/50 p-4"
       aria-label="Visits in progress"
     >
       <div className="flex items-center gap-2">
@@ -166,6 +130,83 @@ function ActiveVisitsBanner({
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+function DashboardRightRail({
+  followUps,
+  activity,
+  overdueCount
+}: {
+  followUps: NonNullable<MyDayResponse["followUps"]>;
+  activity: DashboardRecentItem[];
+  overdueCount: number;
+}): JSX.Element {
+  return (
+    <section className="ds-card ds-card-pad">
+      <h2 className="font-heading text-body-md font-semibold text-hs-ink">
+        Follow-ups
+        {followUps.length > 0 ? (
+          <span className="ml-1.5 font-normal text-hs-text-tertiary">({followUps.length})</span>
+        ) : null}
+      </h2>
+
+      {followUps.length === 0 ? (
+        <p className="mt-3 text-caption-sm text-hs-text-tertiary">No follow-ups due today.</p>
+      ) : (
+        <>
+          {overdueCount > 0 ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-caption-sm font-medium text-amber-900">
+              <Activity className="h-3.5 w-3.5" aria-hidden />
+              {overdueCount} overdue
+            </p>
+          ) : null}
+          <ul className="mt-2 divide-y divide-hs-border/20">
+            {followUps.slice(0, 5).map((f) => (
+              <li key={f.id}>
+                <Link
+                  href={`/consultation?patientId=${encodeURIComponent(f.patientId)}`}
+                  className="flex items-center justify-between gap-2 py-2.5 text-body-sm transition hover:text-hs-primary"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-hs-ink">{f.patientName}</p>
+                    <p className="text-caption-sm text-hs-text-tertiary">
+                      {f.overdue
+                        ? "Overdue"
+                        : new Date(f.dueAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric"
+                          })}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-caption-sm font-semibold text-hs-primary">Visit →</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {followUps.length > 5 ? (
+            <Link
+              href="/follow-ups"
+              className="mt-2 block text-caption-sm font-semibold text-hs-primary hover:underline"
+            >
+              View all {followUps.length} →
+            </Link>
+          ) : null}
+        </>
+      )}
+
+      <details className="mt-4 border-t border-hs-border/20 pt-3">
+        <summary className="cursor-pointer list-none text-caption-sm font-semibold text-hs-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
+          Recent activity
+          {activity.length > 0 ? (
+            <span className="ml-1 font-normal text-hs-text-tertiary">({activity.length})</span>
+          ) : null}
+        </summary>
+        <div className="mt-2">
+          <RecentActivity items={activity} />
+        </div>
+      </details>
     </section>
   );
 }
@@ -227,8 +268,8 @@ export function HomeOverview(): JSX.Element {
     void (async () => {
       try {
         setLoadError(null);
-        const [patients, day, ctx, act, msg] = await Promise.all([
-          fetchPatients(),
+        const [patientsPage, day, ctx, act, msg] = await Promise.all([
+          fetchPatientsPage({ limit: 8, offset: 0, sort: "last_visit_at", sortDir: "desc" }),
           fetchMyDay(7),
           fetchWorkspaceContext().catch(
             (): WorkspaceContext => ({ fullName: "Doctor", firstName: "Doctor", clinicName: null, clinicId: null })
@@ -236,7 +277,7 @@ export function HomeOverview(): JSX.Element {
           fetchDashboardRecent(),
           fetchDoctorInbox(40)
         ]);
-        setRoster(patients);
+        setRoster(patientsPage.items);
         setMyDay(day);
         setDoctor(ctx);
         setActivity(act);
@@ -373,7 +414,7 @@ export function HomeOverview(): JSX.Element {
 
       {/* ── HERO ───────────────────────────────────────────────────── */}
       <section
-        className="relative mb-6 overflow-hidden rounded-2xl border border-white/10 shadow-card sm:mb-7 sm:rounded-3xl"
+        className="relative mb-5 overflow-hidden rounded-2xl border border-white/10 shadow-ds-md"
         aria-label="Welcome"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[#152521] via-hs-primary-dark to-[#0c1815]" />
@@ -383,7 +424,7 @@ export function HomeOverview(): JSX.Element {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/[0.04]" aria-hidden />
 
-        <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-7 sm:py-11">
+        <div className="relative mx-auto max-w-6xl px-5 py-7 sm:px-7 sm:py-9">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex gap-4 sm:gap-5">
               {doctor === null ? (
@@ -413,79 +454,61 @@ export function HomeOverview(): JSX.Element {
                 ) : null}
                 <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-white/10 pt-4 text-sm text-white/90">
                   <MetricPill label="Today's visits" value={uniquePatientsToday} href="/appointments" />
-                  <MetricPill label="Follow-ups pending" value={pendingFollowUps} href="/follow-ups" />
+                  <MetricPill label="Follow-ups" value={pendingFollowUps} href="/follow-ups" />
+                  {draftNotes > 0 ? (
+                    <MetricPill
+                      label="Draft notes"
+                      value={draftNotes}
+                      href={
+                        (myDay?.needsNoteFinalization ?? [])[0]?.consultationId
+                          ? `/consultation/${encodeURIComponent((myDay!.needsNoteFinalization!)[0]!.consultationId)}`
+                          : undefined
+                      }
+                    />
+                  ) : null}
                   {unreadMessages > 0 ? (
-                    <MetricPill label="Unread messages" value={unreadMessages} href="/messages" />
+                    <MetricPill label="Unread" value={unreadMessages} href="/messages" />
                   ) : null}
                 </div>
+                <Link
+                  href="/appointments"
+                  className="mt-3 inline-flex items-center gap-1.5 text-caption-sm font-medium text-white/75 transition hover:text-white"
+                >
+                  <Calendar className="h-3.5 w-3.5" aria-hidden />
+                  View full schedule
+                </Link>
               </div>
             </div>
 
             {/* Primary CTA */}
-            <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col lg:items-stretch">
+            <div className="flex shrink-0 lg:min-w-[220px]">
               {primaryCta ? (
                 <Link
                   href={primaryCta.href}
-                  className="font-heading inline-flex min-h-12 w-full min-w-[200px] flex-col items-center justify-center rounded-xl bg-white px-6 text-center shadow-lg transition hover:bg-white/95"
+                  className="font-heading inline-flex min-h-11 w-full flex-col items-center justify-center rounded-xl bg-white px-5 text-center shadow-md transition hover:bg-white/95"
                 >
-                  <span className="text-body-md font-semibold text-hs-ink">{primaryCta.label}</span>
+                  <span className="text-body-sm font-semibold text-hs-ink">{primaryCta.label}</span>
                   <span className="text-caption-sm font-normal text-hs-text-secondary">{primaryCta.hint}</span>
                 </Link>
               ) : (
                 <Link
                   href="/consultation"
-                  className="font-heading inline-flex min-h-12 w-full min-w-[200px] items-center justify-center gap-2 rounded-xl bg-white px-6 text-body-md font-semibold text-hs-ink shadow-lg transition hover:bg-white/95"
+                  className="font-heading inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-5 text-body-sm font-semibold text-hs-ink shadow-md transition hover:bg-white/95"
                 >
-                  <Mic className="h-5 w-5 text-hs-primary" aria-hidden />
-                  Start consultation
+                  <Mic className="h-4 w-4 text-hs-primary" aria-hidden />
+                  Start visit
                 </Link>
               )}
-              <Link
-                href="/appointments"
-                className="font-heading inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-6 text-body-sm font-medium text-white transition hover:bg-white/20"
-              >
-                <Calendar className="h-4 w-4" aria-hidden />
-                View schedule
-              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl">
+      <div className="ds-page">
         <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
 
           {/* ── LEFT COLUMN ──────────────────────────────────────── */}
-          <div className="space-y-5 lg:col-span-8">
-
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatCard label="Today's patients" value={uniquePatientsToday} sub="Scheduled" href="/appointments" />
-              <StatCard
-                label="Follow-ups"
-                value={pendingFollowUps}
-                sub={overdueFollowUps > 0 ? `${overdueFollowUps} overdue` : "Pending"}
-                href="/follow-ups"
-                urgent={overdueFollowUps > 0}
-              />
-              <StatCard
-                label="Draft notes"
-                value={draftNotes}
-                sub="To finalise"
-                href={
-                  (myDay?.needsNoteFinalization ?? [])[0]?.consultationId
-                    ? `/consultation/${encodeURIComponent((myDay!.needsNoteFinalization!)[0]!.consultationId)}`
-                    : undefined
-                }
-              />
-              <StatCard
-                label="Unread messages"
-                value={unreadMessages}
-                sub="From patients"
-                href="/messages"
-                urgent={unreadMessages > 0}
-              />
-            </div>
+          <div className="ds-page-sections lg:col-span-8">
 
             <ClinicalWorkflowOverview />
 
@@ -493,30 +516,22 @@ export function HomeOverview(): JSX.Element {
             <ActiveVisitsBanner inClinic={inClinicActive} online={onlineActive} />
 
             {/* Patient search + start visit */}
-            <section className="rounded-2xl border border-hs-border/25 bg-hs-paper/95 p-5 shadow-card sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-heading text-heading-sm font-semibold text-hs-ink">Start a visit</h2>
-                </div>
-                <div className="flex gap-2">
-                  <Link
-                    href="/patients/new"
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-hs-border/50 bg-hs-paper px-3 text-caption-sm font-semibold text-hs-ink transition hover:border-hs-primary/30"
-                  >
-                    <Plus className="h-4 w-4" aria-hidden />
-                    New patient
-                  </Link>
-                  <Link
-                    href="/consultation"
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-hs-primary px-3 text-caption-sm font-semibold text-white shadow-sm transition hover:bg-hs-primary-light"
-                  >
-                    <Stethoscope className="h-4 w-4" aria-hidden />
+            <section className="ds-card ds-card-pad">
+              <div>
+                <h2 className="font-heading text-body-md font-semibold text-hs-ink">Find a patient</h2>
+                <p className="mt-0.5 text-caption-sm text-hs-text-secondary">
+                  Search to open a visit.{" "}
+                  <Link href="/consultation" className="font-semibold text-hs-primary hover:underline">
                     Walk-in
                   </Link>
-                </div>
+                  {" · "}
+                  <Link href="/patients/new" className="font-semibold text-hs-primary hover:underline">
+                    Add patient
+                  </Link>
+                </p>
               </div>
 
-              <div className="relative mt-4">
+              <div className="relative mt-3">
                 <Search
                   className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-hs-text-tertiary"
                   strokeWidth={2.25}
@@ -589,10 +604,10 @@ export function HomeOverview(): JSX.Element {
             </section>
 
             {/* Today's schedule */}
-            <section className="rounded-2xl border border-hs-border/25 bg-hs-paper/95 p-5 shadow-card sm:p-6">
-              <div className="mb-4 flex items-center justify-between gap-2">
-                <h2 className="font-heading flex items-center gap-2 text-heading-sm font-semibold text-hs-ink">
-                  <Clock className="h-5 w-5 shrink-0 text-hs-primary" aria-hidden />
+            <section className="ds-card ds-card-pad">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="font-heading flex items-center gap-2 text-body-md font-semibold text-hs-ink">
+                  <Clock className="h-4 w-4 shrink-0 text-hs-primary" aria-hidden />
                   Today&rsquo;s schedule
                 </h2>
                 <Link
@@ -606,10 +621,10 @@ export function HomeOverview(): JSX.Element {
             </section>
 
             {/* Recent patients */}
-            <section className="rounded-2xl border border-hs-border/25 bg-hs-paper/95 p-5 shadow-card sm:p-6">
-              <div className="mb-4 flex items-center justify-between gap-2">
-                <h2 className="font-heading flex items-center gap-2 text-heading-sm font-semibold text-hs-ink">
-                  <Users className="h-5 w-5 shrink-0 text-hs-primary" aria-hidden />
+            <section className="ds-card ds-card-pad">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="font-heading flex items-center gap-2 text-body-md font-semibold text-hs-ink">
+                  <Users className="h-4 w-4 shrink-0 text-hs-primary" aria-hidden />
                   Recent patients
                 </h2>
                 <Link
@@ -627,11 +642,11 @@ export function HomeOverview(): JSX.Element {
                   </Link>
                 </p>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="divide-y divide-hs-border/20">
                   {recentPatients.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center gap-3 rounded-xl border border-hs-border/20 px-3.5 py-2.5 transition hover:bg-hs-cream/40"
+                      className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-body-sm font-medium text-hs-ink">{p.name}</p>
@@ -642,18 +657,18 @@ export function HomeOverview(): JSX.Element {
                         ) : null}
                         <PatientTagBadges tags={p.tags} className="mt-0.5" />
                       </div>
-                      <div className="flex shrink-0 gap-1.5">
+                      <div className="flex shrink-0 items-center gap-3">
                         <Link
                           href={`/patients/${encodeURIComponent(p.id)}/timeline`}
-                          className="rounded-lg border border-hs-border/50 px-2.5 py-1 text-caption-sm font-medium text-hs-ink transition hover:border-hs-primary/30"
+                          className="text-caption-sm font-medium text-hs-text-secondary hover:text-hs-primary"
                         >
                           Chart
                         </Link>
                         <Link
                           href={`/consultation?patientId=${encodeURIComponent(p.id)}`}
-                          className="rounded-lg bg-hs-primary px-2.5 py-1 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
+                          className="text-caption-sm font-semibold text-hs-primary hover:underline"
                         >
-                          Visit
+                          Visit →
                         </Link>
                       </div>
                     </li>
@@ -664,58 +679,13 @@ export function HomeOverview(): JSX.Element {
           </div>
 
           {/* ── RIGHT SIDEBAR ─────────────────────────────────────── */}
-          <aside className="space-y-5 lg:col-span-4">
-            {/* Follow-ups due */}
-            {pendingFollowUps > 0 ? (
-              <section className="rounded-2xl border border-hs-border/25 bg-hs-paper/95 p-5 shadow-card">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-heading text-heading-sm font-semibold text-hs-ink">Follow-ups</h2>
-                  {overdueFollowUps > 0 ? (
-                    <span className="rounded-full border border-amber-300/70 bg-amber-50 px-2 py-0.5 text-caption-sm font-semibold text-amber-900">
-                      {overdueFollowUps} overdue
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-hs-border/40 bg-hs-cream px-2 py-0.5 text-caption-sm text-hs-text-tertiary">
-                      {pendingFollowUps}
-                    </span>
-                  )}
-                </div>
-                <ul className="mt-3 space-y-1.5">
-                  {(myDay?.followUps ?? []).slice(0, 5).map((f) => (
-                    <li key={f.id}>
-                      <Link
-                        href={`/consultation?patientId=${encodeURIComponent(f.patientId)}`}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-hs-border/20 px-3 py-2.5 text-body-sm transition hover:border-hs-primary/30 hover:bg-hs-cream/40"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium text-hs-ink">{f.patientName}</p>
-                          <p className="text-caption-sm text-hs-text-tertiary">
-                            {f.overdue ? "⚠ Overdue" : new Date(f.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-caption-sm font-semibold text-hs-primary">Start →</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-                {pendingFollowUps > 5 ? (
-                  <Link
-                    href="/follow-ups"
-                    className="mt-2 block text-center text-caption-sm font-semibold text-hs-primary hover:underline"
-                  >
-                    View all {pendingFollowUps} →
-                  </Link>
-                ) : null}
-              </section>
-            ) : null}
-
-            {/* Recent activity */}
-            <section className="rounded-2xl border border-hs-border/25 bg-hs-paper/95 p-5 shadow-card">
-              <h2 className="font-heading text-heading-sm font-semibold text-hs-ink">Recent activity</h2>
-              <div className="mt-3">
-                <RecentActivity items={activity} />
-              </div>
-            </section>
+          <aside className="ds-page-sections lg:col-span-4">
+            <DashboardMemoWidget />
+            <DashboardRightRail
+              followUps={myDay?.followUps ?? []}
+              activity={activity}
+              overdueCount={overdueFollowUps}
+            />
           </aside>
         </div>
       </div>

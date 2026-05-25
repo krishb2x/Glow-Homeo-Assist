@@ -5,7 +5,7 @@ import { BRAND_NAME } from "../../lib/brand";
 
 export const metadata: Metadata = {
   title: `Apply for guided trial | ${BRAND_NAME}`,
-  description: "Apply for the 90-day guided trial of GlowHomeo Assist — clinical onboarding for your homeopathy practice."
+  description: "Apply for the 90-day guided trial of GlowHomeo Assist with personal onboarding for your homeopathy practice."
 };
 
 export default function RequestAccessPage(): JSX.Element {
@@ -18,7 +18,7 @@ export default function RequestAccessPage(): JSX.Element {
             Apply for 90-day guided trial
           </h1>
           <p className="mt-3 text-body-sm leading-relaxed text-slate-600">
-            Submit your details for a structured onboarding — we review each application and follow up personally.
+            Submit your details for guided onboarding. We review each application and follow up personally.
           </p>
           <div className="mt-8 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-md ring-1 ring-slate-900/[0.03] sm:p-8">
             <GlowHomeoIntakeForm intent="trial" submitLabel="Submit application" />

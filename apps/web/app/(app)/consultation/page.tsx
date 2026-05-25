@@ -69,12 +69,8 @@ export default function ConsultationStartPage(): JSX.Element {
     void load();
   }, [load, router]);
 
-  useEffect(() => {
-    const m = searchParams.get("consultationMode");
-    if (m === "ONLINE") {
-      setErr("Online consultations are not available yet. Starting an in-clinic visit instead.");
-    }
-  }, [searchParams]);
+  const consultationModeFromQuery =
+    searchParams.get("consultationMode") === "ONLINE" ? ("ONLINE" as const) : ("IN_CLINIC" as const);
 
   const patientIdFromQuery = searchParams.get("patientId");
 
@@ -89,7 +85,7 @@ export default function ConsultationStartPage(): JSX.Element {
       try {
         const { id } = await startConsultation(patientId, {
           appointmentId: appointmentIdFromQuery ?? undefined,
-          consultationMode: "IN_CLINIC"
+          consultationMode: consultationModeFromQuery
         });
         router.push(`/consultation/${id}`);
       } catch (e) {
@@ -98,7 +94,7 @@ export default function ConsultationStartPage(): JSX.Element {
         setStartingId(null);
       }
     },
-    [router, appointmentIdFromQuery]
+    [router, appointmentIdFromQuery, consultationModeFromQuery]
   );
 
   useEffect(() => {
@@ -176,13 +172,21 @@ export default function ConsultationStartPage(): JSX.Element {
       </div>
 
       <div className="mb-8 flex flex-wrap items-center gap-3 rounded-2xl border border-hs-border/40 bg-hs-cream/50 px-4 py-3">
-        <span className="rounded-full border border-hs-primary/30 bg-hs-primary-very-light px-3 py-1 text-caption-sm font-bold text-hs-primary">
-          In-clinic
+        <span
+          className={cn(
+            "rounded-full border px-3 py-1 text-caption-sm font-bold",
+            consultationModeFromQuery === "ONLINE"
+              ? "border-emerald-600/30 bg-emerald-50 text-emerald-800"
+              : "border-hs-primary/30 bg-hs-primary-very-light text-hs-primary"
+          )}
+        >
+          {consultationModeFromQuery === "ONLINE" ? "Online video" : "In-clinic"}
         </span>
         <p className="text-caption-sm text-hs-text-secondary">
           {list.length > 0 ? `${list.length} patients in roster` : "No patients yet"}
-          {" · "}
-          Online video visits coming in a future release
+          {consultationModeFromQuery === "ONLINE"
+            ? " · Patient receives join link on WhatsApp/email when booked from Schedule"
+            : null}
         </p>
       </div>
 

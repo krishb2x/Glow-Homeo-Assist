@@ -1,5 +1,6 @@
 "use client";
 
+import { ConsultationMemoStrip } from "../memos/ConsultationMemoStrip";
 import { ClinicalWorkflowSidebar } from "./ClinicalWorkflowSidebar";
 import { ConsultationPastVisitsPanel } from "./ConsultationPastVisitsPanel";
 import { ConsultationVideoTile } from "../video/ConsultationVideoTile";
@@ -32,16 +33,27 @@ export function ConsultationLeftColumn({
   return (
     <aside
       className={cn(
-        "hidden w-[320px] shrink-0 flex-col overflow-hidden border-r border-hs-border/40 bg-hs-paper/95 lg:flex",
+        "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-hs-border/40 bg-hs-paper/95 transition-[width] duration-200 lg:flex",
+        collapsed ? "w-[4.5rem]" : "w-[280px]",
         className
       )}
       aria-label="Visit context and workflow"
     >
-      {mode === "ONLINE" ? (
-        <ConsultationVideoTile />
-      ) : (
-        <ConsultationPastVisitsPanel patientId={patientId} currentConsultationId={consultationId} />
-      )}
+      {!collapsed ? (
+        <>
+          <ConsultationMemoStrip patientId={patientId} consultationId={consultationId} />
+          <div className="min-h-0 max-h-[38%] shrink-0 overflow-y-auto border-b border-hs-border/25">
+            {mode === "ONLINE" ? (
+              <ConsultationVideoTile consultationId={consultationId} />
+            ) : (
+              <ConsultationPastVisitsPanel
+                patientId={patientId}
+                currentConsultationId={consultationId}
+              />
+            )}
+          </div>
+        </>
+      ) : null}
 
       <ClinicalWorkflowSidebar
         variant="column"

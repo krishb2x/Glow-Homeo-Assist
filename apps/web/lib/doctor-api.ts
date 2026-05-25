@@ -557,6 +557,8 @@ export async function fetchAppointmentsRange(fromIso: string, toIso: string): Pr
         patient_id: string;
         reason: string | null;
         patientName?: string;
+        consultation_mode?: string;
+        meeting_url?: string | null;
       };
       return {
         id: a.id,
@@ -565,7 +567,10 @@ export async function fetchAppointmentsRange(fromIso: string, toIso: string): Pr
         status: a.status,
         patientId: a.patient_id,
         patientName: a.patientName ?? "Patient",
-        reason: a.reason
+        reason: a.reason,
+        consultationMode:
+          a.consultation_mode === "ONLINE" ? "ONLINE" : ("IN_CLINIC" as const),
+        meetingUrl: a.meeting_url ?? null
       };
     });
   } catch (e) {
@@ -974,14 +979,89 @@ export async function fetchMyDay(days = 7): Promise<MyDayResponse> {
   }
 }
 
-export async function fetchPatients(): Promise<PatientListItem[]> {
-  if (isDemoMode()) return [...DEMO_PATIENTS];
+export type PatientsListResponse = {
+  items: PatientListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  nextCursor?: string | null;
+};
+
+export async function searchPatientsLight(q: string, limit = 20): Promise<PatientListItem[]> {
+  if (isDemoMode()) {
+    const s = q.trim().toLowerCase();
+    return DEMO_PATIENTS.filter((p) => !s || p.name.toLowerCase().includes(s)).slice(0, limit);
+  }
+  const qs = new URLSearchParams({ q, limit: String(limit) });
+  const raw = await apiFetchJson<{ items: PatientListItem[] }>(
+    haProxyPath(`doctor/patients/search?${qs}`),
+    { method: "GET" }
+  );
+  return raw.items ?? [];
+}
+
+export async function fetchPatientsPage(params?: {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  tags?: string;
+  status?: "stable" | "critical";
+  cursor?: string;
+  lightweight?: boolean;
+  sort?: "created_at" | "last_visit_at" | "name";
+  sortDir?: "asc" | "desc";
+}): Promise<PatientsListResponse> {
+  if (isDemoMode()) {
+    let items = [...DEMO_PATIENTS];
+    if (params?.search?.trim()) {
+      const s = params.search.trim().toLowerCase();
+      items = items.filter((p) => p.name.toLowerCase().includes(s));
+    }
+    const limit = params?.limit ?? 50;
+    const offset = params?.offset ?? 0;
+    const slice = items.slice(offset, offset + limit);
+    return { items: slice, total: items.length, limit, offset };
+  }
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  if (params?.search?.trim()) qs.set("search", params.search.trim());
+  if (params?.tags?.trim()) qs.set("tags", params.tags.trim());
+  if (params?.status) qs.set("status", params.status);
+  if (params?.cursor) qs.set("cursor", params.cursor);
+  if (params?.lightweight) qs.set("lightweight", "true");
+  if (params?.sort) qs.set("sort", params.sort);
+  if (params?.sortDir) qs.set("sortDir", params.sortDir);
+  const path = qs.toString() ? `doctor/patients?${qs}` : "doctor/patients";
   try {
-    return await apiFetchJson<PatientListItem[]>(haProxyPath("doctor/patients"), { method: "GET" });
+    const raw = await apiFetchJson<PatientsListResponse | PatientListItem[]>(haProxyPath(path), {
+      method: "GET"
+    });
+    if (Array.isArray(raw)) {
+      return { items: raw, total: raw.length, limit: raw.length, offset: 0 };
+    }
+    return raw;
   } catch (e) {
-    if (isDemoFallback()) return [...DEMO_PATIENTS];
+    if (isDemoFallback()) {
+      return { items: [...DEMO_PATIENTS], total: DEMO_PATIENTS.length, limit: 50, offset: 0 };
+    }
     throw e;
   }
+}
+
+/** Loads up to `max` patients (paginated server-side). Prefer `fetchPatientsPage` for large clinics. */
+export async function fetchPatients(max = 500): Promise<PatientListItem[]> {
+  if (isDemoMode()) return [...DEMO_PATIENTS];
+  const pageSize = 100;
+  const all: PatientListItem[] = [];
+  let offset = 0;
+  while (all.length < max) {
+    const page = await fetchPatientsPage({ limit: pageSize, offset });
+    all.push(...page.items);
+    if (page.items.length < pageSize || all.length >= page.total) break;
+    offset += pageSize;
+  }
+  return all.slice(0, max);
 }
 
 export async function fetchFollowUpQueue(): Promise<FollowUpQueueItem[]> {
@@ -1132,10 +1212,33 @@ export type TimelineEvent =
   | DocumentEvent
   | CaseOutcomeEvent;
 
-export type PatientTimelineResponse = { events: TimelineEvent[] };
+export type PatientTimelineResponse = {
+  events: TimelineEvent[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+  hasMore?: boolean;
+};
 
-export async function fetchPatientTimeline(patientId: string): Promise<PatientTimelineResponse> {
-  return apiFetchJson<PatientTimelineResponse>(haProxyPath(`doctor/patients/${encodeURIComponent(patientId)}/timeline`), {
+export async function fetchPatientTimeline(
+  patientId: string,
+  params?: { limit?: number; offset?: number; includeNotes?: boolean }
+): Promise<PatientTimelineResponse> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  if (params?.includeNotes) qs.set("includeNotes", "true");
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return apiFetchJson<PatientTimelineResponse>(
+    haProxyPath(`doctor/patients/${encodeURIComponent(patientId)}/timeline${suffix}`),
+    { method: "GET" }
+  );
+}
+
+export async function fetchConsultationNoteDetail(
+  consultationId: string
+): Promise<{ consultationId: string; detail: NoteDetail | null }> {
+  return apiFetchJson(haProxyPath(`doctor/consultations/${encodeURIComponent(consultationId)}/note-detail`), {
     method: "GET"
   });
 }
@@ -1175,19 +1278,25 @@ export async function startConsultation(
     appointmentId?: string;
     consultationMode?: "IN_CLINIC" | "ONLINE";
   }
-): Promise<{ id: string }> {
-  const row = await apiFetchJson<{ id: string }>(haProxyPath("doctor/consultations"), {
+): Promise<{
+  id: string;
+  meeting?: { doctorJoinUrl: string; patientJoinUrl: string; roomId: string } | null;
+}> {
+  const row = await apiFetchJson<{
+    id: string;
+    meeting?: { doctorJoinUrl: string; patientJoinUrl: string; roomId: string } | null;
+  }>(haProxyPath("doctor/consultations"), {
     method: "POST",
     body: JSON.stringify({
       patientId,
       type: options?.type ?? "INITIAL",
-      recordingEnabled: false,
+      recordingEnabled: options?.consultationMode === "ONLINE",
       complexity: options?.complexity ?? "STANDARD",
       appointmentId: options?.appointmentId,
       consultationMode: options?.consultationMode ?? "IN_CLINIC"
     })
   });
-  return { id: row.id };
+  return { id: row.id, meeting: row.meeting ?? null };
 }
 
 export async function createAppointment(body: {
@@ -1196,6 +1305,8 @@ export async function createAppointment(body: {
   durationMinutes?: number;
   reason?: string;
   doctorId?: string;
+  consultationMode?: "IN_CLINIC" | "ONLINE";
+  notifyPatient?: boolean;
 }): Promise<{ id: string; scheduled_for?: string; status?: string; patient_id?: string }> {
   return apiFetchJson(haProxyPath("doctor/appointments"), {
     method: "POST",
@@ -1204,9 +1315,103 @@ export async function createAppointment(body: {
       scheduledFor: body.scheduledFor,
       durationMinutes: body.durationMinutes ?? 30,
       reason: body.reason,
-      doctorId: body.doctorId
+      doctorId: body.doctorId,
+      consultationMode: body.consultationMode ?? "IN_CLINIC",
+      notifyPatient: body.notifyPatient ?? true
     })
   });
+}
+
+export type ConsultationMeeting = {
+  doctorJoinUrl: string | null;
+  roomId: string | null;
+  doctorJwt?: string | null;
+};
+
+export async function fetchConsultationMeeting(consultationId: string): Promise<ConsultationMeeting> {
+  if (isDemoMode()) {
+    return { doctorJoinUrl: null, roomId: null };
+  }
+  return apiFetchJson<ConsultationMeeting>(
+    haProxyPath(`doctor/consultations/${encodeURIComponent(consultationId)}/meeting`),
+    { method: "GET" }
+  );
+}
+
+export async function provisionConsultationVideo(
+  consultationId: string,
+  recordingEnabled = false
+): Promise<{ doctorJoinUrl: string; patientJoinUrl: string; roomId: string }> {
+  if (isDemoMode()) {
+    return {
+      doctorJoinUrl: "https://meet.jit.si/demo",
+      patientJoinUrl: "https://example.com/join/demo",
+      roomId: "demo"
+    };
+  }
+  return apiFetchJson(haProxyPath(`doctor/consultations/${encodeURIComponent(consultationId)}/provision-video`), {
+    method: "POST",
+    body: JSON.stringify({ recordingEnabled })
+  });
+}
+
+export async function fetchConsultationRecording(
+  consultationId: string
+): Promise<{ url: string; objectKey: string }> {
+  if (isDemoMode()) throw new Error("No recording in demo mode");
+  return apiFetchJson(haProxyPath(`doctor/consultations/${encodeURIComponent(consultationId)}/recording`), {
+    method: "GET"
+  });
+}
+
+export async function resendAppointmentInvite(appointmentId: string): Promise<{ sent: boolean }> {
+  if (isDemoMode()) return { sent: true };
+  return apiFetchJson(haProxyPath(`doctor/appointments/${encodeURIComponent(appointmentId)}/resend-invite`), {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export type PublicJoinResponse =
+  | {
+      mode: "live";
+      patientName: string;
+      doctorName: string;
+      clinicName: string;
+      scheduledFor: string | null;
+      jitsiUrl: string;
+      jwt?: string | null;
+      roomId: string;
+      jwtEnabled?: boolean;
+    }
+  | {
+      mode: "scheduled";
+      patientName: string;
+      doctorName: string;
+      clinicName: string;
+      scheduledFor: string | null;
+      message: string;
+    };
+
+export type PublicPrescriptionResponse = {
+  patientName: string;
+  consultationId: string;
+  prescription: { items: unknown; created_at: string } | null;
+};
+
+/** Unauthenticated patient join link. */
+export async function fetchPublicJoin(token: string): Promise<PublicJoinResponse> {
+  const r = await fetch(`${API_BASE}/public/join/${encodeURIComponent(token)}`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(readApiError(data) ?? "Invalid or expired link");
+  return parseApiData<PublicJoinResponse>(data);
+}
+
+export async function fetchPublicPrescription(token: string): Promise<PublicPrescriptionResponse> {
+  const r = await fetch(`${API_BASE}/public/prescription/${encodeURIComponent(token)}`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(readApiError(data) ?? "Invalid or expired link");
+  return parseApiData<PublicPrescriptionResponse>(data);
 }
 
 export async function updateAppointment(
@@ -1260,6 +1465,109 @@ export async function patchFollowUp(
     return { id, status: body.status ?? "PENDING", due_at: body.dueAt ?? new Date().toISOString(), completed_at: null };
   }
   return apiFetchJson(haProxyPath(`doctor/follow-ups/${encodeURIComponent(id)}`), {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+/** Operational memory — quick notes & reminders (not part of clinical record). */
+export type DoctorMemoKind = "note" | "reminder" | "follow_up";
+export type DoctorMemoPriority = "normal" | "urgent";
+export type DoctorMemoStatus = "open" | "done" | "dismissed";
+
+export type DoctorMemo = {
+  id: string;
+  kind: DoctorMemoKind;
+  body: string;
+  dueAt: string | null;
+  priority: DoctorMemoPriority;
+  pinned: boolean;
+  status: DoctorMemoStatus;
+  patientId: string | null;
+  patientName: string | null;
+  consultationId: string | null;
+  doctorId: string;
+  overdue: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DoctorMemoSummary = {
+  openCount: number;
+  urgentCount: number;
+  overdueCount: number;
+  pinnedCount: number;
+  dueTodayCount: number;
+  topUrgent: DoctorMemo[];
+};
+
+export async function fetchDoctorMemos(params?: {
+  patientId?: string;
+  consultationId?: string;
+  status?: DoctorMemoStatus | "all";
+  urgentOnly?: boolean;
+  limit?: number;
+}): Promise<DoctorMemo[]> {
+  if (isDemoMode()) {
+    const { getDemoMemos } = await import("./demo-memos");
+    return getDemoMemos(params);
+  }
+  const qs = new URLSearchParams();
+  if (params?.patientId) qs.set("patientId", params.patientId);
+  if (params?.consultationId) qs.set("consultationId", params.consultationId);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.urgentOnly) qs.set("urgentOnly", "true");
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const raw = await apiFetchJson<{ items: DoctorMemo[] }>(
+    haProxyPath(qs.toString() ? `doctor/memos?${qs}` : "doctor/memos"),
+    { method: "GET" }
+  );
+  return raw.items ?? [];
+}
+
+export async function fetchDoctorMemoSummary(): Promise<DoctorMemoSummary> {
+  if (isDemoMode()) {
+    const { getDemoMemoSummary } = await import("./demo-memos");
+    return getDemoMemoSummary();
+  }
+  return apiFetchJson<DoctorMemoSummary>(haProxyPath("doctor/memos/summary"), { method: "GET" });
+}
+
+export async function createDoctorMemo(body: {
+  body: string;
+  kind?: DoctorMemoKind;
+  patientId?: string;
+  consultationId?: string;
+  dueAt?: string;
+  priority?: DoctorMemoPriority;
+  pinned?: boolean;
+}): Promise<DoctorMemo> {
+  if (isDemoMode()) {
+    const { createDemoMemo } = await import("./demo-memos");
+    return createDemoMemo(body);
+  }
+  return apiFetchJson<DoctorMemo>(haProxyPath("doctor/memos"), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function patchDoctorMemo(
+  id: string,
+  body: {
+    body?: string;
+    kind?: DoctorMemoKind;
+    dueAt?: string | null;
+    priority?: DoctorMemoPriority;
+    pinned?: boolean;
+    status?: DoctorMemoStatus;
+  }
+): Promise<DoctorMemo> {
+  if (isDemoMode()) {
+    const { patchDemoMemo } = await import("./demo-memos");
+    return patchDemoMemo(id, body);
+  }
+  return apiFetchJson<DoctorMemo>(haProxyPath(`doctor/memos/${encodeURIComponent(id)}`), {
     method: "PATCH",
     body: JSON.stringify(body)
   });
@@ -1323,7 +1631,27 @@ export type ConsultationLifecycle = "DRAFT" | "ACTIVE" | "REVIEWING" | "FINALIZE
 export type ConsultationClinicalRecord = {
   labs?: Array<{ id: string; testName: string; result: string; notes: string }>;
   clinicalNotes?: { observations: string; diagnosisThinking: string };
-  history?: { pastDiseases: string; medications: string };
+  history?: {
+    pastDiseases?: string;
+    medications?: string;
+    familyHistory?: string;
+    drugAllergies?: string;
+  };
+  vitals?: {
+    bp?: string;
+    pulse?: string;
+    temperature?: string;
+    spO2?: string;
+    weight?: string;
+    height?: string;
+    respiratoryRate?: string;
+  };
+  advice?: Array<{
+    id: string;
+    category: "diet" | "lifestyle" | "restriction";
+    title: string;
+    detail: string;
+  }>;
 };
 
 export type ConsultationPrescriptionRow = {
@@ -1515,5 +1843,130 @@ export async function finalizeConsultationRecording(
   return apiFetchJson(haProxyPath(`doctor/consultations/${encodeURIComponent(consultationId)}/finalize`), {
     method: "POST",
     body: JSON.stringify({ saveAudio })
+  });
+}
+
+// ─── WhatsApp Business ─────────────────────────────────────────────────────
+
+export type WhatsAppConnectionStatus = {
+  status: string;
+  connected: boolean;
+  provider?: string;
+  wabaId?: string | null;
+  phoneNumberId?: string | null;
+  displayPhone?: string | null;
+  accessTokenMasked?: string | null;
+  verifiedAt?: string | null;
+};
+
+export type WhatsAppTemplate = {
+  id: string;
+  name: string;
+  meta_template_name: string | null;
+  language_code: string;
+  category: string;
+  body: string;
+  variables: string[];
+  status: string;
+};
+
+export type WhatsAppAudienceSpec =
+  | { mode: "all" }
+  | { mode: "individual"; patientIds: string[] }
+  | { mode: "tags"; tags: string[] }
+  | { mode: "filter"; filter?: { status?: "stable" | "critical"; tags?: string[]; hasPhone?: boolean; search?: string } };
+
+export type WhatsAppOAuthConfig = {
+  enabled: boolean;
+  appId: string | null;
+  configId: string | null;
+};
+
+export async function fetchWhatsAppOAuthConfig(): Promise<WhatsAppOAuthConfig> {
+  return apiFetchJson<WhatsAppOAuthConfig>(haProxyPath("doctor/whatsapp/oauth/config"), { method: "GET" });
+}
+
+export async function exchangeWhatsAppOAuthCode(body: {
+  code: string;
+  wabaId?: string | null;
+  phoneNumberId?: string | null;
+  redirectUri?: string | null;
+}): Promise<{ connected: boolean; displayPhone?: string; phoneNumberId?: string }> {
+  return apiFetchJson(haProxyPath("doctor/whatsapp/oauth/exchange"), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function fetchWhatsAppConnection(): Promise<WhatsAppConnectionStatus> {
+  return apiFetchJson<WhatsAppConnectionStatus>(haProxyPath("doctor/whatsapp/connection"), { method: "GET" });
+}
+
+export async function saveWhatsAppConnection(body: {
+  wabaId?: string;
+  phoneNumberId: string;
+  displayPhone?: string;
+  accessToken: string;
+}): Promise<{ connected: boolean; displayPhone?: string }> {
+  return apiFetchJson(haProxyPath("doctor/whatsapp/connection"), {
+    method: "POST",
+    body: JSON.stringify({ ...body, provider: "meta_cloud" })
+  });
+}
+
+export async function verifyWhatsAppConnection(testPhone: string): Promise<{ sent: boolean }> {
+  return apiFetchJson(haProxyPath("doctor/whatsapp/connection/verify"), {
+    method: "POST",
+    body: JSON.stringify({ testPhone })
+  });
+}
+
+export async function disconnectWhatsApp(): Promise<void> {
+  await apiFetchJson(haProxyPath("doctor/whatsapp/connection"), { method: "DELETE" });
+}
+
+export async function fetchWhatsAppTemplates(): Promise<WhatsAppTemplate[]> {
+  return apiFetchJson<WhatsAppTemplate[]>(haProxyPath("doctor/whatsapp/templates"), { method: "GET" });
+}
+
+export async function syncWhatsAppTemplates(): Promise<{
+  synced: number;
+  created: number;
+  updated: number;
+  skipped: number;
+}> {
+  return apiFetchJson(haProxyPath("doctor/whatsapp/templates/sync"), { method: "POST" });
+}
+
+export async function createWhatsAppTemplate(body: {
+  name: string;
+  body: string;
+  metaTemplateName?: string;
+  category?: "MARKETING" | "UTILITY" | "AUTHENTICATION";
+}): Promise<{ id: string }> {
+  return apiFetchJson(haProxyPath("doctor/whatsapp/templates"), {
+    method: "POST",
+    body: JSON.stringify({ ...body, languageCode: "en", status: "approved" })
+  });
+}
+
+export async function previewWhatsAppAudience(audience: WhatsAppAudienceSpec): Promise<{
+  recipientCount: number;
+  skippedNoPhone: number;
+}> {
+  return apiFetchJson(haProxyPath("doctor/whatsapp/audience/preview"), {
+    method: "POST",
+    body: JSON.stringify({ audience })
+  });
+}
+
+export async function createWhatsAppBroadcast(body: {
+  body: string;
+  audience: WhatsAppAudienceSpec;
+  templateId?: string;
+}): Promise<{ broadcastId: string; total: number; skippedNoPhone: number }> {
+  return apiFetchJson(haProxyPath("doctor/whatsapp/broadcasts"), {
+    method: "POST",
+    body: JSON.stringify(body)
   });
 }

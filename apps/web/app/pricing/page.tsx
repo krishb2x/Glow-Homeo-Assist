@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { LandingHeader } from "../../components/LandingHeader";
 import { MarketingFooter } from "../../components/marketing/MarketingFooter";
 import { PricingPlans } from "../../components/marketing/PricingPlans";
+import { PlanComparisonTable } from "../../components/marketing/PlanComparisonTable";
 import { FAQSection } from "../../components/marketing/FAQSection";
 import { BRAND_NAME } from "../../lib/brand";
 
 export const metadata: Metadata = {
   title: `Pricing | ${BRAND_NAME}`,
   description:
-    "Simple, predictable pricing for homeopathy clinics. One price per clinic — no per-patient fees, no surprise add-ons."
+    "Simple pricing for homeopathy clinics. One price per clinic, no per-patient fees, no surprise add-ons."
 };
 
 export default function PricingPage(): JSX.Element {
@@ -26,13 +27,15 @@ export default function PricingPage(): JSX.Element {
               One price per clinic. Built for practising homeopaths.
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[0.98rem] leading-relaxed text-slate-500">
-              No per-patient fees. No charges for the patient care app. Choose monthly or annual —
+              No per-patient fees. The patient care app is included. Choose monthly or annual billing;
               annual saves two months.
             </p>
           </div>
         </section>
 
         <PricingPlans />
+
+        <PlanComparisonTable />
 
         {/* ── Comparison detail ─────────────────────────────────────── */}
         <section className="bg-white px-5 py-20 sm:px-6 sm:py-24 md:px-10">
@@ -45,7 +48,7 @@ export default function PricingPage(): JSX.Element {
                 Every plan includes the core clinical system.
               </h2>
               <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-slate-500">
-                We don't paywall the things you need every day — the patient care app,
+                We do not hide daily essentials behind higher tiers. The patient care app,
                 prescription PDFs, AI notetaker, and full case file are in every plan.
               </p>
             </div>
@@ -54,19 +57,19 @@ export default function PricingPage(): JSX.Element {
               {[
                 {
                   title: "Unlimited patients",
-                  body: "Pricing is per clinic — not per chart. Grow your patient list without re-budgeting."
+                  body: "One price for the whole clinic, not per patient. Grow your list without re-budgeting."
                 },
                 {
-                  title: "Patient care app — included",
+                  title: "Patient care app (included)",
                   body: "Branded under your clinic. Reminders, diet, lifestyle, follow-ups, and case history at no extra cost."
                 },
                 {
-                  title: "AI notetaker — included",
-                  body: "Live transcription with doctor-approved notes. Always opt-in, never auto-saves."
+                  title: "AI notetaker (included)",
+                  body: "Live transcription with doctor-approved notes. Always opt-in; never saves on its own."
                 },
                 {
                   title: "Prescription delivery",
-                  body: "Email, WhatsApp, patient app, or print — all in every plan, no per-message fees."
+                  body: "Email, WhatsApp, patient app, or print in every plan, with no per-message fees."
                 },
                 {
                   title: "Remedy inventory",
@@ -105,7 +108,7 @@ export default function PricingPage(): JSX.Element {
               {[
                 {
                   q: "Is there a free trial?",
-                  a: "We do a structured 90-day guided trial for serious clinics — premium onboarding with check-ins, not a self-serve trial. Apply through the walkthrough."
+                  a: "We offer a structured 90-day guided trial for serious clinics: personal onboarding with check-ins, not a self-serve trial. Apply through the walkthrough."
                 },
                 {
                   q: "Can I cancel any time?",
@@ -121,7 +124,7 @@ export default function PricingPage(): JSX.Element {
                 },
                 {
                   q: "Do you offer a discount for clinics in training or rural setups?",
-                  a: "We do. Contact us through the walkthrough form and tell us about your practice — we'll talk."
+                  a: "We do. Contact us through the walkthrough form and tell us about your practice. We will discuss options with you."
                 }
               ].map((item) => (
                 <div key={item.q} className="py-5">

@@ -6,6 +6,7 @@ import { logger } from "../../lib/logger";
 import { writeAuditV2Event } from "../../lib/auditV2";
 import { renderHtmlToPdf } from "./pdfRenderer";
 import { sendPrescriptionEmail, sendPrescriptionWhatsApp } from "./notificationProviders";
+import { loadDoctorWhatsAppConnection, sendWhatsAppMessage } from "../whatsapp/sendMessage";
 import type {
   NotificationJobRow,
   PrescriptionDistributionOptions,
@@ -52,7 +53,7 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
   if (loadErr || !row) return null;
 
   const [{ data: patient }, { data: clinic }, { data: profile }, { data: rxRows }] = await Promise.all([
-    ctx.client.from("patients").select("name,phone,age,gender").eq("id", ctx.patientId).maybeSingle(),
+    ctx.client.from("patients").select("name,phone,email,age,gender").eq("id", ctx.patientId).maybeSingle(),
     ctx.client.from("clinics").select("name,location,address,phone,email,registration_number").eq("id", ctx.clinicId).maybeSingle(),
     ctx.client
       .from("profiles")
@@ -112,7 +113,13 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
     }
   }
 
-  const pat = patient as { name?: string; phone?: string | null; age?: number | null; gender?: string | null } | null;
+  const pat = patient as {
+    name?: string;
+    phone?: string | null;
+    email?: string | null;
+    age?: number | null;
+    gender?: string | null;
+  } | null;
   const cl = clinic as {
     name?: string;
     location?: string | null;
@@ -167,7 +174,7 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
     html,
     meta,
     patientPhone: pat?.phone?.trim() || null,
-    patientEmail: ctx.distribute?.notifyEmail?.trim() || null
+    patientEmail: ctx.distribute?.notifyEmail?.trim() || pat?.email?.trim() || null
   };
 }
 
@@ -270,8 +277,37 @@ async function enqueueJob(
   return id;
 }
 
-export async function processNotificationJob(admin: SupabaseClient, job: NotificationJobRow): Promise<boolean> {
+export async function processNotificationJob(
+  admin: SupabaseClient,
+  job: NotificationJobRow,
+  opts?: { skipJobStatusUpdate?: boolean }
+): Promise<boolean> {
+  const skipJobUpdate = opts?.skipJobStatusUpdate === true;
   const payload = job.payload ?? {};
+
+  const telemedicineTopics = new Set([
+    "appointment_invite_email",
+    "appointment_invite_whatsapp",
+    "appointment_reminder_whatsapp",
+    "consultation_summary_email",
+    "consultation_summary_whatsapp"
+  ]);
+  if (telemedicineTopics.has(job.topic)) {
+    const { processTelemedicineNotificationJob } = await import("../telemedicine/notificationDelivery");
+    const ok = await processTelemedicineNotificationJob(admin, job);
+    if (!skipJobUpdate) {
+      await admin
+        .from("notification_jobs")
+        .update({
+          status: ok ? "SENT" : "FAILED",
+          sent_at: ok ? new Date().toISOString() : null,
+          last_error: ok ? null : "send_failed",
+          attempts: job.attempts + 1
+        })
+        .eq("id", job.id);
+    }
+    return ok;
+  }
 
   if (job.topic === "prescription_delivery_email" && job.channel === "email") {
     const to = String(payload.to ?? "");
@@ -282,52 +318,181 @@ export async function processNotificationJob(admin: SupabaseClient, job: Notific
       html: String(payload.html ?? ""),
       text: String(payload.text ?? "")
     });
-    await admin
-      .from("notification_jobs")
-      .update({
-        status: result.ok ? "SENT" : "FAILED",
-        sent_at: result.ok ? new Date().toISOString() : null,
-        last_error: result.ok ? null : result.error,
-        attempts: job.attempts + 1
-      })
-      .eq("id", job.id);
+    if (!skipJobUpdate) {
+      await admin
+        .from("notification_jobs")
+        .update({
+          status: result.ok ? "SENT" : "FAILED",
+          sent_at: result.ok ? new Date().toISOString() : null,
+          last_error: result.ok ? null : result.error,
+          attempts: job.attempts + 1
+        })
+        .eq("id", job.id);
+    }
     return result.ok;
   }
 
-  if (
-    (job.topic === "prescription_delivery_whatsapp" || job.topic === "follow_up_reminder") &&
-    job.channel === "whatsapp"
-  ) {
+  if (job.channel === "whatsapp") {
     const phone = String(payload.phone ?? "");
     if (!phone) return false;
-    const result = await sendPrescriptionWhatsApp({
-      toPhone: phone,
-      body: String(payload.body ?? "")
-    });
-    await admin
-      .from("notification_jobs")
-      .update({
-        status: result.ok ? "SENT" : "FAILED",
-        sent_at: result.ok ? new Date().toISOString() : null,
-        last_error: result.ok ? null : result.error,
-        attempts: job.attempts + 1
-      })
-      .eq("id", job.id);
+
+    const doctorId = typeof payload.doctorId === "string" ? payload.doctorId : null;
+    const connection =
+      doctorId != null
+        ? await loadDoctorWhatsAppConnection(admin, job.clinic_id, doctorId)
+        : null;
+
+    let result: { ok: boolean; error?: string; provider?: string; messageId?: string };
+
+    if (job.topic === "whatsapp_broadcast") {
+      result = await sendWhatsAppMessage({
+        connection,
+        toPhone: phone,
+        body: String(payload.body ?? ""),
+        metaTemplateName:
+          typeof payload.metaTemplateName === "string" ? payload.metaTemplateName : null,
+        languageCode: typeof payload.languageCode === "string" ? payload.languageCode : "en"
+      });
+
+      const deliveryId = typeof payload.deliveryId === "string" ? payload.deliveryId : null;
+      const broadcastId = typeof payload.broadcastId === "string" ? payload.broadcastId : null;
+      if (deliveryId) {
+        await admin
+          .from("whatsapp_broadcast_deliveries")
+          .update({
+            status: result.ok ? "sent" : "failed",
+            provider_message_id: result.messageId ?? null,
+            last_error: result.ok ? null : result.error,
+            sent_at: result.ok ? new Date().toISOString() : null
+          })
+          .eq("id", deliveryId);
+      }
+      if (broadcastId && result.ok) {
+        const { data: b } = await admin
+          .from("whatsapp_broadcasts")
+          .select("sent_count,failed_count,total_recipients")
+          .eq("id", broadcastId)
+          .maybeSingle();
+        if (b) {
+          const row = b as { sent_count: number; failed_count: number; total_recipients: number };
+          await admin
+            .from("whatsapp_broadcasts")
+            .update({
+              sent_count: row.sent_count + 1,
+              status:
+                row.sent_count + 1 + row.failed_count >= row.total_recipients ? "completed" : "sending",
+              completed_at:
+                row.sent_count + 1 + row.failed_count >= row.total_recipients
+                  ? new Date().toISOString()
+                  : null
+            })
+            .eq("id", broadcastId);
+        }
+      } else if (broadcastId && !result.ok) {
+        const { data: bFail } = await admin
+          .from("whatsapp_broadcasts")
+          .select("sent_count,failed_count,total_recipients")
+          .eq("id", broadcastId)
+          .maybeSingle();
+        if (bFail) {
+          const row = bFail as { sent_count: number; failed_count: number; total_recipients: number };
+          const failed = row.failed_count + 1;
+          await admin
+            .from("whatsapp_broadcasts")
+            .update({
+              failed_count: failed,
+              status: row.sent_count + failed >= row.total_recipients ? "completed" : "sending",
+              completed_at:
+                row.sent_count + failed >= row.total_recipients ? new Date().toISOString() : null
+            })
+            .eq("id", broadcastId);
+        }
+      }
+    } else if (job.topic === "prescription_delivery_whatsapp") {
+      const { resolveTelemedicineWhatsAppSend } = await import("../telemedicine/telemedicineWhatsApp");
+      const { prescriptionWhatsApp } = await import("../telemedicine/consultationNotifyService");
+      const tv = payload.templateVars as Record<string, unknown> | undefined;
+      const vars =
+        tv && typeof tv.patientName === "string"
+          ? {
+              patientName: String(tv.patientName),
+              doctorName: String(tv.doctorName ?? "Doctor"),
+              clinicName: String(tv.clinicName ?? "Clinic"),
+              prescriptionLink: tv.prescriptionLink != null ? String(tv.prescriptionLink) : undefined
+            }
+          : null;
+      const fallbackBody = String(payload.body ?? "");
+      const sendOpts = vars
+        ? await resolveTelemedicineWhatsAppSend(admin, {
+            clinicId: job.clinic_id,
+            doctorId,
+            topic: job.topic,
+            vars,
+            fallbackBody: vars.prescriptionLink
+              ? prescriptionWhatsApp(vars)
+              : fallbackBody
+          })
+        : { body: fallbackBody };
+      result = await sendWhatsAppMessage({
+        connection,
+        toPhone: phone,
+        body: sendOpts.body,
+        metaTemplateName: sendOpts.metaTemplateName,
+        languageCode: sendOpts.languageCode,
+        templateParameters: sendOpts.templateParameters
+      });
+    } else if (job.topic === "follow_up_reminder") {
+      result = await sendWhatsAppMessage({
+        connection,
+        toPhone: phone,
+        body: String(payload.body ?? "")
+      });
+    } else {
+      return false;
+    }
+
+    if (!skipJobUpdate) {
+      await admin
+        .from("notification_jobs")
+        .update({
+          status: result.ok ? "SENT" : "FAILED",
+          sent_at: result.ok ? new Date().toISOString() : null,
+          last_error: result.ok ? null : result.error,
+          attempts: job.attempts + 1
+        })
+        .eq("id", job.id);
+    }
     return result.ok;
   }
 
   return false;
 }
 
-export async function processDueNotificationJobs(admin: SupabaseClient, limit = 20): Promise<number> {
+export async function processDueNotificationJobs(
+  admin: SupabaseClient,
+  limit = 20,
+  topics?: string[]
+): Promise<number> {
+  try {
+    const { processDueNotificationJobsSafe } = await import("../jobs/jobQueue");
+    return await processDueNotificationJobsSafe(admin, limit, topics);
+  } catch (e) {
+    logger.warn("notification_queue_rpc_fallback", {
+      message: e instanceof Error ? e.message : String(e)
+    });
+  }
+
   const now = new Date().toISOString();
-  const { data, error } = await admin
+  const q = admin
     .from("notification_jobs")
-    .select("id,clinic_id,patient_id,channel,topic,payload,idempotency_key,scheduled_for,status,attempts")
+    .select("id,clinic_id,patient_id,channel,topic,payload,idempotency_key,scheduled_for,status,attempts,max_attempts")
     .eq("status", "QUEUED")
     .lte("scheduled_for", now)
     .order("scheduled_for", { ascending: true })
     .limit(limit);
+  const { data, error } = topics?.length
+    ? await q.in("topic", topics)
+    : await q;
 
   if (error) {
     if (!isMissingTableError(error)) logger.warn("notification_poll_failed", { message: error.message });
@@ -375,9 +540,26 @@ export async function runPrescriptionDistributionPipeline(
     return result;
   }
 
-  const portalLink = patientPortalUrl(ctx.consultationId);
+  let portalLink = patientPortalUrl(ctx.consultationId);
+  try {
+    const { createPatientAccessToken } = await import("../telemedicine/patientAccess");
+    const access = await createPatientAccessToken({
+      admin: ctx.admin,
+      clinicId: ctx.clinicId,
+      patientId: ctx.patientId,
+      consultationId: ctx.consultationId,
+      purpose: "view_prescription"
+    });
+    portalLink = access.url;
+  } catch {
+    /* fallback legacy URL */
+  }
   const linkForMessage = result.downloadUrl ?? portalLink;
   const distribute = ctx.distribute ?? {};
+  const summaryLine =
+    meta.patientName && meta.doctorName
+      ? `Your consultation with ${meta.doctorName} is complete. Your prescription is ready.`
+      : "Your consultation is complete.";
 
   if (distribute.sendEmail && patientEmail) {
     const jobId = await enqueueJob(ctx.client, {
@@ -424,7 +606,14 @@ export async function runPrescriptionDistributionPipeline(
       idempotencyKey: `consultation:${ctx.consultationId}:rx_whatsapp`,
       payload: {
         phone: patientPhone,
-        body: `Hello ${meta.patientName}, your prescription from ${meta.doctorName} (${meta.clinicName}) is ready.\n\nView: ${linkForMessage}\n\n— GlowHomeo Assist`
+        doctorId: ctx.doctorId,
+        body: `Hello ${meta.patientName}, your prescription from ${meta.doctorName} (${meta.clinicName}) is ready.\n\nView: ${linkForMessage}\n\n— GlowHomeo Assist`,
+        templateVars: {
+          patientName: meta.patientName,
+          doctorName: meta.doctorName,
+          clinicName: meta.clinicName,
+          prescriptionLink: linkForMessage
+        }
       }
     });
     if (jobId) {
@@ -444,6 +633,24 @@ export async function runPrescriptionDistributionPipeline(
   } else if (distribute.sendWhatsApp) {
     result.whatsapp = "skipped";
     result.whatsappDetail = "No patient phone on file";
+  }
+
+  try {
+    const { sendPostConsultationNotifications } = await import("../telemedicine/consultationNotifyService");
+    await sendPostConsultationNotifications({
+      client: ctx.client,
+      admin: ctx.admin,
+      clinicId: ctx.clinicId,
+      consultationId: ctx.consultationId,
+      patientId: ctx.patientId,
+      doctorId: ctx.doctorId,
+      summaryLine,
+      prescriptionLink: linkForMessage,
+      sendEmail: Boolean(distribute.sendEmail),
+      sendWhatsApp: Boolean(distribute.sendWhatsApp)
+    });
+  } catch {
+    /* telemedicine module optional until migration applied */
   }
 
   if (ctx.followUpRecommendedAt && patientPhone) {

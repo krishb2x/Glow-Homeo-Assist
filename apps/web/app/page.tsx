@@ -3,12 +3,9 @@ import {
   CalendarCheck,
   CheckCircle2,
   ClipboardList,
-  FileText,
-  Package,
   Smartphone,
   Sparkles,
-  Stethoscope,
-  TrendingUp
+  Stethoscope
 } from "lucide-react";
 import Link from "next/link";
 import { ClinicalCTAGroup } from "../components/marketing/ClinicalCTAGroup";
@@ -19,12 +16,10 @@ import { FeatureGrid } from "../components/marketing/FeatureGrid";
 import { HowItWorks } from "../components/marketing/HowItWorks";
 import { MarketingFooter } from "../components/marketing/MarketingFooter";
 import { MotionSection } from "../components/marketing/MotionSection";
-import { PricingPreview } from "../components/marketing/PricingPreview";
-import { SecurityRow } from "../components/marketing/SecurityRow";
 import { TrustStrip } from "../components/marketing/TrustStrip";
 import { BRAND_NAME } from "../lib/brand";
 
-/* ─── Inline mockups (kept lean — pure CSS) ───────────────────────── */
+/* ─── Inline mockups (pure CSS) ───────────────────────────────────── */
 
 function PhoneAppMockup(): JSX.Element {
   return (
@@ -178,21 +173,42 @@ function PrescriptionMockup(): JSX.Element {
   );
 }
 
-/* ─── Problem strip data ──────────────────────────────────────────── */
+/* ─── JSON-LD structured data ─────────────────────────────────────── */
 
-const problems = [
-  { icon: ClipboardList, label: "Paper registers", sub: "Patient records split across files" },
-  { icon: FileText, label: "Word prescriptions", sub: "Typed, printed, and lost" },
-  { icon: Package, label: "Inventory in your head", sub: "No tracking of remedy stock" },
-  { icon: Smartphone, label: "No patient app", sub: "Care stops when they leave" },
-  { icon: TrendingUp, label: "Manual outreach", sub: "Personal numbers, no clinic brand" }
-] as const;
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://app.glowhomeo.com").replace(/\/$/, "");
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: BRAND_NAME,
+      applicationCategory: "HealthApplication",
+      operatingSystem: "Web, iOS, Android",
+      description:
+        "Clinic software for homeopathy doctors: step-by-step consultations, AI-assisted notes, professional prescriptions, online visits, and a patient app under your clinic name.",
+      url: SITE_URL,
+      offers: { "@type": "Offer", priceCurrency: "INR", price: "1499" }
+    },
+    {
+      "@type": "MedicalBusiness",
+      name: BRAND_NAME,
+      description:
+        "Clinic software for homeopathy practices in India and beyond, for in-clinic and online consultations.",
+      url: SITE_URL,
+      medicalSpecialty: "Alternative Medicine"
+    }
+  ]
+};
 
 /* ─── Page ────────────────────────────────────────────────────────── */
 
 export default function LandingPage(): JSX.Element {
   return (
     <div className="bg-white text-slate-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+      />
       <LandingHeader />
 
       <main id="main-content" className="relative">
@@ -215,13 +231,13 @@ export default function LandingPage(): JSX.Element {
               </div>
 
               <h1 className="font-heading mt-5 text-balance text-[2.1rem] font-semibold leading-[1.08] tracking-tight text-slate-900 sm:text-[2.6rem] md:text-[3rem]">
-                The clinical operating system for homeopathy doctors.
+                One place to run your homeopathy clinic.
               </h1>
 
               <p className="mt-5 max-w-xl text-pretty text-[1rem] leading-relaxed text-slate-600 sm:text-[1.05rem]">
-                Structured consultations, AI-assisted notes, professional prescriptions, and a
-                patient care app — all on one chart. Designed with practising homeopaths so it fits
-                the way you already work.
+                Take the case, write the prescription, and stay in touch with patients after they
+                leave. Built with practising homeopaths so it matches how you already work in OPD
+                and online.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -264,37 +280,6 @@ export default function LandingPage(): JSX.Element {
         {/* ── Trust strip ──────────────────────────────────────────── */}
         <TrustStrip />
 
-        {/* ── Problem framing ──────────────────────────────────────── */}
-        <section className="bg-white px-5 py-16 sm:px-6 sm:py-20 md:px-10 md:py-24">
-          <div className="mx-auto max-w-5xl">
-            <div className="max-w-2xl">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Why doctors switch
-              </p>
-              <h2 className="font-heading mt-3 text-balance text-[1.6rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[1.85rem]">
-                Most homeopathy clinics run across five disconnected tools.
-              </h2>
-              <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-slate-500">
-                Paper, Word, WhatsApp, registers, and personal phones. {BRAND_NAME} replaces them
-                with one connected workspace — so you spend time treating, not managing.
-              </p>
-            </div>
-
-            <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {problems.map(({ icon: Icon, label, sub }) => (
-                <div
-                  key={label}
-                  className="flex flex-col items-start gap-2 rounded-2xl border border-slate-200/70 bg-white px-4 py-4 shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-colors hover:border-slate-300"
-                >
-                  <Icon className="h-5 w-5 text-slate-400" strokeWidth={1.5} aria-hidden />
-                  <p className="text-[0.84rem] font-semibold text-slate-800">{label}</p>
-                  <p className="text-[0.75rem] leading-snug text-slate-500">{sub}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* ── How it works ─────────────────────────────────────────── */}
         <HowItWorks />
 
@@ -310,7 +295,7 @@ export default function LandingPage(): JSX.Element {
                   What's inside
                 </p>
                 <h2 className="font-heading mt-3 text-balance text-[1.6rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[1.85rem]">
-                  Six modules. One connected case file.
+                  Everything you need in one patient chart.
                 </h2>
               </div>
               <Link
@@ -336,11 +321,11 @@ export default function LandingPage(): JSX.Element {
                 Patient care app
               </p>
               <h2 className="font-heading mt-3 text-balance text-[1.65rem] font-semibold leading-tight tracking-tight text-white sm:text-[2rem]">
-                Care continues — long after the patient leaves your clinic.
+                Care continues after the patient leaves your clinic.
               </h2>
               <p className="mt-4 text-[0.93rem] leading-relaxed text-slate-300/80">
-                When a patient leaves, their treatment shouldn't stop. The patient app — shaped by
-                experienced homeopaths — keeps them on the plan you designed.
+                When a patient goes home, their treatment should not stop. Your clinic&apos;s patient
+                app keeps them on the plan you set: medicines, diet, lifestyle, and follow-up dates.
               </p>
 
               <ul className="mt-6 space-y-3">
@@ -386,15 +371,15 @@ export default function LandingPage(): JSX.Element {
                 AI takes the notes. You run the consultation.
               </h2>
               <p className="mt-4 text-[0.93rem] leading-relaxed text-slate-500">
-                The AI notetaker listens while you take the case — structuring chief complaints,
-                modalities, emotional state, and physical symptoms in the homeopathic format you
-                already use. Nothing is saved until you approve it.
+                The AI notetaker listens while you consult. It drafts chief complaints, modalities,
+                emotional and physical symptoms in the homeopathic format you already use. Nothing is
+                saved until you approve it.
               </p>
               <ul className="mt-5 space-y-2.5 text-[0.88rem] text-slate-600">
                 {[
-                  "Live transcription — works in-clinic and on online calls",
-                  "Structured output matched to homeopathic case format",
-                  "You edit, approve, or discard — never auto-saves"
+                  "Works in the clinic and on video calls",
+                  "Output matches your usual case structure",
+                  "You edit, approve, or discard. It never saves on its own"
                 ].map((t) => (
                   <li key={t} className="flex items-center gap-2.5">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-hs-primary" aria-hidden />
@@ -417,9 +402,9 @@ export default function LandingPage(): JSX.Element {
                 Professional prescriptions generated and sent in seconds.
               </h2>
               <p className="mt-4 text-[0.93rem] leading-relaxed text-slate-500">
-                Stop typing prescriptions into Word at night. {BRAND_NAME} generates a clean,
-                print-ready PDF with your clinic details, registration number, and digital
-                signature — and delivers it straight to the patient's app, WhatsApp, or email.
+                Stop typing prescriptions into Word at night. {BRAND_NAME} makes a clean,
+                print-ready PDF with your clinic details, registration number, and signature, then
+                sends it to the patient app, WhatsApp, or email.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 {[
@@ -460,17 +445,17 @@ export default function LandingPage(): JSX.Element {
                 {
                   Icon: Stethoscope,
                   title: "Solo practitioner",
-                  body: "Run everything from one screen — case list to the last prescription of the day. No switching between tools."
+                  body: "Run the day from one screen: patient list, consultations, and prescriptions without jumping between apps."
                 },
                 {
                   Icon: Smartphone,
                   title: "Clinic with staff",
-                  body: "Your receptionist handles appointments and registration. You handle the case. Records stay private and access stays controlled."
+                  body: "Your receptionist books appointments and registers patients. You see only your cases. Access stays under your control."
                 },
                 {
                   Icon: Sparkles,
                   title: "Multi-doctor setup",
-                  body: "Each doctor sees their own patients. Cases, notes, and prescriptions are scoped per doctor — with clinic-level visibility where you need it."
+                  body: "Each doctor sees their own patients. The clinic owner can see the full picture when needed."
                 }
               ].map(({ Icon, title, body }) => (
                 <div
@@ -489,12 +474,6 @@ export default function LandingPage(): JSX.Element {
             </div>
           </div>
         </MotionSection>
-
-        {/* ── Pricing teaser ───────────────────────────────────────── */}
-        <PricingPreview />
-
-        {/* ── Security row ─────────────────────────────────────────── */}
-        <SecurityRow />
 
         {/* ── Guided trial ─────────────────────────────────────────── */}
         <GuidedTrialSection />
@@ -515,8 +494,8 @@ export default function LandingPage(): JSX.Element {
               See {BRAND_NAME} on your clinic's caseload.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-[0.95rem] leading-relaxed text-slate-500">
-              A 20-minute walkthrough is the fastest way to judge fit. We'll show the system on
-              cases that look like yours — no slide deck.
+              A 20-minute walkthrough is the fastest way to see if it fits. We show real workflows
+              on cases like yours, not a slide deck.
             </p>
 
             <div className="mt-10 flex justify-center">

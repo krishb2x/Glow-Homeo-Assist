@@ -129,14 +129,14 @@ export function ScheduleWeekGrid({
         </div>
         <Link
           href="/consultation"
-          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border-2 border-hs-primary/30 bg-hs-paper px-ds-md text-caption-md font-semibold text-hs-primary transition duration-200 hover:bg-hs-primary-very-light/80"
+          className="inline-flex min-h-9 items-center gap-1 text-caption-sm font-semibold text-hs-primary transition hover:underline"
         >
-          <Stethoscope className="h-4 w-4" />
+          <Stethoscope className="h-4 w-4" aria-hidden />
           Walk-in visit
         </Link>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-hs-border/30 bg-hs-paper/95 shadow-card">
+      <div className="ds-card overflow-x-auto">
         <div className="flex min-w-[1040px]">
           <div
             className="flex w-16 shrink-0 flex-col border-r border-hs-border/25 bg-hs-cream/40"

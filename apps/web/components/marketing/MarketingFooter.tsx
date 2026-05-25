@@ -30,8 +30,8 @@ export function MarketingFooter(): JSX.Element {
               {BRAND_NAME}
             </Link>
             <p className="mt-3 max-w-sm text-[0.85rem] leading-relaxed text-slate-500">
-              The complete practice system for homeopathy doctors — designed with practitioners who
-              know the workflow gaps first-hand.
+              Complete clinic software for homeopathy doctors, designed with practitioners who know
+              the daily workflow first-hand.
             </p>
             <div className="mt-5 flex flex-col gap-1.5 text-[0.85rem]">
               <a

@@ -5,16 +5,19 @@ import Link from "next/link";
 import { Calendar, CheckCircle2, Download, FileText, HeartPulse, History, Loader2, Pill, Stethoscope } from "lucide-react";
 import {
   createFollowUp,
+  fetchConsultationNoteDetail,
   fetchPresignDownload,
   patchFollowUp,
   type CaseOutcomeEvent,
   type ConsultationEvent,
   type DocumentEvent,
   type FollowupEvent,
+  type NoteDetail,
   type PrescriptionEvent,
   type TimelineEvent
 } from "../../lib/doctor-api";
 import { cn } from "../../lib/cn";
+import { VirtualizedList } from "../platform/VirtualizedList";
 
 /** Real follow_ups (intentional source) carry a UUID; suggested rows are prefixed `fu-`. */
 function isSyntheticFollowup(f: FollowupEvent): boolean {
@@ -134,6 +137,42 @@ export function Timeline({ patientId, events, onFollowupToggled }: Props): JSX.E
     );
   }
 
+  const useVirtual = visible.length > 15;
+
+  const renderEvent = (e: TimelineEvent, i: number): JSX.Element => {
+    const isFuture =
+      e.kind === "followup" &&
+      new Date((e as FollowupEvent).dueAt).getTime() > now.getTime() &&
+      !(e as FollowupEvent).overdue;
+    return (
+      <div key={`${e.kind}-${e.id}-${i}`} className="relative pb-10 pl-12 sm:pl-14">
+        <span
+          className={cn(
+            "absolute left-1.5 top-3 z-[1] h-2.5 w-2.5 rounded-full border-2 border-hs-paper sm:left-2.5",
+            e.kind === "consultation" && "bg-hs-primary",
+            e.kind === "prescription" && "bg-hs-text-tertiary",
+            e.kind === "followup" && "bg-hs-warning",
+            e.kind === "document" && "bg-hs-text-secondary",
+            e.kind === "case_outcome" && "bg-emerald-600"
+          )}
+          aria-hidden
+        />
+        {e.kind === "consultation" ? <ConsultationCard c={e} /> : null}
+        {e.kind === "prescription" ? <PrescriptionCard p={e} /> : null}
+        {e.kind === "case_outcome" ? <CaseOutcomeCard o={e as CaseOutcomeEvent} /> : null}
+        {e.kind === "followup" ? (
+          <FollowupCard
+            f={e as FollowupEvent}
+            isFuture={isFuture}
+            pending={pendingId === e.id}
+            onMarkChange={(v) => void onToggle(e as FollowupEvent, v)}
+          />
+        ) : null}
+        {e.kind === "document" ? <DocumentCard d={e as DocumentEvent} /> : null}
+      </div>
+    );
+  };
+
   return (
     <div className="relative mx-auto w-full max-w-3xl">
       {fuError ? (
@@ -141,55 +180,49 @@ export function Timeline({ patientId, events, onFollowupToggled }: Props): JSX.E
           {fuError}
         </p>
       ) : null}
-      <div
-        className="pointer-events-none absolute bottom-0 left-4 top-0 w-px bg-hs-border/90 md:left-1/2 md:-translate-x-1/2"
-        aria-hidden
-      />
-      <ol className="relative m-0 list-none space-y-10 p-0" aria-label="Clinical timeline">
-        {visible.map((e, i) => {
-          const isFuture =
-            e.kind === "followup" &&
-            new Date((e as FollowupEvent).dueAt).getTime() > now.getTime() &&
-            !(e as FollowupEvent).overdue;
-          return (
-            <li
-              key={`${e.kind}-${e.id}-${i}`}
-              className="relative pl-12 sm:pl-14 md:pl-0 md:pr-[2%] md:pl-[calc(50%+0.75rem)]"
-            >
-              <span
-                className={cn(
-                  "absolute left-1.5 top-3 z-[1] h-2.5 w-2.5 rounded-full border-2 border-hs-paper sm:left-2.5 md:left-1/2 md:-translate-x-1/2",
-                  e.kind === "consultation" && "bg-hs-primary",
-                  e.kind === "prescription" && "bg-hs-text-tertiary",
-                  e.kind === "followup" && "bg-hs-warning",
-                  e.kind === "document" && "bg-hs-text-secondary",
-                  e.kind === "case_outcome" && "bg-emerald-600"
-                )}
-                aria-hidden
-              />
-              {e.kind === "consultation" ? <ConsultationCard c={e} /> : null}
-              {e.kind === "prescription" ? <PrescriptionCard p={e} /> : null}
-              {e.kind === "case_outcome" ? <CaseOutcomeCard o={e as CaseOutcomeEvent} /> : null}
-              {e.kind === "followup" ? (
-                <FollowupCard
-                  f={e as FollowupEvent}
-                  isFuture={isFuture}
-                  pending={pendingId === e.id}
-                  onMarkChange={(v) => void onToggle(e as FollowupEvent, v)}
-                />
-              ) : null}
-              {e.kind === "document" ? <DocumentCard d={e as DocumentEvent} /> : null}
-            </li>
-          );
-        })}
-      </ol>
+      <div className="pointer-events-none absolute bottom-0 left-4 top-0 w-px bg-hs-border/90" aria-hidden />
+      {useVirtual ? (
+        <div aria-label="Clinical timeline">
+          <VirtualizedList
+            items={visible}
+            estimateSize={220}
+            className="max-h-[min(75vh,720px)] overflow-y-auto pr-2"
+            renderRow={(e, i) => renderEvent(e, i)}
+          />
+        </div>
+      ) : (
+        <ol className="relative m-0 list-none space-y-10 p-0" aria-label="Clinical timeline">
+          {visible.map((e, i) => renderEvent(e, i))}
+        </ol>
+      )}
     </div>
   );
 }
 
 function ConsultationCard({ c }: { c: ConsultationEvent }): JSX.Element {
-  const d = c.detail;
+  const [expanded, setExpanded] = useState(false);
+  const [lazyDetail, setLazyDetail] = useState<NoteDetail | null | undefined>(undefined);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const d = lazyDetail !== undefined ? lazyDetail : c.detail;
   const hasStructured = Boolean(d && (d.chiefComplaints || d.emotionalState || d.timeline || d.physicalSymptoms));
+  const canExpand = c.hasNoteFinal && !hasStructured && !c.detail;
+
+  const onExpand = useCallback(async () => {
+    if (!canExpand || loadingDetail) return;
+    setExpanded(true);
+    if (lazyDetail !== undefined) return;
+    setLoadingDetail(true);
+    try {
+      const r = await fetchConsultationNoteDetail(c.consultationId);
+      setLazyDetail(r.detail);
+    } catch {
+      setLazyDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, [canExpand, c.consultationId, c.detail, lazyDetail, loadingDetail]);
+
   return (
     <div className="ds-app-card overflow-hidden border-hs-primary/25 bg-hs-paper p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -247,7 +280,23 @@ function ConsultationCard({ c }: { c: ConsultationEvent }): JSX.Element {
           ) : null}
         </dl>
       ) : (
-        <p className="mt-3 line-clamp-4 text-body-sm leading-relaxed text-hs-ink">{c.summary}</p>
+        <>
+          <p className="mt-3 line-clamp-4 text-body-sm leading-relaxed text-hs-ink">{c.summary}</p>
+          {canExpand && !expanded ? (
+            <button
+              type="button"
+              onClick={() => void onExpand()}
+              className="mt-2 text-caption-sm font-semibold text-hs-primary hover:underline"
+            >
+              View clinical notes
+            </button>
+          ) : null}
+          {expanded && loadingDetail ? (
+            <p className="mt-2 flex items-center gap-2 text-caption-sm text-hs-text-secondary">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading notes…
+            </p>
+          ) : null}
+        </>
       )}
 
       <div className="mt-4">

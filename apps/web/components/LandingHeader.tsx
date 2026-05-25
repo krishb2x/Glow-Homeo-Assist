@@ -56,7 +56,7 @@ export function LandingHeader(): JSX.Element {
         <Link
           href="/"
           className="min-w-0 shrink-0 truncate font-heading text-[0.98rem] font-semibold tracking-[-0.018em] text-slate-900 transition-colors hover:text-slate-700 sm:text-[1.05rem]"
-          aria-label={`${BRAND_NAME} — home`}
+          aria-label={`${BRAND_NAME} home`}
         >
           {BRAND_NAME}
         </Link>

@@ -77,41 +77,93 @@ export function Step03Examination({
       }
     >
       <div className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-4">
-          {(
-            [
-              { key: "bp", label: "BP", placeholder: "120/80" },
-              { key: "pulse", label: "Pulse", placeholder: "72 / min" },
-              { key: "temperature", label: "Temp", placeholder: "98.6 °F" },
-              { key: "spO2", label: "SpO₂", placeholder: "99 %" }
-            ] as const
-          ).map((f) => (
-            <FieldRow key={f.key} label={f.label}>
-              <input
-                type="text"
-                value={value[f.key]}
-                onChange={(e) => onChange({ ...value, [f.key]: e.target.value })}
-                placeholder={f.placeholder}
-                disabled={readOnly}
-                className={STEP_INPUT_CLS}
-              />
-            </FieldRow>
-          ))}
-        </div>
+        <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+          <div>
+            <p className="mb-3 text-caption-sm font-semibold text-hs-text-secondary">Vitals</p>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  {
+                    key: "bp",
+                    label: "Blood pressure",
+                    unit: "mmHg",
+                    placeholder: "120/80",
+                    inputMode: "text" as const,
+                    autoComplete: "off"
+                  },
+                  {
+                    key: "pulse",
+                    label: "Pulse",
+                    unit: "bpm",
+                    placeholder: "72",
+                    inputMode: "numeric" as const,
+                    pattern: "[0-9]*"
+                  },
+                  {
+                    key: "temperature",
+                    label: "Temperature",
+                    unit: "°F",
+                    placeholder: "98.6",
+                    inputMode: "decimal" as const,
+                    pattern: "[0-9.]*"
+                  },
+                  {
+                    key: "spO2",
+                    label: "SpO₂",
+                    unit: "%",
+                    placeholder: "99",
+                    inputMode: "numeric" as const,
+                    pattern: "[0-9]*"
+                  }
+                ] as const
+              ).map((f) => {
+                const id = `vitals-${f.key}`;
+                return (
+                  <FieldRow key={f.key} label={f.label} htmlFor={id}>
+                    <div className="relative">
+                      <input
+                        id={id}
+                        name={id}
+                        type="text"
+                        inputMode={f.inputMode}
+                        pattern={"pattern" in f ? (f as { pattern?: string }).pattern : undefined}
+                        autoComplete={
+                          "autoComplete" in f ? (f as { autoComplete?: string }).autoComplete : "off"
+                        }
+                        value={value[f.key]}
+                        onChange={(e) => onChange({ ...value, [f.key]: e.target.value })}
+                        placeholder={f.placeholder}
+                        disabled={readOnly}
+                        className={cn(STEP_INPUT_CLS, "pr-12 font-mono tabular-nums")}
+                        aria-describedby={`${id}-unit`}
+                      />
+                      <span
+                        id={`${id}-unit`}
+                        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-caption-sm font-medium text-hs-text-tertiary"
+                      >
+                        {f.unit}
+                      </span>
+                    </div>
+                  </FieldRow>
+                );
+              })}
+            </div>
+          </div>
 
-        <FieldRow
-          label="General observations"
-          hint="Build, demeanour, skin tone, posture, behaviour during consult."
-        >
-          <textarea
-            rows={4}
-            value={value.general}
-            onChange={(e) => onChange({ ...value, general: e.target.value })}
-            disabled={readOnly}
-            placeholder="e.g. Moderate build, anxious affect, restless hands…"
-            className={STEP_TEXTAREA_CLS}
-          />
-        </FieldRow>
+          <FieldRow
+            label="General observations"
+            hint="Build, demeanour, skin tone, posture, behaviour during consult."
+          >
+            <textarea
+              rows={6}
+              value={value.general}
+              onChange={(e) => onChange({ ...value, general: e.target.value })}
+              disabled={readOnly}
+              placeholder="e.g. Moderate build, anxious affect, restless hands…"
+              className={cn(STEP_TEXTAREA_CLS, "min-h-[10rem] lg:min-h-0 lg:h-full")}
+            />
+          </FieldRow>
+        </div>
 
         <div className="space-y-2">
           <p className="text-caption-sm font-semibold text-hs-text-secondary">Labs & investigations</p>

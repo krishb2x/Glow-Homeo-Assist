@@ -26,7 +26,7 @@ const inter = Inter({
   variable: "--font-inter"
 });
 
-/** Distinct, readable display font for titles — pairs with Inter for body text */
+/** Display font for titles; pairs with Inter for body text */
 const outfit = Outfit({
   subsets: ["latin"],
   display: "swap",
@@ -36,10 +36,21 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   metadataBase: new URL(site),
   title: {
-    default: `${BRAND_NAME} | Full clinic operating system for homeopathy`,
+    default: `${BRAND_NAME} | Clinic software for homeopathy doctors`,
     template: `%s | ${BRAND_NAME}`
   },
   description: defaultDescription,
+  applicationName: BRAND_NAME,
+  appleWebApp: {
+    capable: true,
+    title: BRAND_NAME,
+    statusBarStyle: "default"
+  },
+  formatDetection: {
+    telephone: false,
+    address: false,
+    email: false
+  },
   openGraph: {
     type: "website",
     locale: "en_IN",
@@ -60,7 +71,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#ffffff"
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0E7C66" }
+  ]
 };
 
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {

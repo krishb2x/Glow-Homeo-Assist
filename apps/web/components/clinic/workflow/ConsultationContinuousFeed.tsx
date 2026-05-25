@@ -29,11 +29,14 @@ import {
   type PrescriptionEntry,
   type ExaminationStepValue
 } from "./steps";
+import type { StepValidation } from "../../../lib/consultation-validation";
 import { cn } from "../../../lib/cn";
+import { StepInlineValidation } from "./StepInlineValidation";
 
 export type ConsultationContinuousFeedProps = {
   activeStep: ConsultationStep;
   readOnly?: boolean;
+  stepValidations?: Partial<Record<ConsultationStep, StepValidation>>;
   stepExtras?: Partial<Record<ConsultationStep, ReactNode>>;
 
   patient: PatientSnapshot;
@@ -84,23 +87,30 @@ function StepBlock({
   stepId,
   activeStep,
   children,
-  extra
+  extra,
+  validation
 }: {
   stepId: ConsultationStep;
   activeStep: ConsultationStep;
   children: ReactNode;
   extra?: ReactNode;
+  validation?: StepValidation;
 }): JSX.Element {
   const on = activeStep === stepId;
   return (
     <div
       className={cn(
-        "scroll-mt-4 rounded-2xl transition",
-        on && "ring-2 ring-hs-primary/20 ring-offset-2 ring-offset-hs-surface"
+        "scroll-mt-4 rounded-xl transition",
+        on && "ring-2 ring-hs-primary/15 ring-offset-2 ring-offset-hs-surface"
       )}
       data-workflow-step={stepId}
     >
       {children}
+      <StepInlineValidation
+        active={on}
+        validation={validation}
+        className="mx-4 mb-3 lg:mx-5"
+      />
       {extra ? <div className="mt-3 space-y-3 px-1">{extra}</div> : null}
     </div>
   );
@@ -111,6 +121,7 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
     const {
       activeStep,
       readOnly = false,
+      stepValidations,
       stepExtras,
       patient,
       patientStep,
@@ -147,8 +158,13 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
     const activeIdx = stepIndex(activeStep);
 
     return (
-      <div ref={ref} className="space-y-6 pb-8">
-        <StepBlock stepId="patient" activeStep={activeStep} extra={stepExtras?.patient}>
+      <div ref={ref} className="space-y-5 pb-6">
+        <StepBlock
+          stepId="patient"
+          activeStep={activeStep}
+          validation={stepValidations?.patient}
+          extra={stepExtras?.patient}
+        >
           <Step01Patient
             stepNumber={1}
             patient={patient}
@@ -160,7 +176,12 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
           />
         </StepBlock>
 
-        <StepBlock stepId="history" activeStep={activeStep} extra={stepExtras?.history}>
+        <StepBlock
+          stepId="history"
+          activeStep={activeStep}
+          validation={stepValidations?.history}
+          extra={stepExtras?.history}
+        >
           <Step02History
             stepNumber={2}
             value={historyStep}
@@ -169,7 +190,12 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
           />
         </StepBlock>
 
-        <StepBlock stepId="examination" activeStep={activeStep} extra={stepExtras?.examination}>
+        <StepBlock
+          stepId="examination"
+          activeStep={activeStep}
+          validation={stepValidations?.examination}
+          extra={stepExtras?.examination}
+        >
           <Step03Examination
             stepNumber={3}
             value={examinationStep}
@@ -178,11 +204,16 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
           />
         </StepBlock>
 
-        <StepBlock stepId="notes" activeStep={activeStep} extra={stepExtras?.notes}>
+        <StepBlock
+          stepId="notes"
+          activeStep={activeStep}
+          validation={stepValidations?.notes}
+          extra={stepExtras?.notes}
+        >
           <Step04Notes stepNumber={4} value={notesStep} onChange={onNotesStepChange} readOnly={readOnly} />
         </StepBlock>
 
-        <StepBlock stepId="ai" activeStep={activeStep} extra={stepExtras?.ai}>
+        <StepBlock stepId="ai" activeStep={activeStep} validation={stepValidations?.ai} extra={stepExtras?.ai}>
           <Step05AI
             stepNumber={5}
             enabled={aiEnabled}
@@ -199,7 +230,12 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
           />
         </StepBlock>
 
-        <StepBlock stepId="prescription" activeStep={activeStep} extra={stepExtras?.prescription}>
+        <StepBlock
+          stepId="prescription"
+          activeStep={activeStep}
+          validation={stepValidations?.prescription}
+          extra={stepExtras?.prescription}
+        >
           <Step06Prescription
             stepNumber={6}
             entries={prescriptionEntries}
@@ -208,15 +244,30 @@ export const ConsultationContinuousFeed = forwardRef<HTMLDivElement, Consultatio
           />
         </StepBlock>
 
-        <StepBlock stepId="advice" activeStep={activeStep} extra={stepExtras?.advice}>
+        <StepBlock
+          stepId="advice"
+          activeStep={activeStep}
+          validation={stepValidations?.advice}
+          extra={stepExtras?.advice}
+        >
           <Step07Advice stepNumber={7} cards={adviceCards} onChange={onAdviceChange} readOnly={readOnly} />
         </StepBlock>
 
-        <StepBlock stepId="followup" activeStep={activeStep} extra={stepExtras?.followup}>
+        <StepBlock
+          stepId="followup"
+          activeStep={activeStep}
+          validation={stepValidations?.followup}
+          extra={stepExtras?.followup}
+        >
           <Step08FollowUp stepNumber={8} value={followUpStep} onChange={onFollowUpChange} readOnly={readOnly} />
         </StepBlock>
 
-        <StepBlock stepId="finalize" activeStep={activeStep} extra={stepExtras?.finalize}>
+        <StepBlock
+          stepId="finalize"
+          activeStep={activeStep}
+          validation={stepValidations?.finalize}
+          extra={stepExtras?.finalize}
+        >
           <Step09Finalize
             stepNumber={9}
             items={finalizeItems}

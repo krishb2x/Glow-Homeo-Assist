@@ -14,7 +14,7 @@ import {
   UserPlus,
   Users
 } from "lucide-react";
-import { fetchPatients, getToken, type PatientListItem } from "../../lib/doctor-api";
+import { getToken, searchPatientsLight, type PatientListItem } from "../../lib/doctor-api";
 import { friendlyLoadError } from "../../lib/friendly-error";
 
 const EVENT_OPEN = "ha:command-palette";
@@ -53,12 +53,13 @@ export function GlobalCommandPalette(): JSX.Element | null {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((search: string) => {
     if (!getToken()) return;
     setLoadErr(null);
     void (async () => {
       try {
-        setPatients(await fetchPatients());
+        const items = await searchPatientsLight(search, 20);
+        setPatients(items);
       } catch (e) {
         setLoadErr(friendlyLoadError(e));
         setPatients([]);
@@ -69,9 +70,10 @@ export function GlobalCommandPalette(): JSX.Element | null {
   useEffect(() => {
     if (!open) return;
     setActive(0);
-    load();
+    const t = setTimeout(() => load(q), q.trim() ? 280 : 0);
     setTimeout(() => inputRef.current?.focus(), 10);
-  }, [open, load]);
+    return () => clearTimeout(t);
+  }, [open, q, load]);
 
   useEffect(() => {
     const h = () => setOpen(true);

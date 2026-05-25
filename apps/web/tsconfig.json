@@ -21,7 +21,10 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "paths": {
+      "@homeoassist/testing": ["../../packages/testing/src/index.ts"]
+    }
   },
   "include": [
     "next-env.d.ts",

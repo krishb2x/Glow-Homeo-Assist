@@ -22,7 +22,7 @@ import { BRAND_NAME } from "../../lib/brand";
 export const metadata: Metadata = {
   title: `Features | ${BRAND_NAME}`,
   description:
-    "Every module inside GlowHomeo Assist — the clinical operating system designed with practising homeopaths. Consultation, prescriptions, patient app, inventory, and clinic growth."
+    "Clinic software for homeopathy doctors: consultations, prescriptions, patient app, stock, and day-to-day operations in one place."
 };
 
 type Module = {
@@ -37,14 +37,14 @@ const MODULES: Module[] = [
   {
     Icon: Stethoscope,
     eyebrow: "Consultation workspace",
-    title: "A structured case file — for OPD and online, identical.",
+    title: "One patient chart for OPD and online visits.",
     body:
-      "Take homeopathic cases the way you already do — chief complaints, modalities, mental and physical state, family history, past treatments — in a structured workspace that doesn't change between in-clinic and online visits.",
+      "Take cases the way you already do: chief complaints, modalities, mental and physical state, family history, and past treatments. The same steps work in the clinic and on video calls.",
     bullets: [
       "One chart for in-clinic and online consultations",
-      "Repertorisation-ready structured fields, not free-text fields",
-      "Past visits, prescriptions, and follow-ups in one timeline",
-      "Auto-saved drafts you can resume at any time"
+      "Clear fields for homeopathic case-taking, not loose notes only",
+      "Past visits, prescriptions, and follow-ups on one timeline",
+      "Drafts save automatically so you can resume later"
     ]
   },
   {
@@ -56,7 +56,7 @@ const MODULES: Module[] = [
     bullets: [
       "Live transcription on consultation",
       "Structured output: chief complaints, modalities, mental state, etc.",
-      "Doctor approval required — nothing auto-saves",
+      "You must approve before anything is saved",
       "Opt-in per consultation, with audio purged on a strict schedule"
     ]
   },
@@ -76,11 +76,11 @@ const MODULES: Module[] = [
   {
     Icon: Smartphone,
     eyebrow: "Patient care app",
-    title: "Your patient gets a clinic app — not a generic health app.",
+    title: "Your patient gets your clinic app, not a generic health app.",
     body:
-      "Reminders, diet, lifestyle, todos, follow-ups, and case history — under your clinic brand, personalised to the exact prescription you wrote.",
+      "Reminders, diet, lifestyle, tasks, follow-ups, and case history under your clinic name, matching the prescription you wrote.",
     bullets: [
-      "Branded under your clinic — patients see your name, not ours",
+      "Branded under your clinic; patients see your name, not ours",
       "Medicine reminders at the times you prescribe",
       "Diet and lifestyle plans pulled from your case notes",
       "Doctor-assigned todos tracked between visits"
@@ -102,7 +102,7 @@ const MODULES: Module[] = [
   {
     Icon: TrendingUp,
     eyebrow: "Practice growth",
-    title: "Grow your practice under your clinic brand — not your personal number.",
+    title: "Grow your practice under your clinic brand, not your personal number.",
     body:
       "A professional clinic page, referral tracking, and branded communications. Move patient interactions off your personal accounts.",
     bullets: [
@@ -130,7 +130,7 @@ const MODULES: Module[] = [
     eyebrow: "Clinic operations",
     title: "Everything else a clinic actually runs on.",
     body:
-      "Appointments, follow-up queues, patient documents, simple reporting — without bolting on a separate practice-management tool.",
+      "Appointments, follow-up lists, patient documents, and simple reports without a separate practice-management tool.",
     bullets: [
       "Appointment scheduling for OPD and online",
       "Follow-up queue with priority lanes",
@@ -153,11 +153,11 @@ export default function FeaturesPage(): JSX.Element {
               Features
             </p>
             <h1 className="font-heading mt-3 text-balance text-[2rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[2.5rem]">
-              Every module, end-to-end — designed with practising homeopaths.
+              Everything in one clinic system, built with practising homeopaths.
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[0.98rem] leading-relaxed text-slate-500">
-              {BRAND_NAME} replaces the five disconnected tools most clinics run on. Here is what
-              you get, module by module.
+              {BRAND_NAME} brings consultations, prescriptions, patient follow-up, and clinic
+              operations together. Here is what is included.
             </p>
           </div>
         </section>
@@ -212,10 +212,10 @@ export default function FeaturesPage(): JSX.Element {
 
             <ul className="mt-10 grid gap-3 sm:grid-cols-2">
               {[
-                { Icon: Bell, title: "Medicine reminders", body: "At the exact times you prescribe — morning, afternoon, evening, night." },
-                { Icon: CalendarCheck, title: "Follow-up dates", body: "Their next visit, in their pocket — with a one-tap reschedule." },
-                { Icon: FileText, title: "Prescription history", body: "Every prescription you've written, neatly organised." },
-                { Icon: ClipboardList, title: "Diet & lifestyle todos", body: "Directly from your case notes — checked off as they go." }
+                { Icon: Bell, title: "Medicine reminders", body: "At the exact times you prescribe: morning, afternoon, evening, or night." },
+                { Icon: CalendarCheck, title: "Follow-up dates", body: "Their next visit in their pocket, with an easy way to request a change." },
+                { Icon: FileText, title: "Prescription history", body: "Every prescription you have written, neatly organised." },
+                { Icon: ClipboardList, title: "Diet & lifestyle tasks", body: "Taken from your case notes and checked off as they go." }
               ].map(({ Icon, title, body }) => (
                 <li
                   key={title}

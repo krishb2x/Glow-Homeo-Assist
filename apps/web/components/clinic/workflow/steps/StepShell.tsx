@@ -30,14 +30,14 @@ export function StepShell({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-hs-border/30 bg-hs-paper/95 shadow-card transition",
-        status === "active" && "ring-1 ring-hs-primary/15",
+        "rounded-xl border border-hs-border/35 bg-hs-paper shadow-ds-sm transition",
+        status === "active" && "ring-1 ring-hs-primary/12",
         className
       )}
       aria-label={title}
       data-step-number={stepNumber}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-hs-border/25 px-5 pt-5 pb-3 sm:px-6">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-hs-border/20 px-4 pt-4 pb-2.5 lg:px-5">
         <div className="flex items-start gap-3">
           <span
             className={cn(
@@ -66,7 +66,7 @@ export function StepShell({
         </div>
         {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
       </header>
-      <div className="px-5 py-5 sm:px-6">{children}</div>
+      <div className="px-4 py-4 lg:px-5 lg:py-5">{children}</div>
     </section>
   );
 }

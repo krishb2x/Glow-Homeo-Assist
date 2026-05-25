@@ -383,18 +383,34 @@
 
   /* ─── Authenticated app workspace — surfaces & interaction (single rhythm) ─── */
   .ds-app-card {
-    @apply rounded-2xl border border-hs-border/60 bg-hs-paper shadow-ds-sm;
+    @apply rounded-xl border border-hs-border/35 bg-hs-paper shadow-ds-sm;
   }
   .ds-app-card-interactive {
-    @apply rounded-2xl border border-hs-border/60 bg-hs-paper shadow-ds-sm transition-[transform,box-shadow,border-color] duration-[280ms] ease-out;
+    @apply rounded-xl border border-hs-border/35 bg-hs-paper shadow-ds-sm transition-[border-color,box-shadow] duration-200 ease-out;
   }
   .ds-app-card-interactive:hover {
-    transform: translateY(-2px);
-    border-color: rgb(14 124 102 / 0.22);
-    box-shadow: 0 4px 16px -4px rgba(14, 124, 102, 0.10), 0 8px 24px -8px rgba(20, 40, 34, 0.06);
+    border-color: rgb(14 124 102 / 0.28);
+    box-shadow: 0 2px 10px -4px rgba(14, 124, 102, 0.08);
   }
+
+  /** Page shell: consistent max-width + section vertical rhythm */
+  .ds-page {
+    @apply mx-auto w-full max-w-[var(--ds-content-max)];
+  }
+  .ds-page-sections {
+    @apply flex flex-col gap-[var(--ds-section-gap)];
+  }
+
+  /** Quiet card for dense clinical UI (dashboard, lists) */
+  .ds-card {
+    @apply rounded-xl border border-hs-border/35 bg-hs-paper shadow-ds-sm;
+  }
+  .ds-card-pad {
+    @apply p-[var(--ds-card-pad)] lg:p-[var(--ds-card-pad-lg)];
+  }
+
   .ds-table-shell {
-    @apply overflow-x-auto rounded-2xl border border-hs-border/60 bg-hs-paper shadow-ds-sm;
+    @apply overflow-x-auto rounded-xl border border-hs-border/35 bg-hs-paper shadow-ds-sm;
   }
 }
 

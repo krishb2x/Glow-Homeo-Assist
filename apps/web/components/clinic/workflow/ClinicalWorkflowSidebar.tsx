@@ -36,7 +36,7 @@ export function ClinicalWorkflowSidebar({
       className={cn(
         "flex flex-col bg-hs-paper/95 transition-[width] duration-200",
         variant === "column"
-          ? "min-h-0 flex-1 shadow-none"
+          ? cn("min-h-0 flex-1 shadow-none", collapsed && "w-full")
           : cn(
               "shrink-0 border-r border-hs-border/40 shadow-[inset_-1px_0_0_rgba(0,0,0,0.02)]",
               collapsed ? "w-[3.25rem]" : "w-56 lg:w-60"

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, LayoutGroup } from "framer-motion";
-import { LogOut, Search } from "lucide-react";
+import { LogOut, Search, Settings, User, ChevronDown, LifeBuoy } from "lucide-react";
 import { ConnectionStatusBar } from "../clinic/ConnectionStatusBar";
 import { openCommandPalette } from "../clinic/GlobalCommandPalette";
 import { BRAND_NAME } from "../../lib/brand";
@@ -30,7 +30,11 @@ export type AppLayoutProps = {
   doctorName: string;
   onLogout: () => void;
   mainMaxClass: string;
-  hideNewPatient: boolean;
+  /**
+   * Kept for back-compat; the new top bar no longer renders the New patient
+   * button — it lives on the dashboard / patients list instead.
+   */
+  hideNewPatient?: boolean;
   /** Left sidebar main links (role-based). */
   navItems: NavItem[];
   /** Short line under app name; optional clinic switcher. */
@@ -42,6 +46,121 @@ export type AppLayoutProps = {
   /** When false, hide doctor keyboard hints in the sidebar footer. */
   showSidebarKeyboardHints?: boolean;
 };
+
+function ProfileMenu({
+  doctorName,
+  onLogout
+}: {
+  doctorName: string;
+  onLogout: () => void;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-full border border-transparent px-1.5 py-1 text-body-sm transition hover:border-hs-border/40 hover:bg-hs-cream/60"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-hs-border/30 bg-hs-primary-very-light/90 text-caption-sm font-bold text-hs-primary">
+          {initials(doctorName)}
+        </span>
+        <span
+          className="hidden max-w-[140px] truncate font-semibold text-hs-ink xl:inline"
+          title={doctorName}
+        >
+          {doctorName}
+        </span>
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 text-hs-text-tertiary transition", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Account"
+          className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-hs-border/40 bg-hs-paper shadow-ds-lg"
+        >
+          <div className="border-b border-hs-border/25 px-4 py-3">
+            <p className="truncate text-body-sm font-semibold text-hs-ink" title={doctorName}>
+              {doctorName}
+            </p>
+            <p className="text-caption-sm text-hs-text-tertiary">Account</p>
+          </div>
+          <ul className="py-1 text-body-sm">
+            <li>
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-hs-ink transition hover:bg-hs-cream/70"
+              >
+                <User className="h-4 w-4 text-hs-text-secondary" aria-hidden />
+                Profile
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/clinic-settings"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-hs-ink transition hover:bg-hs-cream/70"
+              >
+                <Settings className="h-4 w-4 text-hs-text-secondary" aria-hidden />
+                Clinic settings
+              </Link>
+            </li>
+            <li>
+              <a
+                href="mailto:support@glowhomeo.com"
+                role="menuitem"
+                className="flex items-center gap-2.5 px-4 py-2 text-hs-ink transition hover:bg-hs-cream/70"
+              >
+                <LifeBuoy className="h-4 w-4 text-hs-text-secondary" aria-hidden />
+                Help & support
+              </a>
+            </li>
+          </ul>
+          <div className="border-t border-hs-border/25 py-1">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+              className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-body-sm font-medium text-hs-text-secondary transition hover:bg-hs-cream/70 hover:text-hs-ink"
+            >
+              <LogOut className="h-4 w-4" aria-hidden />
+              Log out
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * Desktop clinic workspace (≥1200px): fixed 240px sidebar, unified top bar, token spacing.
@@ -55,7 +174,6 @@ export function AppLayout({
   doctorName,
   onLogout,
   mainMaxClass,
-  hideNewPatient,
   navItems,
   clinicContextLabel,
   clinicSelector,
@@ -64,7 +182,10 @@ export function AppLayout({
 }: AppLayoutProps): JSX.Element {
   if (mode === "session") {
     return (
-      <div className="min-w-[1200px] min-h-screen bg-hs-cream">
+      <div
+        className="flex min-w-[1024px] h-screen flex-col bg-hs-cream"
+        style={{ ["--header-h" as string]: "3.5rem" }}
+      >
         <header className="grid h-14 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-hs-border/60 bg-hs-paper px-ds-lg">
           <Link href="/dashboard" className="text-body-sm font-medium text-hs-primary transition duration-200 hover:underline">
             ← Home
@@ -99,17 +220,15 @@ export function AppLayout({
             </button>
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <main className="mx-auto min-h-[calc(100vh-3.5rem)] w-full max-w-[1600px] px-ds-lg py-ds-md">
-            {children}
-          </main>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <main className="h-full w-full">{children}</main>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen min-w-[1200px] bg-hs-surface">
+    <div className="min-h-screen min-w-[1024px] bg-hs-surface">
       <aside
         className={cn("fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-hs-border/30 bg-hs-paper/98 py-6 shadow-ds-sm", SIDEBAR_W)}
         aria-label="Main navigation"
@@ -178,51 +297,27 @@ export function AppLayout({
               <button
                 type="button"
                 onClick={() => openCommandPalette()}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-hs-border/50 bg-hs-cream/70 px-3 text-body-sm font-medium text-hs-ink transition duration-200 hover:border-hs-primary/40 hover:bg-hs-paper"
+                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-hs-border/50 bg-hs-cream/70 px-3.5 text-body-sm font-medium text-hs-ink transition duration-200 hover:border-hs-primary/40 hover:bg-hs-paper"
+                aria-label="Search (Ctrl+K)"
               >
                 <Search className="h-4 w-4 text-hs-text-secondary" strokeWidth={2.25} />
-                <span>Search</span>
-                <kbd className="text-[0.65rem] font-mono text-hs-text-tertiary">⌘K</kbd>
+                <span className="hidden lg:inline">Search</span>
+                <kbd className="ml-1 hidden text-[0.65rem] font-mono text-hs-text-tertiary lg:inline">⌘K</kbd>
               </button>
-              {hideNewPatient ? null : (
-                <Link
-                  href="/patients/new"
-                  className="inline-flex min-h-10 items-center justify-center rounded-full bg-hs-primary px-4 text-body-sm font-bold text-white shadow-ds-md transition duration-200 hover:bg-hs-primary-light"
-                >
-                  New patient
-                </Link>
-              )}
-              <div className="h-6 w-px bg-hs-border/70" aria-hidden />
-              <div className="flex items-center gap-2 pr-1">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-hs-border/30 bg-hs-primary-very-light/90 text-caption-sm font-bold text-hs-primary">
-                  {initials(doctorName)}
-                </div>
-                <div className="min-w-0">
-                  <p className="max-w-[180px] truncate text-body-sm font-semibold text-hs-ink" title={doctorName}>
-                    {doctorName}
-                  </p>
-                  <Link
-                    href="/settings"
-                    className="text-[0.65rem] font-medium text-hs-text-tertiary transition hover:text-hs-primary"
-                  >
-                    Profile &amp; settings
-                  </Link>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={onLogout}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-hs-border/80 px-3 text-body-sm font-medium text-hs-text-secondary transition duration-200 hover:border-hs-primary/40 hover:text-hs-ink"
-              >
-                <LogOut className="h-4 w-4" />
-                Log out
-              </button>
+              <ProfileMenu doctorName={doctorName} onLogout={onLogout} />
             </div>
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <main className={cn("mx-auto w-full px-ds-lg py-ds-xl", mainMaxClass)}>{children}</main>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-hs-cream/30">
+          <main
+            className={cn(
+              "mx-auto w-full px-5 py-6 lg:px-8 lg:py-7",
+              mainMaxClass
+            )}
+          >
+            {children}
+          </main>
         </div>
       </div>
     </div>

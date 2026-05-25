@@ -278,6 +278,8 @@ export type AppointmentListItem = {
   patientName: string;
   reason: string | null;
   notes?: string | null;
+  consultationMode?: "IN_CLINIC" | "ONLINE";
+  meetingUrl?: string | null;
 };
 
 export function buildDemoAppointmentsWeek(): AppointmentListItem[] {

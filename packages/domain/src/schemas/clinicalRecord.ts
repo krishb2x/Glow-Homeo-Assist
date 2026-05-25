@@ -60,6 +60,23 @@ export const ClinicalNotesSchema = z.object({
 });
 export type ClinicalNotes = z.infer<typeof ClinicalNotesSchema>;
 
+/**
+ * Vital signs captured during the Examination step.
+ * All values are free-text so the doctor can record units inline
+ * (e.g. `120/80`, `98.6 °F`, `99 %`).
+ */
+export const VitalsSchema = z.object({
+  bp: z.string().max(40).default(""),
+  pulse: z.string().max(40).default(""),
+  temperature: z.string().max(40).default(""),
+  spO2: z.string().max(40).default(""),
+  weight: z.string().max(40).default(""),
+  height: z.string().max(40).default(""),
+  respiratoryRate: z.string().max(40).default(""),
+  recordedAt: z.string().datetime({ offset: true }).optional()
+});
+export type Vitals = z.infer<typeof VitalsSchema>;
+
 /** AI / human note draft (matches existing NoteDraft used by AI step). */
 export const NoteDraftSchema = z.object({
   chiefComplaints: z.string().max(4000).default(""),
@@ -162,6 +179,7 @@ export const ClinicalRecordSchema = z.object({
   history: HistorySchema.default(HistorySchema.parse({})),
 
   // v2 fields (new)
+  vitals: VitalsSchema.optional(),
   chiefComplaint: ChiefComplaintSchema.optional(),
   assessment: AssessmentSchema.optional(),
   draft: NoteDraftSchema.optional(),
@@ -200,6 +218,7 @@ export const ClinicalRecordPatchSchema = z
     labs: z.array(LabEntrySchema).optional(),
     clinicalNotes: ClinicalNotesSchema.partial().optional(),
     history: HistorySchema.partial().optional(),
+    vitals: VitalsSchema.partial().optional(),
     chiefComplaint: ChiefComplaintSchema.partial().optional(),
     assessment: AssessmentSchema.partial().optional(),
     draft: NoteDraftSchema.partial().optional(),
@@ -267,6 +286,14 @@ export function mergeClinicalRecordPatch(
         ? (base.history as Record<string, unknown>)
         : {};
     base.history = { ...h, ...patch.history };
+  }
+
+  if (patch.vitals !== undefined) {
+    const v =
+      typeof base.vitals === "object" && base.vitals !== null && !Array.isArray(base.vitals)
+        ? (base.vitals as Record<string, unknown>)
+        : {};
+    base.vitals = { ...v, ...patch.vitals };
   }
 
   const shallowKeys = [

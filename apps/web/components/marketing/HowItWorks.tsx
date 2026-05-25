@@ -12,19 +12,19 @@ const STEPS: Step[] = [
     number: "01",
     Icon: ClipboardCheck,
     title: "Take the case",
-    body: "Run a structured homeopathic consultation — in-clinic or online. The AI notetaker quietly records and structures every detail. You stay focused on the patient."
+    body: "Run your consultation in the clinic or online. The AI notetaker quietly drafts the case while you focus on the patient."
   },
   {
     number: "02",
     Icon: FileSignature,
     title: "Approve and prescribe",
-    body: "Review the AI draft, edit anything, and generate a professional prescription with your registration number, signature, and clinic details. Nothing is saved until you approve."
+    body: "Review the draft, edit anything, and create a professional prescription with your registration number, signature, and clinic details. Nothing is saved until you approve."
   },
   {
     number: "03",
     Icon: HeartHandshake,
     title: "Care continues at home",
-    body: "Your patient receives the prescription instantly on the clinic app. Medicine reminders, diet, lifestyle, and follow-up tracking keep them on plan between visits."
+    body: "Your patient gets the prescription on your clinic app. Medicine reminders, diet, lifestyle, and follow-up dates keep them on plan between visits."
   }
 ];
 
@@ -40,11 +40,11 @@ export function HowItWorks(): JSX.Element {
             How it works
           </p>
           <h2 className="font-heading mt-3 text-balance text-[1.65rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[2rem] md:text-[2.25rem]">
-            Three steps from first complaint to continuous care.
+            Three steps from first complaint to ongoing care.
           </h2>
           <p className="mt-4 max-w-xl text-[0.95rem] leading-relaxed text-slate-500">
-            The system is shaped by experienced homeopathy practitioners — every step mirrors how
-            you already work, only faster and without scattered files.
+            Shaped by experienced homeopathy practitioners. Each step follows how you already work,
+            only faster and without scattered files.
           </p>
         </div>
 

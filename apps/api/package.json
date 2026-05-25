@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "test:integration": "vitest run src/__tests__",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "bootstrap:super-admin": "tsx scripts/bootstrap-super-admin.ts"
@@ -23,6 +24,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
+    "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^11.0.3",
     "puppeteer-core": "^24.8.2",

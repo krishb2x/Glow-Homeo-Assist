@@ -8,28 +8,28 @@ import { MotionSection } from "./MotionSection";
 
 const faqs = [
   {
-    q: `Who is ${BRAND_NAME} designed for?`,
-    a: `For homeopathy doctors and clinics of any size — solo practitioners, small clinics, and multi-doctor setups. Every feature is shaped around how homeopathy practice actually works, not adapted from a generic medical tool.`
+    q: `Who is ${BRAND_NAME} for?`,
+    a: `Homeopathy doctors and clinics of any size: solo practitioners, small clinics, and multi-doctor setups. Features follow how homeopathy practice actually works, not a generic hospital system.`
   },
   {
     q: `What does the patient care app do?`,
-    a: `Your patients get a clinic app personalised to your practice. It sends medicine reminders at the exact times you prescribe, delivers diet and lifestyle guidance from your case notes, tracks todos you assign between visits, stores follow-up dates, and keeps the full clinical picture — so the care you provide stays active long after they leave your clinic.`
+    a: `Your patients get an app under your clinic name. It sends medicine reminders at the times you set, shares diet and lifestyle guidance from your notes, tracks tasks between visits, stores follow-up dates, and keeps their case history so care continues after they leave.`
   },
   {
     q: "Does it work for online consultations too?",
-    a: "Fully. Whether the patient is sitting in front of you or joining remotely on a call, the same case file, AI notetaker, prescription workflow, and advice templates apply. In-clinic and online consultations are treated identically inside the system."
+    a: "Yes. Whether the patient is in your room or on a video call, you use the same chart, AI notetaker, prescription flow, and advice templates."
   },
   {
     q: "Will this replace my paper register and case files?",
-    a: `Yes. Patient records, structured homeopathic case notes, prescriptions, follow-up plans, remedy history, and the full clinical timeline all live in ${BRAND_NAME} — organised, searchable, and accessible from any device, including your phone.`
+    a: `Yes. Patient records, case notes, prescriptions, follow-up plans, remedy history, and the full timeline live in ${BRAND_NAME}. You can search and open them from your phone or computer.`
   },
   {
     q: "Is my patient data private and secure?",
-    a: "Your data belongs entirely to your clinic. Access is controlled by you and your authorised team only. We do not share, mix, or expose records across clinics or to any third party."
+    a: "Your data belongs to your clinic. Only you and staff you authorise can access it. We do not share records across clinics or sell data to third parties."
   },
   {
     q: "How do I get started?",
-    a: `${BRAND_NAME} is currently in early access. Book a 20-minute walkthrough and we will set up your clinic personally, help move your existing patient list if needed, and stay available while your team gets comfortable with the system.`
+    a: `${BRAND_NAME} is in early access. Book a 20-minute walkthrough and we set up your clinic personally, help move your patient list if needed, and stay available while your team learns the system.`
   }
 ];
 

@@ -6,15 +6,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  Mic,
-  Pause,
-  Play,
-  Square
-} from "lucide-react";
+import { ArrowLeft, Mic, Pause, Play, Square } from "lucide-react";
 import {
   apiFetchJson,
   completeConsultation,
@@ -22,7 +14,6 @@ import {
   fetchWorkspaceContext,
   getToken,
   haProxyPath,
-  patchConsultation,
   patchPrescription,
   recordCaseOutcome,
   updatePatient,
@@ -34,7 +25,7 @@ import {
   type WorkspaceContext
 } from "../../lib/doctor-api";
 import { friendlyLoadError } from "../../lib/friendly-error";
-import { clearLocalNoteDraft, loadLocalNoteDraft, saveLocalNoteDraft } from "../../lib/note-draft-local";
+import { clearLocalNoteDraft, loadLocalNoteDraft } from "../../lib/note-draft-local";
 import {
   buildPrescriptionDocumentHtml,
   openPrintWindow,
@@ -68,10 +59,13 @@ import {
 import { ConsultationPatientBar } from "./workflow/ConsultationPatientBar";
 import { ConsultationWorkflowFooter } from "./workflow/ConsultationWorkflowFooter";
 import { useConsultationKeyboardNav } from "./workflow/useConsultationKeyboardNav";
+import { useConsultationAutosave } from "./workflow/useConsultationAutosave";
+import { validateAllSteps, type ConsultationSnapshot } from "../../lib/consultation-validation";
 import {
   ConsultationContinuousFeed,
   scrollFeedToWorkflowStep
 } from "./workflow/ConsultationContinuousFeed";
+import { ConsultationProgressStrip } from "./workflow/ConsultationProgressStrip";
 import { buildConsultationStepExtras } from "./workflow/LiveConsultationStepExtras";
 import {
   ConsultationWorkspaceShell,
@@ -116,6 +110,13 @@ type ClinicalRecordState = {
     familyHistory: string;
     drugAllergies: string;
   };
+  vitals: {
+    bp: string;
+    pulse: string;
+    temperature: string;
+    spO2: string;
+  };
+  adviceCards: AdviceCard[];
 };
 
 type WorkspaceBranding = {
@@ -262,7 +263,9 @@ function emptyClinical(): ClinicalRecordState {
   return {
     labs: [],
     clinicalNotes: { observations: "", diagnosisThinking: "" },
-    history: { pastDiseases: "", medications: "", familyHistory: "", drugAllergies: "" }
+    history: { pastDiseases: "", medications: "", familyHistory: "", drugAllergies: "" },
+    vitals: { bp: "", pulse: "", temperature: "", spO2: "" },
+    adviceCards: []
   };
 }
 
@@ -283,6 +286,19 @@ function mergeClinical(raw: unknown): ClinicalRecordState {
     : [];
   const cn = d.clinicalNotes && typeof d.clinicalNotes === "object" ? (d.clinicalNotes as Record<string, unknown>) : {};
   const hist = d.history && typeof d.history === "object" ? (d.history as Record<string, unknown>) : {};
+  const vit = d.vitals && typeof d.vitals === "object" ? (d.vitals as Record<string, unknown>) : {};
+  const adviceRaw = Array.isArray(d.advice) ? (d.advice as Array<Record<string, unknown>>) : [];
+  const adviceCards: AdviceCard[] = adviceRaw
+    .filter((x) => x && typeof x === "object")
+    .map((x) => ({
+      id: typeof x.id === "string" ? x.id : randomId(),
+      category:
+        x.category === "lifestyle" || x.category === "restriction"
+          ? (x.category as AdviceCard["category"])
+          : "diet",
+      title: typeof x.title === "string" ? x.title : "",
+      detail: typeof x.detail === "string" ? x.detail : ""
+    }));
   return {
     labs,
     clinicalNotes: { observations: String(cn.observations ?? ""), diagnosisThinking: String(cn.diagnosisThinking ?? "") },
@@ -291,7 +307,14 @@ function mergeClinical(raw: unknown): ClinicalRecordState {
       medications: String(hist.medications ?? ""),
       familyHistory: String(hist.familyHistory ?? ""),
       drugAllergies: String(hist.drugAllergies ?? "")
-    }
+    },
+    vitals: {
+      bp: String(vit.bp ?? ""),
+      pulse: String(vit.pulse ?? ""),
+      temperature: String(vit.temperature ?? ""),
+      spO2: String(vit.spO2 ?? "")
+    },
+    adviceCards
   };
 }
 
@@ -339,8 +362,30 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   // Navigation
   const [activeStep, setActiveStep] = useState<ConsultationStep>("patient");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [activeDrawer, setActiveDrawer] = useState<WorkspaceDrawer>("none");
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("ha_consult_sidebar_collapsed", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("ha_consult_sidebar_collapsed");
+      if (stored === "0") setSidebarCollapsed(false);
+      if (stored === "1") setSidebarCollapsed(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // Patient
   const [patientId, setPatientId] = useState("");
@@ -404,9 +449,8 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   // Workspace / branding
   const [workspace, setWorkspace] = useState<WorkspaceBranding | null>(null);
 
-  // Autosave
-  const [localSave, setLocalSave] = useState<"idle" | "saving" | "saved">("idle");
-  const [serverSave, setServerSave] = useState<"idle" | "saving" | "saved">("idle");
+  // Autosave guard — flip this immediately before performing an explicit save
+  // so the debounced server autosave doesn't fire a redundant request.
   const suppressAutosave = useRef(false);
 
   // Finalize
@@ -576,67 +620,19 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     };
   }, []);
 
-  // ── Autosave ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (loading || !id) return;
-    setLocalSave("saving");
-    const t = setTimeout(() => {
-      saveLocalNoteDraft(id, {
-        chiefComplaints: draft.chiefComplaints,
-        emotionalState: draft.emotionalState,
-        physicalSymptoms: draft.physicalSymptoms,
-        modalities: draft.modalities,
-        timeline: draft.timeline
-      });
-      setLocalSave("saved");
-    }, 800);
-    return () => clearTimeout(t);
-  }, [draft, loading, id]);
-
-  useEffect(() => {
-    if (loading || !id || !getToken()) return;
-    if (editingLocked && sessionEnded) return;
-    if (suppressAutosave.current) {
-      suppressAutosave.current = false;
-      return;
-    }
-    setServerSave("saving");
-    const t = setTimeout(() => {
-      void (async () => {
-        try {
-          await patchConsultation(id, {
-            noteDraft: { ...draft },
-            clinicalRecord: {
-              labs: clinicalRecord.labs,
-              clinicalNotes: clinicalRecord.clinicalNotes,
-              history: clinicalRecord.history
-            },
-            advice,
-            followUpRecommendedAt:
-              followUpEnabled && followUpRecommendedAt
-                ? new Date(followUpRecommendedAt).toISOString()
-                : null,
-            followUpNote: followUpNote || null
-          });
-          setServerSave("saved");
-        } catch {
-          setServerSave("idle");
-        }
-      })();
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [
+  // ── Autosave (extracted to dedicated hook) ─────────────────────────────
+  const { localSave, serverSave } = useConsultationAutosave({
+    consultationId: id,
     loading,
-    id,
     draft,
     clinicalRecord,
     advice,
     followUpEnabled,
     followUpRecommendedAt,
     followUpNote,
-    editingLocked,
-    sessionEnded
-  ]);
+    paused: editingLocked && sessionEnded,
+    suppressNext: suppressAutosave
+  });
 
   // ── Status toast auto-clear ────────────────────────────────────────────
   useEffect(() => {
@@ -860,21 +856,73 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     [rxEntries]
   );
 
+  const consultationSnapshot: ConsultationSnapshot = useMemo(
+    () => ({
+      patient: {
+        initialChiefComplaint: patientForm.initialChiefComplaint,
+        storedChiefComplaint: ctx?.patientInitialComplaint ?? null
+      },
+      history: clinicalRecord.history,
+      vitals: clinicalRecord.vitals,
+      labs: clinicalRecord.labs.map((l) => ({ testName: l.testName, result: l.result })),
+      observations: clinicalRecord.clinicalNotes.observations,
+      notes: {
+        chiefComplaints: draft.chiefComplaints,
+        emotionalState: draft.emotionalState,
+        physicalSymptoms: draft.physicalSymptoms,
+        modalities: draft.modalities,
+        timeline: draft.timeline
+      },
+      prescription: rxEntries.map((e) => ({
+        name: e.name,
+        potency: e.potency,
+        doseCount: e.doseCount,
+        duration: e.duration
+      })),
+      advice: {
+        diet: advice.diet,
+        lifestyle: advice.lifestyle,
+        cards: clinicalRecord.adviceCards
+      },
+      followUp: {
+        enabled: followUpEnabled,
+        recommendedAt: followUpRecommendedAt || null
+      },
+      finalize: { sessionEnded, lifecycleStatus },
+      aiTranscript: transcriptInput
+    }),
+    [
+      patientForm.initialChiefComplaint,
+      ctx,
+      clinicalRecord,
+      draft,
+      rxEntries,
+      advice,
+      followUpEnabled,
+      followUpRecommendedAt,
+      sessionEnded,
+      lifecycleStatus,
+      transcriptInput
+    ]
+  );
+
+  const stepValidations = useMemo(() => validateAllSteps(consultationSnapshot), [consultationSnapshot]);
+
   const stepDone: Record<ConsultationStep, boolean> = useMemo(
     () => ({
-      patient: Boolean((patientForm.initialChiefComplaint || ctx?.patientInitialComplaint || "").trim()),
-      history: Boolean(clinicalRecord.history.pastDiseases || clinicalRecord.history.medications),
-      examination:
-        clinicalRecord.labs.length > 0 || Boolean(clinicalRecord.clinicalNotes.observations),
-      notes: Boolean(draft.chiefComplaints || draft.physicalSymptoms || draft.emotionalState),
-      ai: Boolean(transcriptInput),
-      prescription: rxEntries.some((e) => e.name.trim().length > 0),
-      advice: Boolean(advice.diet || advice.lifestyle),
-      followup: followUpEnabled && Boolean(followUpRecommendedAt),
-      finalize: sessionEnded && lifecycleStatus === "FINALIZED"
+      patient: stepValidations.patient.done,
+      history: stepValidations.history.done,
+      examination: stepValidations.examination.done,
+      notes: stepValidations.notes.done,
+      ai: stepValidations.ai.done,
+      prescription: stepValidations.prescription.done,
+      advice: stepValidations.advice.done,
+      followup: stepValidations.followup.done,
+      finalize: stepValidations.finalize.done
     }),
-    [patientForm.initialChiefComplaint, ctx, clinicalRecord, draft, transcriptInput, rxEntries, advice, followUpEnabled, followUpRecommendedAt, sessionEnded, lifecycleStatus]
+    [stepValidations]
   );
+
 
   const autosaveLabel =
     serverSave === "saving"
@@ -1011,17 +1059,19 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   }, [isGeneratingDraft, liveAudio.phase, aiDraftGenerated]);
 
   const adviceCards = useMemo((): AdviceCard[] => {
+    if (clinicalRecord.adviceCards.length > 0) return clinicalRecord.adviceCards;
     const cards: AdviceCard[] = [];
     if (advice.diet.trim()) {
-      cards.push({ id: "diet-main", category: "diet", title: "Diet & restrictions", detail: advice.diet });
+      cards.push({ id: "diet-legacy", category: "diet", title: "Diet & restrictions", detail: advice.diet });
     }
     if (advice.lifestyle.trim()) {
-      cards.push({ id: "lifestyle-main", category: "lifestyle", title: "Lifestyle", detail: advice.lifestyle });
+      cards.push({ id: "lifestyle-legacy", category: "lifestyle", title: "Lifestyle", detail: advice.lifestyle });
     }
     return cards;
-  }, [advice]);
+  }, [clinicalRecord.adviceCards, advice]);
 
   const onAdviceCardsChange = useCallback((cards: AdviceCard[]) => {
+    setClinicalRecord((p) => ({ ...p, adviceCards: cards }));
     setAdvice({
       diet: cards
         .filter((x) => x.category === "diet" || x.category === "restriction")
@@ -1071,10 +1121,10 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const examinationStepValue = useMemo(
     () => ({
       labs: clinicalRecord.labs,
-      bp: "",
-      pulse: "",
-      temperature: "",
-      spO2: "",
+      bp: clinicalRecord.vitals.bp,
+      pulse: clinicalRecord.vitals.pulse,
+      temperature: clinicalRecord.vitals.temperature,
+      spO2: clinicalRecord.vitals.spO2,
       general: clinicalRecord.clinicalNotes.observations
     }),
     [clinicalRecord]
@@ -1262,6 +1312,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       setClinicalRecord((p) => ({
         ...p,
         labs: v.labs,
+        vitals: { bp: v.bp, pulse: v.pulse, temperature: v.temperature, spO2: v.spO2 },
         clinicalNotes: { ...p.clinicalNotes, observations: v.general }
       }));
     },
@@ -1404,7 +1455,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   };
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-h,3.5rem))] flex-col overflow-hidden bg-hs-surface">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-hs-surface">
       <header className="flex shrink-0 items-center gap-2 border-b border-hs-border/50 bg-hs-paper px-3 py-2 sm:gap-3 sm:px-4">
         <Link
           href="/consultation"
@@ -1425,17 +1476,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         </span>
 
         <div className="flex-1" />
-
-        {autosaveLabel ? (
-          <span className="inline-flex items-center gap-1 text-caption-sm text-hs-text-tertiary">
-            {serverSave === "saving" ? (
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-            ) : (
-              <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-hidden />
-            )}
-            <span className="hidden sm:inline">{autosaveLabel}</span>
-          </span>
-        ) : null}
 
         {!sessionEnded && workspace?.aiNotetakerEnabled ? (
           <div className="flex shrink-0 items-center gap-1.5">
@@ -1514,16 +1554,26 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         activeStep={activeStep}
         stepDone={stepDone}
         sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+        onToggleSidebar={toggleSidebar}
         onSelectStep={selectStep}
         activeDrawer={activeDrawer}
         onActiveDrawerChange={setActiveDrawer}
         aiEnabled={Boolean(workspace?.aiNotetakerEnabled)}
+        progressStrip={
+          <ConsultationProgressStrip
+            activeStep={activeStep}
+            validations={stepValidations}
+            onSelectStep={selectStep}
+            autosave={serverSave}
+            autosaveLabel={autosaveLabel}
+          />
+        }
         center={
           <ConsultationContinuousFeed
             ref={feedRef}
             activeStep={activeStep}
             readOnly={formDisabled}
+            stepValidations={stepValidations}
             stepExtras={stepExtras}
             patient={patientSnapshot}
             patientStep={patientStepValue}

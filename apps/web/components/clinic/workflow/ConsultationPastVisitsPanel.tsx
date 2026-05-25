@@ -73,7 +73,7 @@ export function ConsultationPastVisitsPanel({
   useEffect(() => {
     if (!patientId) return;
     setLoading(true);
-    void fetchPatientTimeline(patientId)
+    void fetchPatientTimeline(patientId, { limit: 24, offset: 0, includeNotes: false })
       .then((r) => setEvents(r.events))
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));

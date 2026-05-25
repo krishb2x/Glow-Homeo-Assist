@@ -3,14 +3,14 @@ import { Check } from "lucide-react";
 const points = [
   {
     title: "Onboarding with your workflow",
-    body: "We configure the workspace around how you take cases, prescribe, and follow up — not a generic template."
+    body: "We set up the system around how you take cases, prescribe, and follow up, not a generic template."
   },
   {
-    title: "Real clinic usage from week one",
-    body: "You run live OPD and online visits inside the system while we stay available for questions and refinements."
+    title: "Real clinic use from week one",
+    body: "You run live OPD and online visits in the system while we answer questions and help you adjust."
   },
   {
-    title: "Guided setup — not self-serve",
+    title: "Guided setup, not self-serve",
     body: "A structured programme with check-ins so your team is confident before you rely on it for every patient."
   }
 ] as const;
@@ -22,14 +22,13 @@ export function GuidedTrialSection(): JSX.Element {
       className="scroll-mt-20 border-y border-slate-200/80 bg-gradient-to-b from-slate-50/90 via-white to-[rgb(248,250,249)] px-5 py-16 sm:px-6 sm:py-20 md:px-10 md:py-24"
     >
       <div className="mx-auto max-w-3xl text-center">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-hs-primary/90">Clinical onboarding</p>
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-hs-primary/90">Getting started</p>
         <h2 className="font-heading mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-[1.75rem] md:text-3xl">
           90-day guided trial
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-[0.95rem] leading-relaxed text-slate-600">
-          A premium onboarding experience for serious practices — structured like a clinical quality programme, not a
-          self-serve software trial. You work in your real case load with dedicated support until the rhythm of the
-          system matches your practice.
+          For serious practices we offer guided onboarding with regular check-ins, not a do-it-yourself
+          trial. You work with your real patients until the rhythm of the system matches your clinic.
         </p>
       </div>
 

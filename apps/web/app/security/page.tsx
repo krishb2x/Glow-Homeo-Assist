@@ -41,7 +41,7 @@ const PILLARS: Pillar[] = [
   {
     Icon: Fingerprint,
     title: "Audit trail",
-    body: "Every record access, edit, prescription, and admin action is logged with timestamp and actor — exportable for compliance reviews."
+    body: "Every record access, edit, prescription, and admin action is logged with time and user. Logs can be exported for compliance reviews."
   },
   {
     Icon: ServerCog,
@@ -89,8 +89,8 @@ export default function SecurityPage(): JSX.Element {
               Patient trust starts with how we store the record.
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-[0.98rem] leading-relaxed text-slate-500">
-              Your patient data is a clinical responsibility — not just an engineering one. Here is
-              precisely how {BRAND_NAME} treats it.
+              Your patient data is a clinical responsibility, not only a technical one. Here is
+              how {BRAND_NAME} protects it.
             </p>
           </div>
         </section>
@@ -124,14 +124,14 @@ export default function SecurityPage(): JSX.Element {
               Our commitments
             </p>
             <h2 className="font-heading mt-3 text-balance text-[1.6rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[1.85rem]">
-              What we promise — in plain language.
+              What we promise, in plain language.
             </h2>
 
             <ul className="mt-8 space-y-5 text-[0.93rem] leading-relaxed text-slate-700">
               {[
                 <>
                   We will <span className="font-semibold">never share, sell, or rent</span> your
-                  clinic's patient data — to advertisers, insurers, or any third party.
+                  clinic&apos;s patient data to advertisers, insurers, or any third party.
                 </>,
                 <>
                   We will <span className="font-semibold">never use your clinical data</span> to
@@ -143,7 +143,7 @@ export default function SecurityPage(): JSX.Element {
                 </>,
                 <>
                   We <span className="font-semibold">delete your data</span> on a documented
-                  schedule when you leave — and confirm that deletion in writing.
+                  schedule when you leave, and confirm that deletion in writing.
                 </>,
                 <>
                   We <span className="font-semibold">tell you what happened</span> if there is a

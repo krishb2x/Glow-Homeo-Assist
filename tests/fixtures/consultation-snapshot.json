@@ -1,0 +1,32 @@
+{
+  "patient": {
+    "initialChiefComplaint": "Chronic headache",
+    "storedChiefComplaint": null
+  },
+  "history": {
+    "pastDiseases": "Migraine",
+    "medications": "",
+    "familyHistory": "",
+    "drugAllergies": ""
+  },
+  "vitals": {
+    "bp": "120/80",
+    "pulse": "72",
+    "temperature": "98.4",
+    "spO2": "98"
+  },
+  "labs": [],
+  "observations": "Alert, cooperative",
+  "notes": {
+    "chiefComplaints": "Throbbing headache",
+    "emotionalState": "",
+    "physicalSymptoms": "",
+    "modalities": "",
+    "timeline": ""
+  },
+  "prescription": [{ "name": "Belladonna 30C" }],
+  "advice": { "diet": "", "lifestyle": "", "cards": [] },
+  "followUp": { "enabled": true, "recommendedAt": "2026-06-01" },
+  "finalize": { "sessionEnded": false, "lifecycleStatus": "ACTIVE" },
+  "aiTranscript": ""
+}

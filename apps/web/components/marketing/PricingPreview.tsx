@@ -59,7 +59,7 @@ function PlanCard({ plan, cycle = "annual" }: PlanCardProps): JSX.Element {
       </div>
       {!isCustom ? (
         <p className="mt-1 text-[0.72rem] text-slate-400">
-          {cycle === "annual" ? "Billed annually — 2 months free" : "Billed monthly"}
+          {cycle === "annual" ? "Billed annually (2 months free)" : "Billed monthly"}
         </p>
       ) : (
         <p className="mt-1 text-[0.72rem] text-slate-400">Tailored to your clinic group</p>
@@ -106,7 +106,7 @@ export function PricingPreview(): JSX.Element {
             Pricing
           </p>
           <h2 className="font-heading mt-3 text-balance text-[1.65rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[2rem] md:text-[2.25rem]">
-            Simple, predictable pricing — built for clinics, not enterprises.
+            Simple pricing built for clinics, not large hospital chains.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-[0.95rem] leading-relaxed text-slate-500">
             One price per clinic. No per-patient fees, no surprise add-ons. Annual plans include

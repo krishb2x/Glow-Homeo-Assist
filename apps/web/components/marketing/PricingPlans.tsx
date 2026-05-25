@@ -73,7 +73,7 @@ function PlanCard({ plan, cycle }: PlanCardProps): JSX.Element {
         {isCustom
           ? "Tailored to your clinic group"
           : cycle === "annual"
-          ? "Billed annually — 2 months free"
+          ? "Billed annually (2 months free)"
           : "Billed monthly"}
       </p>
 

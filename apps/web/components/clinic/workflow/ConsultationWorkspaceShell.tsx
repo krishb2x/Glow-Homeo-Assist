@@ -21,6 +21,8 @@ type Props = {
   activeDrawer: WorkspaceDrawer;
   onActiveDrawerChange: (drawer: WorkspaceDrawer) => void;
   aiEnabled: boolean;
+  /** Sticky strip rendered above the feed (progress + autosave + missing). */
+  progressStrip?: ReactNode;
   center: ReactNode;
   footer: ReactNode;
   aiDrawer: ReactNode;
@@ -44,6 +46,7 @@ export function ConsultationWorkspaceShell({
   activeDrawer,
   onActiveDrawerChange,
   aiEnabled,
+  progressStrip,
   center,
   footer,
   aiDrawer,
@@ -70,7 +73,8 @@ export function ConsultationWorkspaceShell({
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-hs-surface">
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">{center}</div>
+          {progressStrip}
+          <div className="mx-auto w-full max-w-[760px] px-4 py-5 sm:px-6">{center}</div>
         </div>
         {footer}
       </main>

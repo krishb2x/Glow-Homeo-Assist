@@ -10,6 +10,7 @@ import {
   Edit2,
   ImagePlus,
   Loader2,
+  MessageCircle,
   Monitor,
   Plus,
   Salad,
@@ -39,6 +40,7 @@ import {
   type WorkspaceContext
 } from "../../../lib/doctor-api";
 import { ThemeSettingsSection } from "../../../components/clinic/settings/ThemeSettingsSection";
+import { WhatsAppBusinessSection } from "../../../components/clinic/settings/WhatsAppBusinessSection";
 import { DS_FIELD } from "../../../lib/ds-classes";
 import { cn } from "../../../lib/cn";
 
@@ -57,17 +59,17 @@ function SectionCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-2xl border border-hs-border/25 bg-hs-paper/95 shadow-card">
+    <div className="ds-card overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 rounded-2xl px-6 py-5 text-left transition hover:bg-hs-cream/40"
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition hover:bg-hs-cream/40"
       >
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-hs-primary-very-light text-hs-primary">
-            <Icon className="h-5 w-5" aria-hidden />
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-hs-primary-very-light text-hs-primary">
+            <Icon className="h-4 w-4" aria-hidden />
           </span>
-          <span className="font-heading text-heading-sm font-semibold text-hs-ink">{title}</span>
+          <span className="font-heading text-body-md font-semibold text-hs-ink">{title}</span>
         </div>
         {open ? (
           <ChevronUp className="h-4 w-4 text-hs-text-tertiary" aria-hidden />
@@ -75,7 +77,7 @@ function SectionCard({
           <ChevronDown className="h-4 w-4 text-hs-text-tertiary" aria-hidden />
         )}
       </button>
-      {open ? <div className="border-t border-hs-border/20 px-6 pb-6 pt-5">{children}</div> : null}
+      {open ? <div className="border-t border-hs-border/20 px-5 pb-5 pt-4">{children}</div> : null}
     </div>
   );
 }
@@ -882,6 +884,10 @@ export default function SettingsPage(): JSX.Element {
       {/* Treatment plans */}
       <SectionCard title="Treatment plans" icon={Salad} defaultOpen={false}>
         <TreatmentPlansSection />
+      </SectionCard>
+
+      <SectionCard title="WhatsApp Business" icon={MessageCircle} defaultOpen={false}>
+        <WhatsAppBusinessSection />
       </SectionCard>
     </div>
   );

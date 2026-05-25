@@ -1,25 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import {
   createAppointment,
   fetchAppointmentsRange,
-  fetchPatients,
+  fetchPatientsPage,
   getToken,
+  searchPatientsLight,
   updateAppointment,
   type AppointmentListItem,
   type PatientListItem
 } from "../../lib/doctor-api";
+import { cn } from "../../lib/cn";
 import { friendlyLoadError } from "../../lib/friendly-error";
 import { isDemoMode } from "../../lib/demo-mode";
+import { useRealtimeChannel } from "../../lib/use-realtime-channel";
 import { ErrorState, EmptyState } from "../ui/LoadState";
 import { useToast } from "../ui/toast";
 import { Modal } from "../ui/modal";
 import { Button } from "../ui/button";
 import { PageSkeleton } from "../ui/skeleton";
+import { PageHeader } from "../platform/PageHeader";
+import { DS_BTN_PRIMARY, DS_BTN_SECONDARY, DS_LINK_ACTION } from "../../lib/desktop-ui";
 import { ScheduleWeekGrid, getWeekRangeIso } from "./schedule/ScheduleWeekGrid";
 
 function localDatetimeInputValue(d: Date): string {
@@ -48,13 +53,21 @@ function formatWhen(iso: string): string {
 export function SchedulePageClient(): JSX.Element {
   const router = useRouter();
   const { show: showToast } = useToast();
-  const [patients, setPatients] = useState<PatientListItem[]>([]);
+  const [recentPatients, setRecentPatients] = useState<PatientListItem[]>([]);
+  const [searchedPatients, setSearchedPatients] = useState<PatientListItem[]>([]);
+  const [selectedPatientCache, setSelectedPatientCache] = useState<PatientListItem | null>(null);
+  const [patientSearchLoading, setPatientSearchLoading] = useState(false);
   const [rows, setRows] = useState<AppointmentListItem[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
   const [patientId, setPatientId] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const patientSearchRef = useRef<HTMLInputElement>(null);
   const [startLocal, setStartLocal] = useState(() => localDatetimeInputValue(new Date()));
   const [duration, setDuration] = useState(30);
   const [reason, setReason] = useState("");
+  const [consultationMode, setConsultationMode] = useState<"IN_CLINIC" | "ONLINE">("IN_CLINIC");
+  const [notifyPatient, setNotifyPatient] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -69,9 +82,16 @@ export function SchedulePageClient(): JSX.Element {
     setListErr(null);
     setLoading(true);
     try {
-      const list = await fetchPatients();
-      setPatients(list);
-      setPatientId((prev) => (prev || (list[0]?.id ?? "")));
+      // Recent patients are shown in the Book-a-slot picker before the doctor
+      // starts typing. We never load the entire roster client-side any more
+      // (scales to 100k+ patients via the server-side search endpoint).
+      const recent = await fetchPatientsPage({
+        limit: 12,
+        offset: 0,
+        sort: "last_visit_at",
+        sortDir: "desc"
+      });
+      setRecentPatients(recent.items);
     } catch (e) {
       setErr(friendlyLoadError(e));
       setLoading(false);
@@ -99,6 +119,81 @@ export function SchedulePageClient(): JSX.Element {
     void load();
   }, [load, router]);
 
+  /**
+   * Realtime — when an appointment is created, rescheduled, or cancelled
+   * elsewhere (eg. receptionist on another machine, or the patient via the
+   * online booking flow), debounce-refresh the week.
+   */
+  useRealtimeChannel({
+    enabled: !isDemoMode(),
+    table: "appointments",
+    channelKey: "schedule-week",
+    onChange: () => {
+      void load();
+    }
+  });
+
+  /**
+   * Selected patient pill: keep a local cache so we can render the chip even
+   * after the search results have rotated to a different query.
+   */
+  const selectedPatient = useMemo(() => {
+    if (!patientId) return null;
+    return (
+      selectedPatientCache ??
+      recentPatients.find((p) => p.id === patientId) ??
+      searchedPatients.find((p) => p.id === patientId) ??
+      null
+    );
+  }, [patientId, selectedPatientCache, recentPatients, searchedPatients]);
+
+  /** Debounced server-side patient search. */
+  useEffect(() => {
+    if (!bookOpen) return;
+    const q = patientSearch.trim();
+    if (q.length < 2) {
+      setSearchedPatients([]);
+      setPatientSearchLoading(false);
+      return;
+    }
+    setPatientSearchLoading(true);
+    const handle = setTimeout(() => {
+      void (async () => {
+        try {
+          const items = await searchPatientsLight(q, 15);
+          setSearchedPatients(items);
+        } catch {
+          setSearchedPatients([]);
+        } finally {
+          setPatientSearchLoading(false);
+        }
+      })();
+    }, 220);
+    return () => clearTimeout(handle);
+  }, [patientSearch, bookOpen]);
+
+  const filteredPatients = useMemo(() => {
+    if (patientSearch.trim().length >= 2) return searchedPatients.slice(0, 12);
+    return recentPatients.slice(0, 8);
+  }, [patientSearch, searchedPatients, recentPatients]);
+
+  /** Detect overlap with existing same-day appointments. */
+  const overlapWarning = useMemo(() => {
+    if (!startLocal) return null;
+    const startMs = new Date(parseLocalInput(startLocal)).getTime();
+    const endMs = startMs + duration * 60_000;
+    const clash = rows.find((r) => {
+      const rStart = new Date(r.scheduledFor).getTime();
+      const rEnd = rStart + (r.durationMinutes ?? 30) * 60_000;
+      return startMs < rEnd && rStart < endMs;
+    });
+    if (!clash) return null;
+    return `Overlaps with ${clash.patientName} at ${new Date(clash.scheduledFor).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit"
+    })}`;
+  }, [rows, startLocal, duration]);
+
   const canSubmit = patientId.length > 0 && !saving;
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
@@ -111,10 +206,13 @@ export function SchedulePageClient(): JSX.Element {
         patientId,
         scheduledFor: parseLocalInput(startLocal),
         durationMinutes: duration,
-        reason: reason.trim() || undefined
+        reason: reason.trim() || undefined,
+        consultationMode,
+        notifyPatient
       });
       await load();
       setReason("");
+      setPatientSearch("");
       setBookOpen(false);
       showToast({ variant: "success", title: "Slot booked", description: "Added to your schedule." });
     } catch (e) {
@@ -153,14 +251,23 @@ export function SchedulePageClient(): JSX.Element {
   );
 
   return (
-    <div className="w-full min-w-0 max-w-full">
-      <header className="mb-ds-xl border-b border-hs-border/20 pb-ds-lg">
-        <h1 className="font-heading text-typo-hero text-hs-ink">Schedule</h1>
-        <p className="mt-ds-sm max-w-2xl text-typo-body text-hs-text-secondary">
-          Week view — click a slot to book, drag a visit by the grip to move it. Walk-ins can start from the walk-in
-          action without a prior slot.
-        </p>
-      </header>
+    <div className="ds-page w-full min-w-0 max-w-full">
+      <PageHeader
+        title="Schedule"
+        description="Click a slot to book. Drag a visit by the grip to reschedule. Walk-ins can start without a slot."
+        action={
+          <button
+            type="button"
+            onClick={() => {
+              setStartLocal(localDatetimeInputValue(new Date()));
+              setBookOpen(true);
+            }}
+            className={DS_BTN_PRIMARY}
+          >
+            Book a slot
+          </button>
+        }
+      />
 
       {rescheduleErr ? (
         <div className="mb-ds-md">
@@ -201,10 +308,7 @@ export function SchedulePageClient(): JSX.Element {
                 description="Book from the week grid, or add walk-ins from Consultation when they arrive."
                 action={
                   <>
-                    <Link
-                      href="/consultation"
-                      className="inline-flex min-h-10 items-center justify-center rounded-xl bg-hs-primary px-ds-md text-body-sm font-bold text-white shadow-ds-md"
-                    >
+                    <Link href="/consultation" className={DS_BTN_PRIMARY}>
                       Start walk-in
                     </Link>
                     <button
@@ -213,7 +317,7 @@ export function SchedulePageClient(): JSX.Element {
                         setStartLocal(localDatetimeInputValue(new Date()));
                         setBookOpen(true);
                       }}
-                      className="inline-flex min-h-10 items-center justify-center rounded-xl border border-hs-border/50 px-ds-md text-body-sm font-semibold"
+                      className={DS_BTN_SECONDARY}
                     >
                       Book a slot
                     </button>
@@ -223,26 +327,33 @@ export function SchedulePageClient(): JSX.Element {
             </div>
           ) : null}
 
-          <section className="rounded-2xl border border-hs-border/30 bg-hs-paper/95 p-ds-lg shadow-card" aria-label="List">
-            <h2 className="font-heading text-heading-sm text-hs-ink">Upcoming (this week)</h2>
-            <ol className="relative mt-ds-md space-y-0 border-l-2 border-hs-primary/20 pl-0">
+          <section className="ds-card ds-card-pad" aria-label="List">
+            <h2 className="font-heading text-body-md font-semibold text-hs-ink">This week</h2>
+            <ol className="relative mt-4 space-y-0 border-l-2 border-hs-primary/15 pl-0">
               {rows.map((a) => (
-                <li key={a.id} className="relative pb-ds-md pl-6 last:pb-0">
+                <li key={a.id} className="relative pb-4 pl-5 last:pb-0">
                   <span
-                    className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-hs-paper bg-hs-primary shadow-ds-sm"
+                    className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full border-2 border-hs-paper bg-hs-primary"
                     aria-hidden
                   />
-                  <div className="flex flex-col gap-3 rounded-xl border border-hs-border/20 bg-hs-cream/20 p-ds-md lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex flex-col gap-2 py-1 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
-                      <p className="text-caption-sm font-medium text-hs-text-secondary">{formatWhen(a.scheduledFor)}</p>
-                      <p className="mt-0.5 font-heading text-body-md font-semibold text-hs-ink">{a.patientName}</p>
-                      {a.reason ? <p className="mt-0.5 text-typo-body text-hs-text-secondary">{a.reason}</p> : null}
+                      <p className="text-caption-sm text-hs-text-secondary">{formatWhen(a.scheduledFor)}</p>
+                      <p className="mt-0.5 font-medium text-body-sm text-hs-ink">
+                        {a.patientName}
+                        {a.consultationMode === "ONLINE" ? (
+                          <span className="ml-2 text-caption-sm font-medium text-emerald-700">· Video</span>
+                        ) : null}
+                      </p>
+                      {a.reason ? (
+                        <p className="mt-0.5 line-clamp-1 text-caption-sm text-hs-text-secondary">{a.reason}</p>
+                      ) : null}
                     </div>
                     <Link
-                      href={`/consultation?patientId=${encodeURIComponent(a.patientId)}&appointmentId=${encodeURIComponent(a.id)}`}
-                      className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-hs-primary px-ds-md text-caption-md font-bold text-white shadow-ds-md"
+                      href={`/consultation?patientId=${encodeURIComponent(a.patientId)}&appointmentId=${encodeURIComponent(a.id)}${a.consultationMode === "ONLINE" ? "&consultationMode=ONLINE" : ""}`}
+                      className={cn(DS_LINK_ACTION, "shrink-0")}
                     >
-                      Start consultation
+                      {a.consultationMode === "ONLINE" ? "Start video →" : "Start visit →"}
                     </Link>
                   </div>
                 </li>
@@ -275,23 +386,129 @@ export function SchedulePageClient(): JSX.Element {
         {loading ? null : (
           <form id="quick-book-form" onSubmit={(e) => void onSubmit(e)} className="space-y-ds-md">
             <div>
-              <label htmlFor="appt-patient" className="text-caption-md font-medium text-hs-ink">
+              <label htmlFor="appt-patient-search" className="text-caption-md font-medium text-hs-ink">
                 Patient
               </label>
-              <select
-                id="appt-patient"
-                className="mt-ds-sm w-full rounded-xl border border-hs-border/50 bg-hs-cream/40 py-2.5 pl-3 text-typo-body"
-                value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
-                required
-              >
-                <option value="">Select…</option>
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <p className="mt-1 text-caption-sm text-hs-text-tertiary">
+                Search by name, phone, or patient ID.
+              </p>
+              {selectedPatient && !patientSearchOpen ? (
+                <div className="mt-ds-sm flex items-center justify-between gap-2 rounded-xl border border-hs-primary/30 bg-hs-primary-very-light/60 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-body-sm font-semibold text-hs-ink">
+                      {selectedPatient.name}
+                    </p>
+                    <p className="truncate text-caption-sm text-hs-text-secondary">
+                      {selectedPatient.phone ? `${selectedPatient.phone} · ` : ""}
+                      ID {selectedPatient.id.slice(0, 8)}…
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPatientId("");
+                      setPatientSearch("");
+                      setPatientSearchOpen(true);
+                      setTimeout(() => patientSearchRef.current?.focus(), 0);
+                    }}
+                    className="rounded-lg border border-hs-border/50 px-2 py-1 text-caption-sm font-semibold text-hs-text-secondary transition hover:border-hs-primary/40 hover:text-hs-ink"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="relative mt-ds-sm">
+                    <Search
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-hs-text-tertiary"
+                      strokeWidth={2.25}
+                      aria-hidden
+                    />
+                    <input
+                      id="appt-patient-search"
+                      ref={patientSearchRef}
+                      type="search"
+                      autoComplete="off"
+                      value={patientSearch}
+                      onChange={(e) => {
+                        setPatientSearch(e.target.value);
+                        setPatientSearchOpen(true);
+                      }}
+                      onFocus={() => setPatientSearchOpen(true)}
+                      placeholder="Type name, phone, or patient ID…"
+                      className="w-full rounded-xl border border-hs-border/50 bg-hs-cream/40 py-2.5 pl-9 pr-3 text-typo-body shadow-input placeholder:text-hs-text-tertiary/80 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15"
+                    />
+                    {patientSearch ? (
+                      <button
+                        type="button"
+                        onClick={() => setPatientSearch("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-hs-text-tertiary hover:text-hs-ink"
+                        aria-label="Clear"
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    ) : null}
+                  </div>
+                  {patientSearchOpen ? (
+                    patientSearchLoading ? (
+                      <p className="mt-2 flex items-center gap-2 px-1 text-caption-sm text-hs-text-tertiary">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        Searching the clinic roster…
+                      </p>
+                    ) : filteredPatients.length === 0 ? (
+                      <p className="mt-2 rounded-xl border border-dashed border-hs-border/40 bg-hs-cream/30 px-3 py-2 text-caption-sm text-hs-text-tertiary">
+                        {patientSearch.trim().length < 2
+                          ? "Type at least 2 characters to search across the clinic."
+                          : "No patients match."}{" "}
+                        <Link href="/patients/new" className="font-semibold text-hs-primary hover:underline">
+                          Add a new patient →
+                        </Link>
+                      </p>
+                    ) : (
+                      <ul
+                        role="listbox"
+                        aria-label="Patient results"
+                        className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-hs-border/30 bg-hs-paper shadow-ds-sm"
+                      >
+                        {filteredPatients.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPatientId(p.id);
+                                setSelectedPatientCache(p);
+                                setPatientSearch("");
+                                setPatientSearchOpen(false);
+                              }}
+                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-body-sm transition hover:bg-hs-cream/60"
+                              role="option"
+                              aria-selected={patientId === p.id}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium text-hs-ink">
+                                  {p.name}
+                                </span>
+                                <span className="block truncate text-caption-sm text-hs-text-tertiary">
+                                  {p.phone ? `${p.phone} · ` : ""}ID {p.id.slice(0, 8)}…
+                                </span>
+                              </span>
+                              {p.lastVisitAt ? (
+                                <span className="shrink-0 text-caption-sm text-hs-text-tertiary">
+                                  Last visit{" "}
+                                  {new Date(p.lastVisitAt).toLocaleDateString(undefined, {
+                                    month: "short",
+                                    day: "numeric"
+                                  })}
+                                </span>
+                              ) : null}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  ) : null}
+                </>
+              )}
             </div>
             <div>
               <label htmlFor="appt-start" className="text-caption-md font-medium text-hs-ink">
@@ -333,6 +550,45 @@ export function SchedulePageClient(): JSX.Element {
                 onChange={(e) => setReason(e.target.value)}
               />
             </div>
+            <fieldset className="space-y-2">
+              <legend className="text-caption-md font-medium text-hs-ink">Visit type</legend>
+              <label className="flex cursor-pointer items-center gap-2 text-typo-body">
+                <input
+                  type="radio"
+                  name="consultationMode"
+                  checked={consultationMode === "IN_CLINIC"}
+                  onChange={() => setConsultationMode("IN_CLINIC")}
+                />
+                In-clinic
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-typo-body">
+                <input
+                  type="radio"
+                  name="consultationMode"
+                  checked={consultationMode === "ONLINE"}
+                  onChange={() => setConsultationMode("ONLINE")}
+                />
+                Online video (WhatsApp + email invite)
+              </label>
+            </fieldset>
+            {consultationMode === "ONLINE" ? (
+              <label className="flex cursor-pointer items-center gap-2 text-typo-body">
+                <input
+                  type="checkbox"
+                  checked={notifyPatient}
+                  onChange={(e) => setNotifyPatient(e.target.checked)}
+                />
+                Send meeting invitation to patient now
+              </label>
+            ) : null}
+            {overlapWarning ? (
+              <p
+                role="alert"
+                className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-caption-sm font-medium text-amber-900"
+              >
+                ⚠ {overlapWarning}
+              </p>
+            ) : null}
             {err ? <p className="text-caption-sm text-hs-danger">{err}</p> : null}
             {saving ? (
               <p className="flex items-center gap-2 text-typo-body text-hs-text-secondary">

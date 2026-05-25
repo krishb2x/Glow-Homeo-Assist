@@ -139,7 +139,7 @@ export default function LoginPage(): JSX.Element {
       eyebrow={eyebrow}
       title={title}
       description={description}
-      panelTagline="A calm, clinical workspace — designed by practising homeopaths."
+      panelTagline="A calm clinic workspace, designed by practising homeopaths."
       footerSlot={
         showRequest ? (
           <p>

@@ -28,7 +28,20 @@ import { assertRequiredTablesExist } from "./lib/dbSchemaCheck";
 import { PatientCreateBodySchema, PatientPatchBodySchema, ClinicalRecordPatchSchema, NoteDraftPatchSchema, AdvicePatchSchema, mergeClinicalRecordPatch } from "@homeoassist/domain";
 import { runConsultationFinalizeSideEffects, createScribeJob, updateScribeJob } from "./modules/encounters/v2EncountersService";
 import { startBackgroundJobs } from "./jobs/backgroundJobs";
+import { registerWhatsAppRoutes } from "./modules/whatsapp/whatsappRoutes";
+import { registerTelemedicineRoutes } from "./modules/telemedicine/telemedicineRoutes";
+import { registerMemoRoutes } from "./modules/memos/memoRoutes";
+import { provisionVideoSession } from "./modules/telemedicine/meetingService";
+import { listPatients } from "./modules/patients/patientListService";
+import { buildPatientTimeline } from "./modules/patients/timelineService";
+import { refreshPatientMetrics } from "./lib/patientMetrics";
+import { doctorRateLimit } from "./lib/rateLimit";
 import crypto from "node:crypto";
+
+const patientSearchLimit = doctorRateLimit(
+  "patient_search",
+  Number(process.env.RATE_PATIENT_SEARCH_PER_MIN ?? "120")
+);
 
 const app = express();
 
@@ -1166,71 +1179,86 @@ app.patch(
   }
 );
 
+const PatientsListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  search: z.string().max(120).optional(),
+  tags: z.string().max(400).optional(),
+  status: z.enum(["stable", "critical"]).optional(),
+  sort: z.enum(["created_at", "last_visit_at", "name"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
+  lightweight: z
+    .union([z.literal("true"), z.literal("false"), z.literal("1"), z.literal("0")])
+    .optional()
+    .transform((v) => v === "true" || v === "1"),
+  cursor: z.string().max(200).optional()
+});
+
+/** Lightweight search for command palette — max 25 rows, no heavy fields. */
+app.get(
+  "/doctor/patients/search",
+  authRequired,
+  requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
+  patientSearchLimit,
+  async (req, res) => {
+    const claims = (req as express.Request & { user: AuthClaims }).user;
+    const clinicId = resolveClinicScope(req, claims, res);
+    if (!clinicId) return;
+    const search = typeof req.query.q === "string" ? req.query.q : "";
+    const client = getDb(claims);
+    try {
+      const result = await listPatients(client, clinicId, {
+        limit: Math.min(25, Number(req.query.limit) || 20),
+        offset: 0,
+        search,
+        lightweight: true,
+        sort: "name",
+        sortDir: "asc"
+      });
+      jsonSuccess(res, 200, { items: result.items, total: result.total });
+    } catch (e) {
+      jsonErrorDb(res, "doctor_patients_search", e);
+    }
+  }
+);
+
 app.get("/doctor/patients", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
   const claims = (req as express.Request & { user: AuthClaims }).user;
   const clinicId = resolveClinicScope(req, claims, res);
   if (!clinicId) return;
-  const client = getDb(claims);
-  const { data, error } = await client
-    .from("patients")
-    .select("id,name,phone,language_preference,age,initial_chief_complaint,created_at,tags,allergies")
-    .eq("clinic_id", clinicId)
-    .order("created_at", { ascending: false });
-  if (error) {
-    jsonErrorDb(res, "doctor_patients_list", error);
+
+  const q = PatientsListQuerySchema.safeParse(req.query);
+  if (!q.success) {
+    jsonError(res, 400, "Invalid query", { code: "VALIDATION_ERROR", details: q.error.flatten() });
     return;
   }
-
-  const { data: consForClinic } = await client
-    .from("consultations")
-    .select("patient_id,ended_at")
-    .eq("clinic_id", clinicId)
-    .not("ended_at", "is", null);
-  const lastEndByPatient = new Map<string, string>();
-  for (const c of consForClinic ?? []) {
-    const pid = (c as { patient_id: string }).patient_id;
-    const end = (c as { ended_at: string }).ended_at;
-    const t = new Date(end).getTime();
-    const prev = lastEndByPatient.get(pid);
-    if (!prev || t > new Date(prev).getTime()) {
-      lastEndByPatient.set(pid, end);
-    }
-  }
-  const now = Date.now();
-
-  const list = (data ?? []).map((row) => {
-    const id = (row as { id: string }).id;
-    const last = lastEndByPatient.get(id) ?? null;
-    let status: "stable" | "critical" = "stable";
-    if (last && now > new Date(last).getTime() + MS_FOLLOWUP_DUE) {
-      status = "critical";
-    }
-    const r = row as {
-      id: string;
-      name: string;
-      phone: string | null;
-      language_preference: string | null;
-      age: number | null;
-      initial_chief_complaint: string | null;
-      created_at: string;
-      tags?: string[] | null;
-      allergies?: string | null;
-    };
-    return {
-      id: r.id,
-      name: r.name,
-      phone: r.phone ?? undefined,
-      languagePreference: r.language_preference,
-      age: r.age ?? undefined,
-      initialChiefComplaint: r.initial_chief_complaint ?? undefined,
-      createdAt: r.created_at,
-      lastVisitAt: last,
+  const { limit, offset, search, tags, status, sort, sortDir, lightweight, cursor } = q.data;
+  const client = getDb(claims);
+  try {
+    const result = await listPatients(client, clinicId, {
+      limit,
+      offset,
+      search,
+      tags,
       status,
-      tags: Array.isArray(r.tags) ? (r.tags as string[]) : undefined,
-      allergies: r.allergies ?? undefined
-    };
-  });
-  jsonSuccess(res, 200, list);
+      sort,
+      sortDir,
+      lightweight: lightweight ?? false,
+      cursor
+    });
+    jsonSuccess(res, 200, result);
+  } catch (e) {
+    jsonErrorDb(res, "doctor_patients_list", e);
+  }
+});
+
+const TimelineQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(80).default(40),
+  offset: z.coerce.number().int().min(0).default(0),
+  includeNotes: z
+    .union([z.literal("true"), z.literal("false"), z.literal("1"), z.literal("0")])
+    .optional()
+    .transform((v) => v === "true" || v === "1")
 });
 
 app.get("/doctor/patients/:id/timeline", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
@@ -1240,6 +1268,11 @@ app.get("/doctor/patients/:id/timeline", authRequired, requireAppRoles(["DOCTOR"
   const idParse = z.string().uuid().safeParse(req.params.id);
   if (!idParse.success) {
     jsonError(res, 400, "Invalid patient id", { code: "VALIDATION_ERROR", details: idParse.error.flatten() });
+    return;
+  }
+  const tq = TimelineQuerySchema.safeParse(req.query);
+  if (!tq.success) {
+    jsonError(res, 400, "Invalid query", { code: "VALIDATION_ERROR", details: tq.error.flatten() });
     return;
   }
   const patientId = idParse.data;
@@ -1260,205 +1293,52 @@ app.get("/doctor/patients/:id/timeline", authRequired, requireAppRoles(["DOCTOR"
     return;
   }
 
-  const { data: consRows, error: cErr } = await client
-    .from("consultations")
-    .select("id,patient_id,type,started_at,ended_at,note_draft,note_final")
-    .eq("patient_id", patientId)
-    .eq("clinic_id", clinicId)
-    .order("started_at", { ascending: false });
-  if (cErr) {
-    jsonErrorDb(res, "patient_timeline_cons", cErr);
-    return;
-  }
-
-  const { data: rxRows, error: rErr } = await client
-    .from("prescriptions")
-    .select("id,items,created_at,consultation_id")
-    .eq("patient_id", patientId)
-    .eq("clinic_id", clinicId)
-    .order("created_at", { ascending: false });
-  if (rErr) {
-    jsonErrorDb(res, "patient_timeline_rx", rErr);
-    return;
-  }
-
-  function firstLine(n: unknown): string | null {
-    if (!n || typeof n !== "object") return null;
-    const t = n as Record<string, unknown>;
-    const c = t.chiefComplaints ?? t.chief_complaints;
-    if (typeof c === "string" && c.trim()) {
-      return c.length > 160 ? `${c.slice(0, 160)}…` : c;
-    }
-    if (typeof t.summary === "string" && t.summary.trim()) {
-      return t.summary.length > 120 ? `${t.summary.slice(0, 120)}…` : t.summary;
-    }
-    return null;
-  }
-
-  const cons = consRows ?? [];
-  const now = new Date();
-  const events: Array<Record<string, unknown>> = [];
-
-  for (const r of cons) {
-    const at = r.ended_at ?? r.started_at;
-    if (!at) continue;
-    const hasNoteFinal = Boolean((r as { note_final?: unknown }).note_final);
-    const final = (r as { note_final?: unknown }).note_final;
-    const draft = (r as { note_draft?: unknown }).note_draft;
-    const summary = firstLine(final) ?? firstLine(draft);
-    const detail = extractNoteDetail(final) ?? extractNoteDetail(draft);
-    events.push({
-      kind: "consultation",
-      id: r.id,
-      consultationId: r.id,
-      at: new Date(at as string).toISOString(),
-      visitType: r.type,
-      endedAt: r.ended_at,
-      hasNoteFinal,
-      summary: summary ?? (hasNoteFinal ? "Case notes on file" : "Draft in progress or notes pending"),
-      ...(detail ? { detail } : {})
+  try {
+    const timeline = await buildPatientTimeline(client, clinicId, patientId, {
+      limit: tq.data.limit,
+      offset: tq.data.offset,
+      includeNotes: tq.data.includeNotes ?? false
     });
+    jsonSuccess(res, 200, timeline);
+  } catch (e) {
+    jsonErrorDb(res, "patient_timeline", e);
   }
-
-  for (const r of rxRows ?? []) {
-    const it = (r as { items?: unknown }).items;
-    const items = Array.isArray(it) ? it : [];
-    events.push({
-      kind: "prescription",
-      id: (r as { id: string }).id,
-      at: new Date((r as { created_at: string }).created_at).toISOString(),
-      items: items
-        .filter((x) => Boolean(x) && typeof x === "object")
-        .map((i) => {
-          const o = i as Record<string, unknown>;
-          if (typeof o.remedyName === "string") {
-            return {
-              remedyName: o.remedyName,
-              potency: String(o.potency ?? ""),
-              dosage: String(o.dosage ?? ""),
-              frequency: String(o.frequency ?? ""),
-              duration: String(o.duration ?? ""),
-              instructions: String(o.instructions ?? "")
-            };
-          }
-          return {
-            remedy: String(o.doctorVisibleRemedy ?? o.remedy ?? ""),
-            code: String(o.patientVisibleCode ?? o.code ?? ""),
-            dosage: String(o.dosageInstruction ?? o.dosage ?? "")
-          };
-        }),
-      consultationId: (r as { consultation_id: string | null }).consultation_id
-    });
-  }
-
-  // Real follow_ups (intentional rows). Synthetic 14-day check-in is added only if there are
-  // no real follow-ups, so the doctor’s explicit reminders are the source of truth.
-  const { data: fuRows } = await client
-    .from("follow_ups")
-    .select("id,due_at,title,reason,status,consultation_id,completed_at")
-    .eq("patient_id", patientId)
-    .eq("clinic_id", clinicId)
-    .order("due_at", { ascending: false });
-  const fuRowsArr = (fuRows ?? []) as Array<{
-    id: string;
-    due_at: string;
-    title: string;
-    reason: string | null;
-    status: string;
-    consultation_id: string | null;
-    completed_at: string | null;
-  }>;
-  let hasIntentionalFu = false;
-  for (const fu of fuRowsArr) {
-    if (fu.status === "COMPLETED" || fu.status === "CANCELLED") continue;
-    hasIntentionalFu = true;
-    const due = new Date(fu.due_at).getTime();
-    const overdue = now.getTime() > due && fu.status === "PENDING";
-    events.push({
-      kind: "followup",
-      id: fu.id,
-      at: fu.due_at,
-      dueAt: fu.due_at,
-      title: fu.title,
-      reason: fu.reason ?? undefined,
-      sourceConsultationId: fu.consultation_id ?? "",
-      status: fu.status,
-      overdue,
-      source: "intentional"
-    });
-  }
-
-  if (!hasIntentionalFu) {
-    const withEnded = cons
-      .filter((r) => r.ended_at)
-      .map((r) => ({
-        id: (r as { id: string }).id,
-        ended: new Date((r as { ended_at: string }).ended_at as string).getTime()
-      }))
-      .sort((a, b) => b.ended - a.ended);
-    if (withEnded[0]) {
-      const lastEnd = withEnded[0].ended;
-      const due = lastEnd + MS_FOLLOWUP_DUE;
-      const overdue = now.getTime() > due;
-      events.push({
-        kind: "followup",
-        id: `fu-${withEnded[0].id}`,
-        at: new Date(due).toISOString(),
-        dueAt: new Date(due).toISOString(),
-        title: "Post-consultation check-in",
-        sourceConsultationId: withEnded[0].id,
-        overdue,
-        source: "suggested"
-      });
-    }
-  }
-
-  // Documents (file_objects) for this patient — surface a few in the timeline as record entries.
-  const { data: docRows } = await client
-    .from("file_objects")
-    .select("id,object_key,category,created_at,patient_id,consultation_id")
-    .eq("clinic_id", clinicId)
-    .eq("category", "document")
-    .or(`patient_id.eq.${patientId},consultation_id.in.(${(cons.map((r) => r.id).join(",") || "00000000-0000-0000-0000-000000000000")})`)
-    .order("created_at", { ascending: false })
-    .limit(20);
-  for (const d of (docRows ?? []) as Array<{ id: string; object_key: string; created_at: string }>) {
-    const filename = d.object_key.split("/").pop() ?? "Document";
-    events.push({
-      kind: "document",
-      id: d.id,
-      at: d.created_at,
-      objectKey: d.object_key,
-      filename
-    });
-  }
-
-  const { data: outcomeRows } = await client
-    .from("case_outcomes")
-    .select("id,consultation_id,outcome,assessment,documented_at")
-    .eq("patient_id", patientId)
-    .eq("clinic_id", clinicId)
-    .order("documented_at", { ascending: false });
-  for (const o of outcomeRows ?? []) {
-    const or = o as {
-      id: string;
-      consultation_id: string;
-      outcome: string;
-      assessment: string | null;
-      documented_at: string;
-    };
-    events.push({
-      kind: "case_outcome",
-      id: or.id,
-      at: or.documented_at,
-      consultationId: or.consultation_id,
-      outcome: or.outcome,
-      assessment: or.assessment ?? undefined
-    });
-  }
-
-  jsonSuccess(res, 200, { events });
 });
+
+/** Lazy-load full consultation note for timeline expansion. */
+app.get(
+  "/doctor/consultations/:id/note-detail",
+  authRequired,
+  requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
+  async (req, res) => {
+    const claims = (req as express.Request & { user: AuthClaims }).user;
+    const clinicId = resolveClinicScope(req, claims, res);
+    if (!clinicId) return;
+    const idParse = z.string().uuid().safeParse(req.params.id);
+    if (!idParse.success) {
+      jsonError(res, 400, "Invalid id", { code: "VALIDATION_ERROR" });
+      return;
+    }
+    const client = getDb(claims);
+    const { data, error } = await client
+      .from("consultations")
+      .select("id,note_draft,note_final")
+      .eq("id", idParse.data)
+      .eq("clinic_id", clinicId)
+      .maybeSingle();
+    if (error) {
+      jsonErrorDb(res, "consultation_note_detail", error);
+      return;
+    }
+    if (!data) {
+      jsonError(res, 404, "Not found", { code: "NOT_FOUND" });
+      return;
+    }
+    const row = data as { note_final?: unknown; note_draft?: unknown };
+    const detail = extractNoteDetail(row.note_final) ?? extractNoteDetail(row.note_draft);
+    jsonSuccess(res, 200, { consultationId: idParse.data, detail });
+  }
+);
 
 app.get("/doctor/patients/:id/documents", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
   const claims = (req as express.Request & { user: AuthClaims }).user;
@@ -1526,6 +1406,9 @@ app.get("/doctor/patients/:id/documents", authRequired, requireAppRoles(["DOCTOR
 });
 
 registerHomeoSyncDoctorRoutes(app);
+registerMemoRoutes(app);
+registerWhatsAppRoutes(app);
+registerTelemedicineRoutes(app);
 
 const PATIENT_SELECT_COLUMNS_WITH_DOB =
   "id,name,phone,language_preference,age,date_of_birth,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags";
@@ -1962,7 +1845,35 @@ app.post("/doctor/consultations", authRequired, requireAppRoles(["DOCTOR", "SUPE
     jsonErrorDb(res, "consultation_create", error);
     return;
   }
-  jsonSuccess(res, 201, data);
+
+  const created = data as {
+    id: string;
+    patient_id: string;
+    consultation_mode: string;
+    recording_enabled: boolean;
+  };
+
+  let meeting: Record<string, unknown> | null = null;
+  if (parsed.data.consultationMode === "ONLINE") {
+    try {
+      const { data: profile } = await client.from("profiles").select("full_name").eq("id", claims.userId).maybeSingle();
+      meeting = await provisionVideoSession({
+        client,
+        admin: supabaseAdmin,
+        clinicId,
+        consultationId: created.id,
+        patientId: created.patient_id,
+        doctorDisplayName: (profile as { full_name?: string } | null)?.full_name ?? "Doctor",
+        recordingEnabled: parsed.data.recordingEnabled
+      });
+    } catch (e) {
+      logger.warn("online_consult_provision_failed", {
+        message: e instanceof Error ? e.message : String(e)
+      });
+    }
+  }
+
+  jsonSuccess(res, 201, { ...created, meeting });
 });
 
 app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
@@ -2622,6 +2533,7 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
     jsonErrorDb(res, "consultation_complete_update", upErr);
     return;
   }
+  void refreshPatientMetrics(client, rw.patient_id);
   if (fin.finalize && fin.createFollowUp) {
     const title =
       fin.createFollowUp.reason.length > 120
