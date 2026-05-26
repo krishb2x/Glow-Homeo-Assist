@@ -14,6 +14,8 @@ const V2_OPTIONAL_TABLES = [
 /** Telemedicine / online appointments — required for production if ONLINE visits are used. */
 const TELEMEDICINE_TABLES = ["patient_access_tokens", "appointments"] as const;
 
+const DAILY_VIDEO_TABLES = ["video_sessions", "consultation_events"] as const;
+
 /**
  * Service-role head query per table. Missing RLS/permission on service role is acceptable;
  * a missing *relation* fails startup in production.
@@ -73,6 +75,24 @@ export async function assertRequiredTablesExist(admin: SupabaseClient): Promise<
       }
       // Dev: warn only — in-clinic visits work; online appointments need the migration.
       logger.warn("telemedicine_schema_check_failed", payload);
+    }
+  }
+
+  for (const table of DAILY_VIDEO_TABLES) {
+    const { error: dailyErr } = await admin.from(table).select("id", { count: "exact", head: true }).limit(0);
+    if (dailyErr) {
+      const payload = {
+        table,
+        message: dailyErr.message,
+        hint: "Apply supabase/migrations/20260529000000_daily_video_sessions.sql"
+      };
+      if (isProd) {
+        logger.error("daily_video_schema_check_failed", payload);
+        throw new Error(
+          `Database schema not ready for Daily video: "${table}" is missing. ${dailyErr.message}`
+        );
+      }
+      logger.warn("daily_video_schema_check_failed", payload);
     }
   }
 }

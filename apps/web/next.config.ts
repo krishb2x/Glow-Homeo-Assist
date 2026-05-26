@@ -10,6 +10,7 @@ const publicApi = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   /** Ensure client bundles see NEXT_PUBLIC_API_URL (monorepo root .env is loaded above). */
   env: {
     NEXT_PUBLIC_API_URL: publicApi

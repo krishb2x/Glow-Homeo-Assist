@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AlertTriangle, Clock, Phone, User } from "lucide-react";
 import type { LastCaseOutcome } from "../../../lib/doctor-api";
+import { formatVisitAge } from "../../../lib/operational-queue";
 import { cn } from "../../../lib/cn";
 
 type Props = {
@@ -16,6 +17,10 @@ type Props = {
   lastVisitAt?: string | null;
   lastCaseOutcome?: LastCaseOutcome | null;
   consultationMode?: "IN_CLINIC" | "ONLINE";
+  /** ISO timestamp when this visit started — shown as elapsed session time. */
+  startedAt?: string | null;
+  /** Today's presenting complaint for wrong-patient prevention. */
+  chiefComplaint?: string | null;
   className?: string;
 };
 
@@ -39,12 +44,19 @@ export function ConsultationPatientBar({
   lastVisitAt,
   lastCaseOutcome,
   consultationMode,
+  startedAt,
+  chiefComplaint,
   className
 }: Props): JSX.Element {
   const hasAllergies = Boolean(allergies?.trim());
   const visitLabel =
     visitType === "INITIAL" || visitType === "initial" ? "New case" : "Follow-up";
   const modeLabel = consultationMode === "ONLINE" ? "Online" : "In-clinic";
+
+  const sessionAge =
+    startedAt && !Number.isNaN(new Date(startedAt).getTime())
+      ? formatVisitAge(Math.floor((Date.now() - new Date(startedAt).getTime()) / 60_000))
+      : null;
 
   return (
     <div
@@ -73,7 +85,17 @@ export function ConsultationPatientBar({
             <span className="rounded-full border border-hs-primary/25 bg-hs-primary-very-light px-1.5 text-[10px] font-semibold uppercase tracking-wide text-hs-primary">
               {modeLabel}
             </span>
+            {sessionAge ? (
+              <span className="rounded-full border border-hs-border/50 bg-hs-cream px-1.5 text-[10px] font-semibold text-hs-text-secondary">
+                Open {sessionAge}
+              </span>
+            ) : null}
           </p>
+          {chiefComplaint?.trim() ? (
+            <p className="mt-0.5 truncate text-caption-sm text-hs-text-secondary">
+              <span className="font-semibold text-hs-ink">Today:</span> {chiefComplaint.trim()}
+            </p>
+          ) : null}
         </div>
 
         <div className="ml-1 flex flex-wrap items-center gap-3 text-caption-sm text-hs-text-secondary">

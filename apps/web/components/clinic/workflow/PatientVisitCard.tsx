@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultationLink } from "../ConsultationLink";
+import { liveConsultationHref } from "../../../lib/consultation-navigation";
 import { ChevronRight, Phone, Stethoscope } from "lucide-react";
 import type { PatientListItem } from "../../../lib/doctor-api";
 import { DS_BTN_PRIMARY } from "../../../lib/ds-classes";
@@ -10,6 +12,9 @@ import { cn } from "../../../lib/cn";
 type Props = {
   patient: PatientListItem;
   onStart: () => void;
+  /** When set, patient already has an open visit — offer resume. */
+  openVisitId?: string;
+  onStartNew?: () => void;
   starting?: boolean;
   disabled?: boolean;
   showDateHint?: boolean;
@@ -19,6 +24,8 @@ type Props = {
 export function PatientVisitCard({
   patient,
   onStart,
+  openVisitId,
+  onStartNew,
   starting = false,
   disabled = false,
   showDateHint = false,
@@ -71,15 +78,37 @@ export function PatientVisitCard({
         </div>
 
         <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-          <button
-            type="button"
-            onClick={onStart}
-            disabled={disabled || starting}
-            className={cn(DS_BTN_PRIMARY, "min-w-[10.5rem] gap-2 disabled:opacity-70")}
-          >
-            <Stethoscope className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-            {starting ? "Opening…" : "Start visit"}
-          </button>
+          {openVisitId ? (
+            <>
+              <ConsultationLink
+                href={liveConsultationHref(openVisitId)}
+                className={cn(DS_BTN_PRIMARY, "min-w-[10.5rem] gap-2 text-center")}
+              >
+                <Stethoscope className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+                Resume visit
+              </ConsultationLink>
+              {onStartNew ? (
+                <button
+                  type="button"
+                  onClick={onStartNew}
+                  disabled={disabled || starting}
+                  className="text-caption-sm font-semibold text-hs-text-secondary hover:text-hs-primary disabled:opacity-60"
+                >
+                  {starting ? "Opening…" : "Start new visit instead"}
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onStart}
+              disabled={disabled || starting}
+              className={cn(DS_BTN_PRIMARY, "min-w-[10.5rem] gap-2 disabled:opacity-70")}
+            >
+              <Stethoscope className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              {starting ? "Opening…" : "Start visit"}
+            </button>
+          )}
           <Link
             href={`/patients/${encodeURIComponent(patient.id)}/timeline`}
             className="inline-flex items-center gap-0.5 text-caption-sm font-semibold text-hs-primary hover:underline"

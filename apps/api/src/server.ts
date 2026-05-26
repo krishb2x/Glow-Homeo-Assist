@@ -1,7 +1,7 @@
 import http from "http";
+import "./lib/loadMonorepoEnv";
 import express from "express";
 import cors from "cors";
-import { WebSocketServer } from "ws";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { authRequired, requireAppRoles, AuthClaims } from "./auth";
@@ -10,32 +10,34 @@ import { createSupabaseUserClient, supabaseAdmin, supabaseAnon } from "./supabas
 import { getDb } from "./db";
 import {
   buildObjectKey,
-  copyObjectInBucket,
   createDownloadUrl,
   createUploadUrl,
   deleteObjectByKey
 } from "./s3";
-import { attachConsultationWss } from "./audioStream/consultationWss";
-import { generateStructuredNotes, isAiAvailable } from "./audioStream/geminiPipeline";
 import { registerHomeoSyncDoctorRoutes } from "./homeosyncDoctorApi";
 import { logger } from "./lib/logger";
-import { resolveClinicScope } from "./lib/clinicScope";
+import { allocatePatientCode, allocateVisitCode, parseSymptomsToMonitor } from "./lib/healthcareIds";
 import { jsonSuccess, jsonError } from "./lib/apiEnvelope";
 import { jsonErrorDb, logAndSanitizeError, CLIENT_SAFE_MSG } from "./lib/safeError";
 import { checkMarketingLeadLimit } from "./lib/marketingLeadRateLimit";
 import { resolveFeatures, getClinicFeatures, PLAN_FEATURES } from "./lib/features";
 import { assertRequiredTablesExist } from "./lib/dbSchemaCheck";
+import { assertProductionEnvironment } from "./lib/productionConfig";
+import { requestContextMiddleware } from "./lib/requestContext";
+import { checkLoginRateLimit } from "./lib/loginRateLimit";
 import { PatientCreateBodySchema, PatientPatchBodySchema, ClinicalRecordPatchSchema, NoteDraftPatchSchema, AdvicePatchSchema, mergeClinicalRecordPatch } from "@homeoassist/domain";
-import { runConsultationFinalizeSideEffects, createScribeJob, updateScribeJob } from "./modules/encounters/v2EncountersService";
+import { runConsultationFinalizeSideEffects } from "./modules/encounters/v2EncountersService";
 import { startBackgroundJobs } from "./jobs/backgroundJobs";
 import { registerWhatsAppRoutes } from "./modules/whatsapp/whatsappRoutes";
 import { registerTelemedicineRoutes } from "./modules/telemedicine/telemedicineRoutes";
+import { registerOpsRoutes } from "./modules/ops/opsRoutes";
 import { registerMemoRoutes } from "./modules/memos/memoRoutes";
 import { provisionVideoSession } from "./modules/telemedicine/meetingService";
 import { listPatients } from "./modules/patients/patientListService";
 import { buildPatientTimeline } from "./modules/patients/timelineService";
 import { refreshPatientMetrics } from "./lib/patientMetrics";
 import { doctorRateLimit } from "./lib/rateLimit";
+import { resolveClinicScope } from "./lib/clinicScope";
 import crypto from "node:crypto";
 
 const patientSearchLimit = doctorRateLimit(
@@ -45,9 +47,11 @@ const patientSearchLimit = doctorRateLimit(
 
 const app = express();
 
+assertProductionEnvironment();
+app.use(requestContextMiddleware);
+
 // In production set CORS_ORIGIN to your exact frontend domain.
-// In development we allow any origin so the app works from any device on the LAN
-// (HTTP calls go through the Next.js proxy anyway; only WebSockets hit this port directly).
+// In development we allow any origin so the app works from any device on the LAN.
 const isProd = process.env.NODE_ENV === "production";
 const corsOriginEnv = process.env.CORS_ORIGIN;
 const corsOriginOption: cors.CorsOptions["origin"] = corsOriginEnv
@@ -64,7 +68,14 @@ app.use(
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
   })
 );
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    const url = req.url ?? "";
+    if (url.startsWith("/webhooks/daily") || url.startsWith("/webhooks/meta/whatsapp") || url.startsWith("/webhooks/resend")) {
+      (req as express.Request & { rawBody?: string }).rawBody = buf.toString("utf8");
+    }
+  }
+}));
 if (process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true") {
   app.set("trust proxy", 1);
 }
@@ -151,6 +162,12 @@ function extractNoteDetail(n: unknown): {
 }
 
 app.post("/auth/login", async (req, res) => {
+  const limit = checkLoginRateLimit(req);
+  if (!limit.allowed) {
+    res.setHeader("Retry-After", String(limit.retryAfterSec));
+    jsonError(res, 429, "Too many login attempts. Please wait and try again.", { code: "RATE_LIMITED" });
+    return;
+  }
   const parsed = z.object({ email: z.string().email(), password: z.string().min(8) }).safeParse(req.body);
   if (!parsed.success) {
     jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
@@ -1409,6 +1426,7 @@ registerHomeoSyncDoctorRoutes(app);
 registerMemoRoutes(app);
 registerWhatsAppRoutes(app);
 registerTelemedicineRoutes(app);
+registerOpsRoutes(app);
 
 const PATIENT_SELECT_COLUMNS_WITH_DOB =
   "id,name,phone,language_preference,age,date_of_birth,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags";
@@ -1738,11 +1756,13 @@ app.post("/doctor/patients", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADM
     return;
   }
   const client = getDb(claims);
+  const patientCode = await allocatePatientCode(client, clinicId);
   const { data, error } = await client
     .from("patients")
     .insert({
       id: uuid(),
       clinic_id: clinicId,
+      patient_code: patientCode,
       name: parsed.data.name,
       phone: parsed.data.phone ?? null,
       language_preference: parsed.data.languagePreference ?? null,
@@ -1761,7 +1781,7 @@ app.post("/doctor/patients", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADM
         : null
     })
     .select(
-      "id,name,phone,language_preference,age,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags"
+      "id,name,phone,language_preference,age,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags,patient_code"
     )
     .single();
   if (error) {
@@ -1785,9 +1805,11 @@ app.post("/doctor/patients", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADM
     blood_group?: string | null;
     ongoing_conditions?: string | null;
     tags?: string[] | null;
+    patient_code?: string | null;
   };
   jsonSuccess(res, 201, {
     id: row.id,
+    patientCode: row.patient_code ?? undefined,
     name: row.name,
     phone: row.phone,
     languagePreference: row.language_preference,
@@ -1825,12 +1847,14 @@ app.post("/doctor/consultations", authRequired, requireAppRoles(["DOCTOR", "SUPE
     return;
   }
   const client = getDb(claims);
+  const visitCode = await allocateVisitCode(client, clinicId);
   const { data, error } = await client
     .from("consultations")
     .insert({
       id: uuid(),
       clinic_id: clinicId,
       patient_id: parsed.data.patientId,
+      visit_code: visitCode,
       type: parsed.data.type,
       recording_enabled: parsed.data.recordingEnabled,
       started_at: new Date().toISOString(),
@@ -1839,7 +1863,7 @@ app.post("/doctor/consultations", authRequired, requireAppRoles(["DOCTOR", "SUPE
       appointment_id: parsed.data.appointmentId ?? null,
       consultation_mode: parsed.data.consultationMode
     })
-    .select("id,clinic_id,patient_id,type,recording_enabled,started_at,complexity,appointment_id,consultation_mode")
+    .select("id,clinic_id,patient_id,type,recording_enabled,started_at,complexity,appointment_id,consultation_mode,visit_code")
     .single();
   if (error) {
     jsonErrorDb(res, "consultation_create", error);
@@ -1884,7 +1908,7 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
   const { data: row, error } = await client
     .from("consultations")
     .select(
-      "id,patient_id,type,recording_enabled,started_at,ended_at,transcript_text,transcript_confidence,note_draft,note_final,complexity,appointment_id,consultation_mode,lifecycle_status,clinical_record,clinical_record_version,advice,follow_up_recommended_at,follow_up_note,editing_locked,finalized_at"
+      "id,patient_id,type,recording_enabled,started_at,ended_at,transcript_text,transcript_confidence,note_draft,note_final,complexity,appointment_id,consultation_mode,lifecycle_status,clinical_record,clinical_record_version,advice,follow_up_recommended_at,follow_up_note,symptoms_to_monitor,editing_locked,finalized_at,visit_code"
     )
     .eq("id", req.params.id)
     .eq("clinic_id", clinicId)
@@ -1899,7 +1923,7 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
   }
   const { data: patient, error: pError } = await client
     .from("patients")
-    .select("id,name,age,gender,address,phone,patient_notes,initial_chief_complaint,language_preference,allergies,blood_group,ongoing_conditions")
+    .select("id,name,age,gender,address,phone,patient_notes,initial_chief_complaint,language_preference,allergies,blood_group,ongoing_conditions,patient_code")
     .eq("id", row.patient_id)
     .eq("clinic_id", clinicId)
     .maybeSingle();
@@ -1933,8 +1957,10 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
     advice?: unknown;
     follow_up_recommended_at?: string | null;
     follow_up_note?: string | null;
+    symptoms_to_monitor?: string[] | null;
     editing_locked?: boolean;
     finalized_at?: string | null;
+    visit_code?: string | null;
   };
   const pat = patient as {
     name?: string;
@@ -1947,6 +1973,7 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
     allergies?: string | null;
     blood_group?: string | null;
     ongoing_conditions?: string | null;
+    patient_code?: string | null;
   } | null;
 
   let pendingPriorOutcome: { consultationId: string; endedAt: string; summary: string } | null = null;
@@ -2003,7 +2030,9 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
 
   jsonSuccess(res, 200, {
     id: row.id,
+    visitCode: ext.visit_code ?? null,
     patientId: row.patient_id,
+    patientCode: pat?.patient_code ?? null,
     patientName: pat?.name ?? "Patient",
     patientAge: pat?.age ?? null,
     patientGender: pat?.gender ?? null,
@@ -2035,6 +2064,7 @@ app.get("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", "S
     advice: ext.advice ?? { diet: "", lifestyle: "" },
     followUpRecommendedAt: ext.follow_up_recommended_at ?? null,
     followUpNote: ext.follow_up_note ?? null,
+    symptomsToMonitor: ext.symptoms_to_monitor ?? [],
     editingLocked: Boolean(ext.editing_locked),
     finalizedAt: ext.finalized_at ?? null,
     pendingPriorOutcome,
@@ -2068,7 +2098,8 @@ app.patch("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", 
       clinicalRecord: ClinicalRecordPatchSchema.optional(),
       advice: AdvicePatchSchema.optional(),
       followUpRecommendedAt: z.string().optional().nullable(),
-      followUpNote: z.string().max(4000).optional().nullable()
+      followUpNote: z.string().max(4000).optional().nullable(),
+      symptomsToMonitor: z.array(z.string().max(200)).max(20).optional()
     })
     .refine((b) => Object.keys(b).length > 0, { message: "Empty patch" })
     .safeParse(req.body);
@@ -2134,12 +2165,15 @@ app.patch("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", 
   if (parsed.data.followUpNote !== undefined) {
     updates.follow_up_note = parsed.data.followUpNote;
   }
+  if (parsed.data.symptomsToMonitor !== undefined) {
+    updates.symptoms_to_monitor = parsed.data.symptomsToMonitor;
+  }
   const { data: updated, error: upErr } = await client
     .from("consultations")
     .update(updates)
     .eq("id", idParse.data)
     .eq("clinic_id", clinicId)
-    .select("lifecycle_status,clinical_record_version,note_draft,clinical_record,advice,follow_up_recommended_at,follow_up_note")
+    .select("lifecycle_status,clinical_record_version,note_draft,clinical_record,advice,follow_up_recommended_at,follow_up_note,symptoms_to_monitor")
     .maybeSingle();
   if (upErr) {
     jsonErrorDb(res, "consultation_patch", upErr);
@@ -2152,132 +2186,8 @@ app.patch("/doctor/consultations/:id", authRequired, requireAppRoles(["DOCTOR", 
     clinicalRecord: (updated as { clinical_record: unknown }).clinical_record,
     advice: (updated as { advice: unknown }).advice,
     followUpRecommendedAt: (updated as { follow_up_recommended_at: string | null }).follow_up_recommended_at,
-    followUpNote: (updated as { follow_up_note: string | null }).follow_up_note
-  });
-});
-
-/**
- * Generate a structured clinical note draft from the transcript WITHOUT ending
- * the consultation (ended_at is never written here).
- *
- * If GEMINI_API_KEY is set → runs the full LLM extraction and returns a
- * structured noteDraft.  If not → saves the transcript and returns
- * aiReady: false so the client can inform the doctor.
- */
-app.post("/doctor/consultations/:id/generate-draft", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
-  const claims = (req as express.Request & { user: AuthClaims }).user;
-  const clinicId = resolveClinicScope(req, claims, res);
-  if (!clinicId) return;
-
-  // Feature gate — AI Notetaker is a Pro-plan feature
-  const feats = await getClinicFeatures(clinicId);
-  if (!feats.aiNotetaker) {
-    jsonError(res, 403, "AI Notetaker is not enabled for this clinic. Upgrade to the Pro plan or contact your admin.", {
-      code: "FEATURE_DISABLED"
-    });
-    return;
-  }
-
-  const idParse = z.string().uuid().safeParse(req.params.id);
-  if (!idParse.success) {
-    jsonError(res, 400, "Invalid consultation id", { code: "VALIDATION_ERROR" });
-    return;
-  }
-  const consultationId = idParse.data;
-
-  const parsed = z.object({
-    transcriptText: z.string().max(200000).default(""),
-    transcriptLanguage: z.string().default("mixed-hi-en"),
-    transcriptConfidence: z.number().min(0).max(1).default(0.8)
-  }).safeParse(req.body);
-  if (!parsed.success) {
-    jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
-    return;
-  }
-  const client = getDb(claims);
-
-  // Merge with any transcript already in the DB (the live stream may have saved more)
-  const { data: existing } = await client
-    .from("consultations")
-    .select("transcript_text")
-    .eq("id", consultationId)
-    .eq("clinic_id", clinicId)
-    .maybeSingle();
-  const storedTranscript = (existing as { transcript_text?: string | null } | null)?.transcript_text ?? "";
-  const transcript = parsed.data.transcriptText.trim() || storedTranscript || "";
-
-  // Always persist the latest transcript (does NOT touch ended_at)
-  const dbUpdates: Record<string, unknown> = {
-    transcript_language: parsed.data.transcriptLanguage,
-    transcript_confidence: parsed.data.transcriptConfidence
-  };
-  if (transcript) dbUpdates.transcript_text = transcript;
-
-  // Run LLM if key is present
-  let noteDraft: Record<string, unknown> | null = null;
-  if (isAiAvailable() && transcript) {
-    try {
-      const draft = await generateStructuredNotes(transcript);
-      if (draft) {
-        noteDraft = draft as unknown as Record<string, unknown>;
-        // Persist the AI-generated draft too
-        dbUpdates.note_draft = draft;
-      }
-    } catch (e) {
-      logAndSanitizeError("generate_draft_llm", e);
-      // Non-fatal — we still save the transcript and tell the client AI failed
-    }
-  }
-
-  const { error } = await client
-    .from("consultations")
-    .update(dbUpdates)
-    .eq("id", consultationId)
-    .eq("clinic_id", clinicId);
-  if (error) {
-    jsonErrorDb(res, "consultation_generate_draft", error);
-    return;
-  }
-
-  if (noteDraft) {
-    const { data: latestJob } = await client
-      .from("scribe_jobs")
-      .select("id")
-      .eq("consultation_id", consultationId)
-      .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (latestJob && (latestJob as { id: string }).id) {
-      await updateScribeJob(client, (latestJob as { id: string }).id, {
-        status: "DRAFTED",
-        transcriptText: transcript,
-        draftRecord: noteDraft,
-        ended: true
-      });
-    } else {
-      const jobId = await createScribeJob(client, {
-        clinicId,
-        consultationId,
-        doctorId: claims.userId,
-        status: "DRAFTED"
-      });
-      if (jobId) {
-        await updateScribeJob(client, jobId, {
-          transcriptText: transcript,
-          draftRecord: noteDraft,
-          ended: true
-        });
-      }
-    }
-  }
-
-  jsonSuccess(res, 200, {
-    aiReady: isAiAvailable() && Boolean(noteDraft),
-    transcriptSaved: Boolean(transcript),
-    noteDraft,
-    message: isAiAvailable()
-      ? (noteDraft ? "AI notes generated — review before inserting." : "Transcript saved. AI generation failed — check server logs.")
-      : "Transcript saved. Connect GEMINI_API_KEY to enable AI note extraction."
+    followUpNote: (updated as { follow_up_note: string | null }).follow_up_note,
+    symptomsToMonitor: (updated as { symptoms_to_monitor: string[] | null }).symptoms_to_monitor ?? []
   });
 });
 
@@ -2285,77 +2195,19 @@ app.post("/doctor/consultations/:id/end", authRequired, requireAppRoles(["DOCTOR
   const claims = (req as express.Request & { user: AuthClaims }).user;
   const clinicId = resolveClinicScope(req, claims, res);
   if (!clinicId) return;
-  const parsed = z.object({
-    autoGenerate: z.boolean().default(true),
-    transcriptText: z.string().default(""),
-    transcriptLanguage: z.string().default("mixed-hi-en"),
-    transcriptConfidence: z.number().min(0).max(1).default(0.8)
-  }).safeParse(req.body);
-  if (!parsed.success) {
-    jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
-    return;
-  }
-  const noteDraft = parsed.data.autoGenerate
-    ? {
-        chiefComplaints: "Auto extracted chief complaints from transcript",
-        emotionalState: "Auto inferred emotional cues from conversation",
-        physicalSymptoms: "Auto extracted physical symptoms",
-        modalities: "Add modalities, modalities amel & agg (doctor edit)",
-        timeline: "Auto timeline based on symptom mentions",
-        needsReview: parsed.data.transcriptConfidence < 0.75
-      }
-    : null;
   const client = getDb(claims);
   const { data, error } = await client
     .from("consultations")
-    .update({
-      ended_at: new Date().toISOString(),
-      transcript_text: parsed.data.transcriptText,
-      transcript_language: parsed.data.transcriptLanguage,
-      transcript_confidence: parsed.data.transcriptConfidence,
-      note_draft: noteDraft
-    })
+    .update({ ended_at: new Date().toISOString() })
     .eq("id", req.params.id)
     .eq("clinic_id", clinicId)
-    .select("id,transcript_confidence,note_draft")
+    .select("id")
     .single();
   if (error) {
     jsonErrorDb(res, "consultation_end", error);
     return;
   }
-  jsonSuccess(res, 200, { id: data.id, transcriptConfidence: data.transcript_confidence, noteDraft: data.note_draft });
-});
-
-app.post("/doctor/consultations/:id/generate-note", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
-  const claims = (req as express.Request & { user: AuthClaims }).user;
-  const clinicId = resolveClinicScope(req, claims, res);
-  if (!clinicId) return;
-  const client = getDb(claims);
-  const { data: consultation } = await client
-    .from("consultations")
-    .select("id,transcript_confidence")
-    .eq("id", req.params.id)
-    .eq("clinic_id", clinicId)
-    .single();
-
-  const draft = {
-    chiefComplaints: "Generated chief complaints section",
-    emotionalState: "Generated emotional profile section",
-    physicalSymptoms: "Generated physical symptom list",
-    modalities: "Add modalities, modalities amel & agg (doctor edit)",
-    timeline: "Generated symptom timeline",
-    needsReview: (consultation?.transcript_confidence ?? 0.8) < 0.75
-  };
-  const { error } = await client
-    .from("consultations")
-    .update({ note_draft: draft })
-    .eq("id", req.params.id)
-    .eq("clinic_id", clinicId);
-  if (error) {
-    jsonErrorDb(res, "consultation_generate_note", error);
-    return;
-  }
-  jsonSuccess(res, 200, draft);
+  jsonSuccess(res, 200, { id: data.id });
 });
 
 app.post("/doctor/consultations/:id/finalize-note", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
@@ -2409,6 +2261,7 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
       lockEditing: z.boolean().optional(),
       followUpRecommendedAt: z.string().optional().nullable(),
       followUpNote: z.string().max(4000).optional().nullable(),
+      symptomsToMonitor: z.array(z.string().max(200)).max(20).optional(),
       distribute: z
         .object({
           sendEmail: z.boolean().optional(),
@@ -2419,7 +2272,8 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
       createFollowUp: z
         .object({
           dueAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "Invalid date"),
-          reason: z.string().min(1).max(2000)
+          reason: z.string().min(1).max(2000),
+          symptomsToMonitor: z.array(z.string().max(200)).max(20).optional()
         })
         .optional()
     })
@@ -2466,6 +2320,9 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
       if (fin.followUpNote !== undefined) {
         updatesDone.follow_up_note = fin.followUpNote;
       }
+      if (fin.symptomsToMonitor !== undefined) {
+        updatesDone.symptoms_to_monitor = fin.symptomsToMonitor;
+      }
       const { error: upDone } = await client
         .from("consultations")
         .update(updatesDone)
@@ -2489,7 +2346,9 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
           reason: fin.createFollowUp.reason,
           due_at: fin.createFollowUp.dueAt,
           doctor_id: claims.userId,
-          status: "PENDING"
+          status: "PENDING",
+          symptoms_to_monitor:
+            fin.createFollowUp.symptomsToMonitor ?? fin.symptomsToMonitor ?? null
         });
         if (fuErr) {
           jsonErrorDb(res, "consultation_complete_followup_after_end", fuErr);
@@ -2527,6 +2386,9 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
     if (fin.followUpNote !== undefined) {
       updates.follow_up_note = fin.followUpNote;
     }
+    if (fin.symptomsToMonitor !== undefined) {
+      updates.symptoms_to_monitor = fin.symptomsToMonitor;
+    }
   }
   const { error: upErr } = await client.from("consultations").update(updates).eq("id", idParse.data).eq("clinic_id", clinicId);
   if (upErr) {
@@ -2548,7 +2410,9 @@ app.post("/doctor/consultations/:id/complete", authRequired, requireAppRoles(["D
       reason: fin.createFollowUp.reason,
       due_at: fin.createFollowUp.dueAt,
       doctor_id: claims.userId,
-      status: "PENDING"
+      status: "PENDING",
+      symptoms_to_monitor:
+        fin.createFollowUp.symptomsToMonitor ?? fin.symptomsToMonitor ?? null
     });
     if (fuErr) {
       jsonErrorDb(res, "consultation_complete_followup", fuErr);
@@ -2882,167 +2746,12 @@ app.get("/storage/presign-download", authRequired, requireAppRoles(["DOCTOR", "S
   }
 });
 
-app.post("/doctor/consultations/:id/process-audio", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), async (req, res) => {
-  const claims = (req as express.Request & { user: AuthClaims }).user;
-  const clinicId = resolveClinicScope(req, claims, res);
-  if (!clinicId) return;
-  const parsed = z.object({
-    transcriptText: z.string().min(1),
-    transcriptLanguage: z.string().default("mixed-hi-en"),
-    transcriptConfidence: z.number().min(0).max(1).default(0.8),
-    deleteAudioAfterProcessing: z.boolean().default(true)
-  }).safeParse(req.body);
-  if (!parsed.success) {
-    jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
-    return;
-  }
-  const client = getDb(claims);
-  const { data: consultation, error: fetchError } = await client
-    .from("consultations")
-    .select("id,audio_object_key")
-    .eq("id", req.params.id)
-    .eq("clinic_id", clinicId)
-    .single();
-  if (fetchError || !consultation) {
-    if (fetchError) logAndSanitizeError("process_audio_fetch", fetchError);
-    jsonError(res, 404, "Consultation not found", { code: "NOT_FOUND" });
-    return;
-  }
-
-  if (parsed.data.deleteAudioAfterProcessing && consultation.audio_object_key) {
-    await deleteObjectByKey(consultation.audio_object_key);
-  }
-
-  const { error } = await client
-    .from("consultations")
-    .update({
-      transcript_text: parsed.data.transcriptText,
-      transcript_language: parsed.data.transcriptLanguage,
-      transcript_confidence: parsed.data.transcriptConfidence,
-      audio_object_key: parsed.data.deleteAudioAfterProcessing ? null : consultation.audio_object_key,
-      audio_deleted_at: parsed.data.deleteAudioAfterProcessing ? new Date().toISOString() : null
-    })
-    .eq("id", req.params.id)
-    .eq("clinic_id", clinicId);
-  if (error) {
-    jsonErrorDb(res, "process_audio_update", error);
-    return;
-  }
-  jsonSuccess(res, 200, { ok: true, audioDeleted: parsed.data.deleteAudioAfterProcessing && Boolean(consultation.audio_object_key) });
-});
-
-app.get("/doctor/clinic/privacy", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADMIN"]), (_req, res) => {
-  jsonSuccess(res, 200, { defaultSaveAudio: process.env.CLINIC_DEFAULT_SAVE_AUDIO === "true" });
-});
-
-/**
- * When live recording is stopped, audio may exist only in S3 "staging" (24h retention recommended).
- * If saveAudio is false: delete staging object immediately. If true: copy to long-lived audio prefix + file_objects.
- */
-app.post(
-  "/doctor/consultations/:id/finalize",
-  authRequired,
-  requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
-  async (req, res) => {
-    const claims = (req as express.Request & { user: AuthClaims }).user;
-    const clinicId = resolveClinicScope(req, claims, res);
-    if (!clinicId) return;
-    const parsed = z.object({ saveAudio: z.boolean() }).safeParse(req.body);
-    if (!parsed.success) {
-      jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
-      return;
-    }
-    const client = getDb(claims);
-    const { data: row, error } = await client
-      .from("consultations")
-      .select("id,audio_staging_object_key,audio_object_key")
-      .eq("id", req.params.id)
-      .eq("clinic_id", clinicId)
-      .maybeSingle();
-    if (error) {
-      jsonErrorDb(res, "finalize_load", error);
-      return;
-    }
-    if (!row) {
-      jsonError(res, 404, "Consultation not found", { code: "NOT_FOUND" });
-      return;
-    }
-    const stagingKey = (row as { audio_staging_object_key?: string | null }).audio_staging_object_key;
-    if (!stagingKey) {
-      jsonSuccess(res, 200, { ok: true, action: "noop", message: "No staging audio" });
-      return;
-    }
-    if (!parsed.data.saveAudio) {
-      try {
-        await deleteObjectByKey(stagingKey);
-      } catch (e) {
-        logAndSanitizeError("finalize_delete_staging", e);
-        jsonError(res, 503, CLIENT_SAFE_MSG, { code: "STORAGE_ERROR" });
-        return;
-      }
-      const { error: upE } = await client
-        .from("consultations")
-        .update({ audio_staging_object_key: null, audio_deleted_at: new Date().toISOString() })
-        .eq("id", req.params.id);
-      if (upE) {
-        jsonErrorDb(res, "finalize_purge_update", upE);
-        return;
-      }
-      jsonSuccess(res, 200, { ok: true, action: "staged-audio-purged" });
-      return;
-    }
-    const permKey = buildObjectKey(clinicId, "audio", `from-consultation-${row.id}.webm`);
-    try {
-      await copyObjectInBucket(stagingKey, permKey);
-    } catch (e) {
-      logAndSanitizeError("finalize_copy", e);
-      jsonError(res, 503, CLIENT_SAFE_MSG, { code: "STORAGE_ERROR" });
-      return;
-    }
-    try {
-      await deleteObjectByKey(stagingKey);
-    } catch {
-      // best-effort
-    }
-    const { error: fErr } = await client.from("file_objects").insert({
-      id: uuid(),
-      clinic_id: clinicId,
-      category: "audio",
-      object_key: permKey,
-      consultation_id: row.id,
-      uploaded_by: claims.userId
-    });
-    if (fErr) {
-      logger.warn("file_objects insert failed", { message: fErr.message });
-    }
-    const { error: upE2 } = await client
-      .from("consultations")
-      .update({ audio_object_key: permKey, audio_staging_object_key: null })
-      .eq("id", row.id);
-    if (upE2) {
-      jsonErrorDb(res, "finalize_perm_update", upE2);
-      return;
-    }
-    jsonSuccess(res, 200, { ok: true, action: "staged-to-permanent", audioObjectKey: permKey });
-  }
-);
-
 app.get("/health", (_req, res) => {
-  jsonSuccess(res, 200, { ok: true, service: "homeosync-api", storage: "supabase+s3", streaming: "ws" });
+  jsonSuccess(res, 200, { ok: true, service: "homeosync-api", storage: "supabase+s3" });
 });
 
 const port = Number(process.env.PORT ?? 4000);
 const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
-attachConsultationWss(wss);
-server.on("upgrade", (request, socket, head) => {
-  const pathname = new URL(request.url ?? "/ws/consultation", "http://localhost").pathname;
-  if (pathname === "/ws/consultation") {
-    wss.handleUpgrade(request, socket, head, (ws) => wss.emit("connection", ws, request));
-  } else {
-    socket.destroy();
-  }
-});
 /** Skip binding a port when Vitest loads this module (Supertest uses `app` only). */
 if (process.env.VITEST !== "true") {
   void (async () => {
@@ -3066,7 +2775,7 @@ if (process.env.VITEST !== "true") {
       process.exit(1);
     });
     server.listen(port, () => {
-      logger.info("HomeoSync API listening", { port, ws: "/ws/consultation" });
+      logger.info("HomeoSync API listening", { port });
       startBackgroundJobs(supabaseAdmin);
     });
   })();

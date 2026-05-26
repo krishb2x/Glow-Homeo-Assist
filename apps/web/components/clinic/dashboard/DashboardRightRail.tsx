@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultationLink } from "../ConsultationLink";
+import { consultationStartHref } from "../../../lib/consultation-navigation";
 import { useMemo } from "react";
 import { Activity, CheckCircle2, MessageCircle, Pill } from "lucide-react";
 import type { DashboardRecentItem, FollowUpQueueItem } from "../../../lib/doctor-api";
@@ -30,8 +32,8 @@ function FollowUpRow({ item }: { item: GroupedFollowUp }): JSX.Element {
         : new Date(item.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   return (
-    <Link
-      href={`/consultation?patientId=${encodeURIComponent(item.patientId)}`}
+    <ConsultationLink
+      href={consultationStartHref({ patientId: item.patientId })}
       className="flex items-center justify-between gap-2 py-2.5 text-body-sm transition hover:text-hs-primary"
     >
       <div className="min-w-0">
@@ -52,7 +54,7 @@ function FollowUpRow({ item }: { item: GroupedFollowUp }): JSX.Element {
         </p>
       </div>
       <span className="shrink-0 text-caption-sm font-semibold text-hs-primary">Visit →</span>
-    </Link>
+    </ConsultationLink>
   );
 }
 

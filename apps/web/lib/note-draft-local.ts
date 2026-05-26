@@ -8,6 +8,8 @@ export type StoredNoteDraft = {
   physicalSymptoms: string;
   modalities: string;
   timeline: string;
+  /** Cached live transcript for offline resilience. */
+  transcriptText?: string;
 };
 
 function key(consultationId: string): string {
@@ -27,7 +29,8 @@ export function loadLocalNoteDraft(consultationId: string): StoredNoteDraft | nu
       emotionalState: typeof p.emotionalState === "string" ? p.emotionalState : "",
       physicalSymptoms: typeof p.physicalSymptoms === "string" ? p.physicalSymptoms : "",
       modalities: typeof p.modalities === "string" ? p.modalities : "",
-      timeline: typeof p.timeline === "string" ? p.timeline : ""
+      timeline: typeof p.timeline === "string" ? p.timeline : "",
+      transcriptText: typeof p.transcriptText === "string" ? p.transcriptText : undefined
     };
   } catch {
     return null;

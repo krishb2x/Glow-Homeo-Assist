@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../../lib/logger";
 import { recordBroadcastMetric } from "../../lib/observability";
@@ -36,6 +37,31 @@ export function verifyMetaWebhook(
     return challenge;
   }
   return null;
+}
+
+/** Verify Meta `X-Hub-Signature-256` HMAC (sha256=<hex>). */
+export function verifyMetaWebhookSignature(
+  rawBody: string,
+  signatureHeader: string | undefined
+): boolean {
+  const secret = process.env.META_APP_SECRET?.trim();
+  if (!secret || !signatureHeader?.trim()) return false;
+  const header = signatureHeader.trim();
+  if (!header.startsWith("sha256=")) return false;
+  const provided = header.slice("sha256=".length);
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  if (expected.length !== provided.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
+  } catch {
+    return false;
+  }
+}
+
+/** In production, signature verification is required when META_APP_SECRET is set. */
+export function shouldRequireMetaWebhookSignature(): boolean {
+  const isProd = process.env.NODE_ENV === "production";
+  return isProd && Boolean(process.env.META_APP_SECRET?.trim());
 }
 
 /**

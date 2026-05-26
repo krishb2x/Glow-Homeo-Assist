@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  createPrescription,
   getToken,
   patchConsultation,
+  patchPrescription,
   type ConsultationClinicalRecord
 } from "../../../lib/doctor-api";
+import { saveLocalRxDraft } from "../../../lib/consultation-rx-draft-local";
 import { saveLocalNoteDraft } from "../../../lib/note-draft-local";
+import {
+  prescriptionEntriesToApiItems,
+  type PrescriptionEntryForApi
+} from "../../../lib/prescription-api-items";
 
-export type AutosaveState = "idle" | "saving" | "saved";
+export type AutosaveState = "idle" | "saving" | "saved" | "error";
 
 type AdviceCardLite = {
   id: string;
@@ -40,6 +47,7 @@ type ClinicalRecordLite = {
 
 export type ConsultationAutosaveInput = {
   consultationId: string;
+  patientId: string;
   loading: boolean;
   draft: NoteDraftLite;
   clinicalRecord: ClinicalRecordLite;
@@ -47,6 +55,10 @@ export type ConsultationAutosaveInput = {
   followUpEnabled: boolean;
   followUpRecommendedAt: string;
   followUpNote: string;
+  symptomsToMonitor?: string[];
+  rxEntries: PrescriptionEntryForApi[];
+  prescriptionId: string | null;
+  onPrescriptionCreated?: (id: string) => void;
   /** When true, do not fire the server autosave (e.g. finalised + locked). */
   paused: boolean;
   /** One-shot guard caller can set to skip the next autosave (used after explicit save). */
@@ -56,18 +68,20 @@ export type ConsultationAutosaveInput = {
 export type ConsultationAutosaveResult = {
   localSave: AutosaveState;
   serverSave: AutosaveState;
+  saveError: string | null;
 };
 
+const MAX_RETRIES = 4;
+const RETRY_BASE_MS = 2000;
+
 /**
- * Encapsulates both local note-draft persistence (immediate, < 1s) and the
- * remote `PATCH /doctor/consultations/:id` autosave (debounced, ~1.5s).
- *
- * Extracted from `LiveConsultationClient` so the orchestrator file is easier
- * to reason about and so the autosave can be tested in isolation.
+ * Encapsulates local draft persistence and remote PATCH autosave for notes,
+ * clinical record, and prescription lines.
  */
 export function useConsultationAutosave(input: ConsultationAutosaveInput): ConsultationAutosaveResult {
   const {
     consultationId,
+    patientId,
     loading,
     draft,
     clinicalRecord,
@@ -75,17 +89,145 @@ export function useConsultationAutosave(input: ConsultationAutosaveInput): Consu
     followUpEnabled,
     followUpRecommendedAt,
     followUpNote,
+    symptomsToMonitor = [],
+    rxEntries,
+    prescriptionId,
+    onPrescriptionCreated,
     paused,
     suppressNext
   } = input;
 
   const [localSave, setLocalSave] = useState<AutosaveState>("idle");
   const [serverSave, setServerSave] = useState<AutosaveState>("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Local autosave — drives the offline-friendly note draft cache.
+  const payloadRef = useRef({
+    draft,
+    clinicalRecord,
+    advice,
+    followUpEnabled,
+    followUpRecommendedAt,
+    followUpNote,
+    symptomsToMonitor,
+    rxEntries,
+    prescriptionId,
+    patientId
+  });
+  payloadRef.current = {
+    draft,
+    clinicalRecord,
+    advice,
+    followUpEnabled,
+    followUpRecommendedAt,
+    followUpNote,
+    symptomsToMonitor,
+    rxEntries,
+    prescriptionId,
+    patientId
+  };
+
+  const inFlightRef = useRef(false);
+  const pendingRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const consultationIdRef = useRef(consultationId);
+  consultationIdRef.current = consultationId;
+  const onPrescriptionCreatedRef = useRef(onPrescriptionCreated);
+  onPrescriptionCreatedRef.current = onPrescriptionCreated;
+
+  const runServerSave = useCallback(async () => {
+    const id = consultationIdRef.current;
+    if (!id || !getToken() || inFlightRef.current) {
+      if (id && getToken()) pendingRef.current = true;
+      return;
+    }
+
+    inFlightRef.current = true;
+    pendingRef.current = false;
+    setServerSave("saving");
+
+    const {
+      draft: d,
+      clinicalRecord: cr,
+      advice: adv,
+      followUpEnabled: fuOn,
+      followUpRecommendedAt: fuAt,
+      followUpNote: fuNote,
+      symptomsToMonitor: symptoms,
+      rxEntries: rx,
+      prescriptionId: rxId,
+      patientId: pid
+    } = payloadRef.current;
+
+    try {
+      const recordPatch: ConsultationClinicalRecord = {
+        labs: cr.labs,
+        clinicalNotes: cr.clinicalNotes,
+        history: cr.history,
+        vitals: cr.vitals,
+        advice: cr.adviceCards
+      };
+      await patchConsultation(id, {
+        noteDraft: { ...d },
+        clinicalRecord: recordPatch,
+        advice: adv,
+        followUpRecommendedAt: fuOn && fuAt ? new Date(fuAt).toISOString() : null,
+        followUpNote: fuNote || null,
+        symptomsToMonitor: symptoms
+      });
+
+      const rxItems = prescriptionEntriesToApiItems(rx);
+      if (rxItems.length > 0 && pid) {
+        let activeRxId = rxId;
+        if (activeRxId) {
+          await patchPrescription(activeRxId, rxItems);
+        } else {
+          const created = await createPrescription({
+            patientId: pid,
+            consultationId: id,
+            items: rxItems
+          });
+          activeRxId = created.id;
+          payloadRef.current.prescriptionId = activeRxId;
+          onPrescriptionCreatedRef.current?.(activeRxId);
+        }
+        saveLocalRxDraft(id, { entries: rx, prescriptionId: activeRxId });
+      }
+
+      retryCountRef.current = 0;
+      setServerSave("saved");
+      setSaveError(null);
+    } catch {
+      retryCountRef.current += 1;
+      if (retryCountRef.current <= MAX_RETRIES) {
+        setServerSave("error");
+        setSaveError("Sync delayed — retrying…");
+        const delay = RETRY_BASE_MS * 2 ** (retryCountRef.current - 1);
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => {
+          void runServerSave();
+        }, delay);
+      } else {
+        setServerSave("error");
+        setSaveError("Could not sync — draft saved locally");
+      }
+    } finally {
+      inFlightRef.current = false;
+      if (pendingRef.current) {
+        void runServerSave();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
+
+  // Local autosave — offline-friendly note + Rx draft cache.
   useEffect(() => {
     if (loading || !consultationId) return;
-    setLocalSave("saving");
     const t = setTimeout(() => {
       saveLocalNoteDraft(consultationId, {
         chiefComplaints: draft.chiefComplaints,
@@ -94,13 +236,27 @@ export function useConsultationAutosave(input: ConsultationAutosaveInput): Consu
         modalities: draft.modalities,
         timeline: draft.timeline
       });
+      saveLocalRxDraft(consultationId, {
+        entries: rxEntries,
+        prescriptionId
+      });
       setLocalSave("saved");
-    }, 800);
+    }, 500);
     return () => clearTimeout(t);
-  }, [draft, loading, consultationId]);
+  }, [draft, rxEntries, prescriptionId, loading, consultationId]);
 
-  // Remote autosave — debounced, idempotent. The full clinical record patch
-  // mirrors what the explicit “Save” button posts.
+  // Flush pending save when tab hides (debounce may not have fired).
+  useEffect(() => {
+    const onHide = (): void => {
+      if (document.visibilityState === "hidden" && !paused && consultationIdRef.current && getToken()) {
+        void runServerSave();
+      }
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [paused, runServerSave]);
+
+  // Remote autosave — debounced; saving state only after debounce window.
   useEffect(() => {
     if (loading || !consultationId || !getToken()) return;
     if (paused) return;
@@ -108,32 +264,15 @@ export function useConsultationAutosave(input: ConsultationAutosaveInput): Consu
       suppressNext.current = false;
       return;
     }
-    setServerSave("saving");
+
+    retryCountRef.current = 0;
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+
     const t = setTimeout(() => {
-      void (async () => {
-        try {
-          const recordPatch: ConsultationClinicalRecord = {
-            labs: clinicalRecord.labs,
-            clinicalNotes: clinicalRecord.clinicalNotes,
-            history: clinicalRecord.history,
-            vitals: clinicalRecord.vitals,
-            advice: clinicalRecord.adviceCards
-          };
-          await patchConsultation(consultationId, {
-            noteDraft: { ...draft },
-            clinicalRecord: recordPatch,
-            advice,
-            followUpRecommendedAt:
-              followUpEnabled && followUpRecommendedAt
-                ? new Date(followUpRecommendedAt).toISOString()
-                : null,
-            followUpNote: followUpNote || null
-          });
-          setServerSave("saved");
-        } catch {
-          setServerSave("idle");
-        }
-      })();
+      void runServerSave();
     }, 1500);
     return () => clearTimeout(t);
   }, [
@@ -146,8 +285,14 @@ export function useConsultationAutosave(input: ConsultationAutosaveInput): Consu
     advice,
     followUpEnabled,
     followUpRecommendedAt,
-    followUpNote
+    followUpNote,
+    symptomsToMonitor,
+    rxEntries,
+    prescriptionId,
+    patientId,
+    runServerSave
   ]);
 
-  return { localSave, serverSave };
+  return { localSave, serverSave, saveError };
 }
+

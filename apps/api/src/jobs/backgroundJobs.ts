@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { purgeExpiredAudioSessions, processDueNotificationJobs } from "../modules/encounters/v2EncountersService";
+import { processDueNotificationJobs } from "../modules/encounters/v2EncountersService";
 import { processAppointmentReminderJobs } from "../modules/telemedicine/appointmentReminders";
+import { processMissedConsultationJobs } from "../modules/telemedicine/missedConsultationJob";
 import { logger } from "../lib/logger";
+import { recordWorkerRun } from "../lib/workerHeartbeat";
 
-const HOUR_MS = 60 * 60 * 1000;
 const NOTIFICATION_POLL_MS = 60 * 1000;
 const WHATSAPP_POLL_MS = 30 * 1000;
 
@@ -16,41 +17,41 @@ export function startBackgroundJobs(admin: SupabaseClient): void {
   const batchLimit = Number(process.env.NOTIFICATION_BATCH_LIMIT ?? "50");
   const whatsappBatch = Number(process.env.WHATSAPP_BATCH_LIMIT ?? "30");
 
-  const runPurge = (): void => {
-    void purgeExpiredAudioSessions(admin).catch((e) => {
-      logger.warn("background_audio_purge_error", {
-        message: e instanceof Error ? e.message : String(e)
-      });
-    });
-  };
-
   const runGeneralNotifications = (): void => {
     void processDueNotificationJobs(admin, batchLimit, [
       "prescription_delivery_email",
       "prescription_delivery_whatsapp",
       "follow_up_reminder",
+      "follow_up_reminder_email",
       "appointment_invite_email",
       "appointment_invite_whatsapp",
       "appointment_reminder_whatsapp",
+      "appointment_reminder_email",
       "consultation_summary_email",
-      "consultation_summary_whatsapp"
-    ]).catch((e) => {
-      logger.warn("background_notification_poll_error", {
-        message: e instanceof Error ? e.message : String(e)
+      "consultation_summary_whatsapp",
+      "consultation_ready_whatsapp",
+      "consultation_missed_whatsapp",
+      "consultation_missed_email"
+    ])
+      .then(() => recordWorkerRun("notifications"))
+      .catch((e) => {
+        recordWorkerRun("notifications", e instanceof Error ? e.message : String(e));
+        logger.warn("background_notification_poll_error", {
+          message: e instanceof Error ? e.message : String(e)
+        });
       });
-    });
   };
 
   const runWhatsAppBroadcasts = (): void => {
-    void processDueNotificationJobs(admin, whatsappBatch, ["whatsapp_broadcast"]).catch((e) => {
-      logger.warn("background_whatsapp_poll_error", {
-        message: e instanceof Error ? e.message : String(e)
+    void processDueNotificationJobs(admin, whatsappBatch, ["whatsapp_broadcast"])
+      .then(() => recordWorkerRun("whatsapp_broadcast"))
+      .catch((e) => {
+        recordWorkerRun("whatsapp_broadcast", e instanceof Error ? e.message : String(e));
+        logger.warn("background_whatsapp_poll_error", {
+          message: e instanceof Error ? e.message : String(e)
+        });
       });
-    });
   };
-
-  setTimeout(runPurge, 30_000);
-  setInterval(runPurge, HOUR_MS);
 
   if (mode === "all" || mode === "notifications-only") {
     setTimeout(runGeneralNotifications, 15_000);
@@ -63,18 +64,33 @@ export function startBackgroundJobs(admin: SupabaseClient): void {
   }
 
   const runTelemedicineReminders = (): void => {
-    void processAppointmentReminderJobs(admin, batchLimit).catch((e) => {
-      logger.warn("background_telemedicine_reminder_error", {
-        message: e instanceof Error ? e.message : String(e)
+    void processAppointmentReminderJobs(admin, batchLimit)
+      .then(() => recordWorkerRun("telemedicine_reminders"))
+      .catch((e) => {
+        recordWorkerRun("telemedicine_reminders", e instanceof Error ? e.message : String(e));
+        logger.warn("background_telemedicine_reminder_error", {
+          message: e instanceof Error ? e.message : String(e)
+        });
       });
-    });
   };
   setTimeout(runTelemedicineReminders, 25_000);
   setInterval(runTelemedicineReminders, NOTIFICATION_POLL_MS);
 
+  const runMissedConsultations = (): void => {
+    void processMissedConsultationJobs(admin, batchLimit)
+      .then(() => recordWorkerRun("missed_consultations"))
+      .catch((e) => {
+        recordWorkerRun("missed_consultations", e instanceof Error ? e.message : String(e));
+        logger.warn("background_missed_consultation_error", {
+          message: e instanceof Error ? e.message : String(e)
+        });
+      });
+  };
+  setTimeout(runMissedConsultations, 35_000);
+  setInterval(runMissedConsultations, 15 * 60 * 1000);
+
   logger.info("background_jobs_started", {
     mode,
-    audioPurgeIntervalMs: HOUR_MS,
     notificationPollIntervalMs: NOTIFICATION_POLL_MS,
     whatsappPollIntervalMs: WHATSAPP_POLL_MS,
     batchLimit,

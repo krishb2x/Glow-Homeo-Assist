@@ -22,7 +22,10 @@ export async function processAppointmentReminderJobs(admin: SupabaseClient, limi
     "appointment_invite_email",
     "appointment_invite_whatsapp",
     "appointment_reminder_whatsapp",
+    "appointment_reminder_email",
     "consultation_summary_email",
-    "consultation_summary_whatsapp"
+    "consultation_summary_whatsapp",
+    "consultation_missed_email",
+    "follow_up_reminder_email"
   ]);
 }

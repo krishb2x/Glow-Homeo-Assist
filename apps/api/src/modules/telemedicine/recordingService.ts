@@ -9,7 +9,9 @@ import {
 } from "../../s3";
 
 export function verifyRecordingWebhookSecret(header: string | undefined): boolean {
-  const expected = process.env.JITSI_RECORDING_WEBHOOK_SECRET?.trim();
+  const expected =
+    process.env.DAILY_RECORDING_WEBHOOK_SECRET?.trim() ||
+    process.env.DAILY_WEBHOOK_SECRET?.trim();
   if (!expected) return false;
   return header === expected || header === `Bearer ${expected}`;
 }

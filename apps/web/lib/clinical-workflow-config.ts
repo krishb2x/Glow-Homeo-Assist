@@ -7,8 +7,7 @@ import {
   FlaskConical,
   Heart,
   Pill,
-  User,
-  Zap
+  User
 } from "lucide-react";
 
 export type ConsultationStep =
@@ -37,19 +36,19 @@ export const CLINICAL_PHASES: Record<
   ClinicalPhase,
   { label: string; subtitle: string }
 > = {
-  arrival: { label: "Arrival & case-taking", subtitle: "Who is in the room and what is the story?" },
-  treatment: { label: "Treatment & record", subtitle: "Notes, prescription, and advice under your signature" },
-  continuity: { label: "Continuity", subtitle: "Follow-up rhythm and closing the visit" }
+  arrival: { label: "Subjective", subtitle: "Patient overview, history, and examination" },
+  treatment: { label: "Assessment & plan", subtitle: "Clinical assessment, prescription, and advice" },
+  continuity: { label: "Continuity of care", subtitle: "Follow-up planning and visit completion" }
 };
 
 export const CLINICAL_WORKFLOW_STEPS: ClinicalWorkflowStep[] = [
   {
     id: "patient",
     label: "Patient overview",
-    shortLabel: "Overview",
+    shortLabel: "Patient Overview",
     icon: User,
     phase: "arrival",
-    description: "Verify identity, demographics, and prior visit context"
+    description: "Review patient details and document today's chief complaint"
   },
   {
     id: "history",
@@ -57,43 +56,35 @@ export const CLINICAL_WORKFLOW_STEPS: ClinicalWorkflowStep[] = [
     shortLabel: "History",
     icon: ClipboardList,
     phase: "arrival",
-    description: "Past illness, medications, and background"
+    description: "Present illness, past history, medications, and allergies"
   },
   {
     id: "examination",
     label: "Examination",
-    shortLabel: "Exam",
+    shortLabel: "Examination",
     icon: FlaskConical,
     phase: "arrival",
-    description: "Observations, labs, and differential thinking"
+    description: "Objective findings, vitals, and clinical observations"
   },
   {
     id: "notes",
-    label: "Case notes",
-    shortLabel: "Notes",
+    label: "Clinical assessment",
+    shortLabel: "Clinical Assessment",
     icon: FileText,
     phase: "treatment",
-    description: "Structured case record you will finalize"
-  },
-  {
-    id: "ai",
-    label: "AI notetaker",
-    shortLabel: "AI notes",
-    icon: Zap,
-    phase: "treatment",
-    description: "Optional live transcription — always review before use"
+    description: "Clinical impression and structured case record"
   },
   {
     id: "prescription",
     label: "Prescription",
-    shortLabel: "Rx",
+    shortLabel: "Prescription",
     icon: Pill,
     phase: "treatment",
     description: "Remedies, potency, and dosing instructions"
   },
   {
     id: "advice",
-    label: "Advice",
+    label: "Patient advice",
     shortLabel: "Advice",
     icon: Heart,
     phase: "treatment",
@@ -101,7 +92,7 @@ export const CLINICAL_WORKFLOW_STEPS: ClinicalWorkflowStep[] = [
   },
   {
     id: "followup",
-    label: "Follow-up",
+    label: "Follow-up plan",
     shortLabel: "Follow-up",
     icon: Calendar,
     phase: "continuity",
@@ -109,16 +100,26 @@ export const CLINICAL_WORKFLOW_STEPS: ClinicalWorkflowStep[] = [
   },
   {
     id: "finalize",
-    label: "Finalize",
-    shortLabel: "Finalize",
+    label: "Complete visit",
+    shortLabel: "Complete Visit",
     icon: FileSignature,
     phase: "continuity",
-    description: "Review, export, and close the consultation"
+    description: "Review chart, export records, and complete the visit"
   }
 ];
 
+/** Linear chart steps — AI is ambient (header/drawer), not a numbered workflow step. */
+export const PRIMARY_WORKFLOW_STEPS: ClinicalWorkflowStep[] = CLINICAL_WORKFLOW_STEPS.filter(
+  (s) => s.id !== "ai"
+);
+
 export function stepIndex(step: ConsultationStep): number {
   return CLINICAL_WORKFLOW_STEPS.findIndex((s) => s.id === step);
+}
+
+export function primaryStepIndex(step: ConsultationStep): number {
+  const normalized = step === "ai" ? "notes" : step;
+  return PRIMARY_WORKFLOW_STEPS.findIndex((s) => s.id === normalized);
 }
 
 export function stepMeta(step: ConsultationStep): ClinicalWorkflowStep {
@@ -126,23 +127,24 @@ export function stepMeta(step: ConsultationStep): ClinicalWorkflowStep {
 }
 
 export function nextStep(step: ConsultationStep): ConsultationStep | null {
-  const i = stepIndex(step);
-  return i >= 0 && i < CLINICAL_WORKFLOW_STEPS.length - 1
-    ? CLINICAL_WORKFLOW_STEPS[i + 1]!.id
-    : null;
+  const normalized = step === "ai" ? "notes" : step;
+  const i = primaryStepIndex(normalized);
+  if (i < 0) return PRIMARY_WORKFLOW_STEPS[0]?.id ?? null;
+  return i < PRIMARY_WORKFLOW_STEPS.length - 1 ? PRIMARY_WORKFLOW_STEPS[i + 1]!.id : null;
 }
 
 export function prevStep(step: ConsultationStep): ConsultationStep | null {
-  const i = stepIndex(step);
-  return i > 0 ? CLINICAL_WORKFLOW_STEPS[i - 1]!.id : null;
+  const normalized = step === "ai" ? "notes" : step;
+  const i = primaryStepIndex(normalized);
+  return i > 0 ? PRIMARY_WORKFLOW_STEPS[i - 1]!.id : null;
 }
 
 export function workflowProgress(step: ConsultationStep): number {
-  const i = stepIndex(step);
+  const i = primaryStepIndex(step);
   if (i < 0) return 0;
-  return Math.round(((i + 1) / CLINICAL_WORKFLOW_STEPS.length) * 100);
+  return Math.round(((i + 1) / PRIMARY_WORKFLOW_STEPS.length) * 100);
 }
 
 export function completedStepCount(stepDone: Record<ConsultationStep, boolean>): number {
-  return CLINICAL_WORKFLOW_STEPS.filter((s) => stepDone[s.id]).length;
+  return PRIMARY_WORKFLOW_STEPS.filter((s) => stepDone[s.id]).length;
 }

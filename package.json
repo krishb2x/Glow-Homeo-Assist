@@ -16,7 +16,8 @@
     "test:api:integration": "npm --workspace @homeoassist/api run test:integration",
     "test:web": "npm --workspace @homeoassist/web run test",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
-    "test:coverage": "npm --workspace @homeoassist/api run test:coverage"
+    "test:coverage": "npm --workspace @homeoassist/api run test:coverage",
+    "deploy:preflight": "node scripts/deploy-preflight.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1"

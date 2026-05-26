@@ -1,13 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  CLINICAL_WORKFLOW_STEPS,
-  stepIndex,
-  workflowProgress,
-  type ConsultationStep
-} from "../../../lib/clinical-workflow-config";
-import { DS_BTN_PRIMARY, DS_BTN_SECONDARY } from "../../../lib/ds-classes";
+import { primaryStepIndex, PRIMARY_WORKFLOW_STEPS, type ConsultationStep } from "../../../lib/clinical-workflow-config";
 import { cn } from "../../../lib/cn";
 
 type Props = {
@@ -20,6 +14,7 @@ type Props = {
   sessionEnded?: boolean;
 };
 
+/** Minimal navigation — no progress bars or step counters. */
 export function ConsultationWorkflowFooter({
   activeStep,
   onPrev,
@@ -29,59 +24,43 @@ export function ConsultationWorkflowFooter({
   disableNext = false,
   sessionEnded = false
 }: Props): JSX.Element {
-  const idx = stepIndex(activeStep);
-  const progress = workflowProgress(activeStep);
-  const isLast = idx === CLINICAL_WORKFLOW_STEPS.length - 1;
+  const primaryIdx = primaryStepIndex(activeStep);
+  const isLast = primaryIdx === PRIMARY_WORKFLOW_STEPS.length - 1;
   const showNext = !sessionEnded && !isLast;
 
   return (
     <footer
-      className="shrink-0 border-t border-hs-border/50 bg-hs-paper/95 px-4 py-2.5 sm:px-6"
+      className="cw-panel cw-panel-blur shrink-0 border-t border-black/[0.06] px-4 py-2.5 sm:px-6"
       aria-label="Workflow navigation"
     >
-      <div className="mx-auto flex max-w-3xl items-center gap-4">
+      <div className="mx-auto flex max-w-[42rem] items-center justify-between gap-4">
         <button
           type="button"
           onClick={onPrev}
-          disabled={disablePrev || idx <= 0}
-          className={cn(DS_BTN_SECONDARY, "gap-1.5 disabled:opacity-40")}
-          aria-label="Previous step"
+          disabled={disablePrev || primaryIdx <= 0}
+          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-[0.8125rem] font-medium text-neutral-600 transition duration-200 hover:bg-black/[0.04] hover:text-neutral-900 disabled:pointer-events-none disabled:opacity-30"
+          aria-label="Previous section"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          <span className="hidden sm:inline">Previous</span>
+          <span className="hidden sm:inline">Back</span>
         </button>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-caption-sm font-semibold text-hs-ink">
-              Step {idx + 1} of {CLINICAL_WORKFLOW_STEPS.length}
-            </p>
-            <span className="text-caption-sm tabular-nums text-hs-text-tertiary">{progress}%</span>
-          </div>
-          <div className="mt-1 h-1 overflow-hidden rounded-full bg-hs-cream">
-            <div
-              className="h-full rounded-full bg-hs-primary transition-all duration-300 ease-out"
-              style={{ width: `${progress}%` }}
-              role="progressbar"
-              aria-valuenow={progress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Consultation progress"
-            />
-          </div>
-        </div>
 
         {showNext ? (
           <button
             type="button"
             onClick={onNext}
             disabled={disableNext}
-            className={cn(DS_BTN_PRIMARY, "gap-1.5")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-lg px-3.5 py-2 text-[0.8125rem] font-semibold transition duration-200",
+              "bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-40"
+            )}
           >
             {nextLabel ?? "Continue"}
             <ChevronRight className="h-4 w-4" aria-hidden />
           </button>
-        ) : null}
+        ) : (
+          <span className="text-[0.6875rem] text-neutral-400" aria-hidden />
+        )}
       </div>
     </footer>
   );

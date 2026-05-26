@@ -88,7 +88,24 @@ html, body {
   page-break-inside: avoid;
 }
 
+.rx-patient-main { margin-bottom: 2pt; }
+.rx-patient-refs {
+  font-size: var(--rx-small);
+  color: var(--rx-muted);
+}
 .rx-patient-strip strong { font-weight: 700; }
+
+.rx-monitor-label { margin: 4pt 0 2pt; font-size: var(--rx-small); }
+.rx-monitor-list {
+  margin: 0 0 4pt;
+  padding-left: 14pt;
+  font-size: var(--rx-small);
+}
+.rx-followup-note {
+  font-size: var(--rx-small);
+  color: var(--rx-muted);
+  margin: 2pt 0 0;
+}
 
 .rx-section-title {
   font-size: 10pt;

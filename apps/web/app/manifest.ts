@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: `${BRAND_NAME} | Homeopathy Clinic Software`,
     short_name: BRAND_NAME,
     description:
-      "The clinical operating system for homeopathy doctors. Structured consultations, AI notes, professional prescriptions, and a branded patient app.",
+      "The clinical operating system for homeopathy doctors. Structured consultations, prescription management, telemedicine, and a branded patient app.",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",

@@ -49,7 +49,7 @@ export default function PricingPage(): JSX.Element {
               </h2>
               <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-slate-500">
                 We do not hide daily essentials behind higher tiers. The patient care app,
-                prescription PDFs, AI notetaker, and full case file are in every plan.
+                prescription PDFs, structured consultations, and full case file are in every plan.
               </p>
             </div>
 
@@ -64,8 +64,8 @@ export default function PricingPage(): JSX.Element {
                   body: "Branded under your clinic. Reminders, diet, lifestyle, follow-ups, and case history at no extra cost."
                 },
                 {
-                  title: "AI notetaker (included)",
-                  body: "Live transcription with doctor-approved notes. Always opt-in; never saves on its own."
+                  title: "Structured consultations",
+                  body: "Step-by-step clinical workflow for OPD and online visits, with autosaved drafts and a complete patient timeline."
                 },
                 {
                   title: "Prescription delivery",

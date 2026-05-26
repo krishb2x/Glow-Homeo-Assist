@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ConsultationLink } from "../ConsultationLink";
+import {
+  consultationStartHref,
+  liveConsultationHref,
+  openConsultationTab,
+  shouldOpenConsultationInNewTab
+} from "../../../lib/consultation-navigation";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -32,6 +39,9 @@ import { ClinicalWorkflowOverview } from "../workflow/ClinicalWorkflowOverview";
 import { DashboardMemoWidget } from "../memos/DashboardMemoWidget";
 import { TodayScheduleTimeline } from "./TodayScheduleTimeline";
 import { OperationalQueuePanel } from "./OperationalQueuePanel";
+import { TelemedicineOpsPanel } from "./TelemedicineOpsPanel";
+import { MissedConsultationsStrip } from "./MissedConsultationsStrip";
+import { DeadLetterJobsPanel } from "./DeadLetterJobsPanel";
 import { DashboardRightRail } from "./DashboardRightRail";
 import {
   formatTimeLabel,
@@ -61,12 +71,14 @@ function MetricPill({ label, value, href }: { label: string; value: number; href
       <span className="font-heading text-2xl font-semibold tabular-nums text-white">{value}</span>
     </span>
   );
-  if (href)
+  if (href) {
+    const TabLink = shouldOpenConsultationInNewTab(href) ? ConsultationLink : Link;
     return (
-      <Link href={href} className="transition hover:opacity-80">
+      <TabLink href={href} className="transition hover:opacity-80">
         {inner}
-      </Link>
+      </TabLink>
     );
+  }
   return inner;
 }
 
@@ -208,7 +220,7 @@ export function HomeOverview(): JSX.Element {
   const onKeySearch = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter" && filteredRoster[0]) {
-        router.push(`/consultation?patientId=${encodeURIComponent(filteredRoster[0].id)}`);
+        openConsultationTab(consultationStartHref({ patientId: filteredRoster[0].id }));
       }
     },
     [filteredRoster, router]
@@ -220,14 +232,18 @@ export function HomeOverview(): JSX.Element {
       return {
         label: "Resume visit",
         hint: lastCase.patientName ?? "In-progress consultation",
-        href: `/consultation/${encodeURIComponent(lastCase.consultationId)}`
+        href: liveConsultationHref(lastCase.consultationId)
       };
     }
     if (nextToday) {
       return {
         label: "Start next visit",
         hint: `${nextToday.patientName} · ${formatTimeLabel(nextToday.scheduledFor)}`,
-        href: `/consultation?patientId=${encodeURIComponent(nextToday.patientId)}&appointmentId=${encodeURIComponent(nextToday.id)}`
+        href: consultationStartHref({
+          patientId: nextToday.patientId,
+          appointmentId: nextToday.id,
+          consultationMode: nextToday.consultationMode
+        })
       };
     }
     return null;
@@ -290,7 +306,7 @@ export function HomeOverview(): JSX.Element {
                       value={draftNotes}
                       href={
                         (myDay?.needsNoteFinalization ?? [])[0]?.consultationId
-                          ? `/consultation/${encodeURIComponent((myDay!.needsNoteFinalization!)[0]!.consultationId)}`
+                          ? liveConsultationHref((myDay!.needsNoteFinalization!)[0]!.consultationId, "notes")
                           : undefined
                       }
                     />
@@ -312,13 +328,13 @@ export function HomeOverview(): JSX.Element {
             {/* Primary CTA */}
             <div className="flex shrink-0 lg:min-w-[220px]">
               {primaryCta ? (
-                <Link
+                <ConsultationLink
                   href={primaryCta.href}
                   className="font-heading inline-flex min-h-11 w-full flex-col items-center justify-center rounded-xl bg-white px-5 text-center shadow-md transition hover:bg-white/95"
                 >
                   <span className="text-body-sm font-semibold text-hs-ink">{primaryCta.label}</span>
                   <span className="text-caption-sm font-normal text-hs-text-secondary">{primaryCta.hint}</span>
-                </Link>
+                </ConsultationLink>
               ) : (
                 <Link
                   href="/consultation"
@@ -340,6 +356,11 @@ export function HomeOverview(): JSX.Element {
           <div className="ds-page-sections lg:col-span-8">
 
             <ClinicalWorkflowOverview />
+
+            <TelemedicineOpsPanel myDay={myDay} upcomingToday={todaysAppointments} now={now} />
+
+            <MissedConsultationsStrip myDay={myDay} className="mb-4" />
+            <DeadLetterJobsPanel className="mb-4" />
 
             {/* Operational queue — active visits, draft notes, pending outcomes */}
             <OperationalQueuePanel myDay={myDay} />
@@ -408,12 +429,12 @@ export function HomeOverview(): JSX.Element {
                           <span className="ml-2 text-hs-text-tertiary">{p.phone}</span>
                         ) : null}
                       </button>
-                      <Link
-                        href={`/consultation?patientId=${encodeURIComponent(p.id)}`}
+                      <ConsultationLink
+                        href={consultationStartHref({ patientId: p.id })}
                         className="flex items-center px-3 text-caption-sm font-semibold text-hs-primary hover:bg-hs-cream/60"
                       >
                         Start →
-                      </Link>
+                      </ConsultationLink>
                     </li>
                   ))}
                 </ul>
@@ -426,12 +447,12 @@ export function HomeOverview(): JSX.Element {
                     <PatientTagBadges tags={selectedPatient.tags} className="mt-0.5" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link
-                      href={`/consultation?patientId=${encodeURIComponent(selectedPatient.id)}`}
+                    <ConsultationLink
+                      href={consultationStartHref({ patientId: selectedPatient.id })}
                       className="rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
                     >
                       Start visit
-                    </Link>
+                    </ConsultationLink>
                     <button
                       type="button"
                       onClick={() => setSelectedPatientId(null)}
@@ -506,12 +527,12 @@ export function HomeOverview(): JSX.Element {
                         >
                           Chart
                         </Link>
-                        <Link
-                          href={`/consultation?patientId=${encodeURIComponent(p.id)}`}
+                        <ConsultationLink
+                          href={consultationStartHref({ patientId: p.id })}
                           className="text-caption-sm font-semibold text-hs-primary hover:underline"
                         >
                           Visit →
-                        </Link>
+                        </ConsultationLink>
                       </div>
                     </li>
                   ))}

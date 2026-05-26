@@ -12,6 +12,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@daily-co/daily-js": "^0.90.0",
+    "@daily-co/daily-react": "^0.25.2",
     "@homeoassist/print": "0.1.0",
     "@supabase/supabase-js": "^2.104.1",
     "@tanstack/react-virtual": "^3.13.25",

@@ -3,17 +3,20 @@ import { v4 as uuid } from "uuid";
 import { logger } from "../../lib/logger";
 import { loadDoctorWhatsAppConnection } from "../whatsapp/sendMessage";
 import { sendWhatsAppMessage } from "../whatsapp/sendMessage";
-import { sendPrescriptionEmail } from "../distribution/notificationProviders";
 import {
   appointmentInviteEmail,
   appointmentInviteWhatsApp,
+  appointmentReminderEmail,
   appointmentReminderWhatsApp,
+  consultationSummaryEmail,
   consultationSummaryWhatsApp,
+  consultationReadyWhatsApp,
+  consultationMissedWhatsApp,
   formatAppointmentDateTime,
   prescriptionWhatsApp
 } from "./messageTemplates";
 import { createPatientAccessToken, joinUrl } from "./patientAccess";
-import { buildJitsiRoomUrl, roomIdForConsultation } from "./meetingService";
+import { roomIdForConsultation } from "./meetingService";
 import type { NotificationTemplateVars } from "./types";
 
 async function enqueueJob(
@@ -125,7 +128,10 @@ export async function sendAppointmentInvite(args: {
   let waStatus = "skipped";
 
   if (ctx.patientEmail) {
-    const mail = appointmentInviteEmail(v);
+    const mail = appointmentInviteEmail(
+      v,
+      args.consultationMode === "ONLINE" ? "ONLINE" : "IN_CLINIC"
+    );
     await enqueueJob(args.client, {
       clinicId: args.clinicId,
       patientId: args.patientId,
@@ -182,53 +188,70 @@ export async function scheduleAppointmentReminders(args: {
   meetingLink: string;
 }): Promise<void> {
   const ctx = await loadNotifyContext(args.client, args.clinicId, args.patientId, args.doctorId);
-  if (!ctx?.patientPhone) return;
+  if (!ctx) return;
 
   const scheduled = new Date(args.scheduledFor).getTime();
   const reminder24 = new Date(scheduled - 24 * 3600000).toISOString();
   const reminder1 = new Date(scheduled - 60 * 60 * 1000).toISOString();
   const { date, time } = formatAppointmentDateTime(args.scheduledFor);
-  const body = appointmentReminderWhatsApp(
-    varsFrom(ctx, { appointmentDate: date, appointmentTime: time, meetingLink: args.meetingLink })
-  );
+  const templateVars = varsFrom(ctx, {
+    appointmentDate: date,
+    appointmentTime: time,
+    meetingLink: args.meetingLink
+  });
+  const waBody = appointmentReminderWhatsApp(templateVars);
+  const emailMail = appointmentReminderEmail(templateVars);
 
-  if (new Date(reminder24).getTime() > Date.now()) {
-    await enqueueJob(args.client, {
-      clinicId: args.clinicId,
-      patientId: args.patientId,
-      channel: "whatsapp",
-      topic: "appointment_reminder_whatsapp",
-      idempotencyKey: `appointment:${args.appointmentId}:reminder_24h`,
-      scheduledFor: reminder24,
-      doctorId: args.doctorId,
-      payload: {
-        phone: ctx.patientPhone,
-        body,
-        window: "24h",
-        appointmentId: args.appointmentId,
-        templateVars: varsFrom(ctx, { appointmentDate: date, appointmentTime: time, meetingLink: args.meetingLink })
-      }
-    });
-  }
+  const enqueueReminder = async (
+    window: "24h" | "1h",
+    scheduledFor: string,
+    idempotencySuffix: string
+  ): Promise<void> => {
+    if (new Date(scheduledFor).getTime() <= Date.now()) return;
 
-  if (new Date(reminder1).getTime() > Date.now()) {
-    await enqueueJob(args.client, {
-      clinicId: args.clinicId,
-      patientId: args.patientId,
-      channel: "whatsapp",
-      topic: "appointment_reminder_whatsapp",
-      idempotencyKey: `appointment:${args.appointmentId}:reminder_1h`,
-      scheduledFor: reminder1,
-      doctorId: args.doctorId,
-      payload: {
-        phone: ctx.patientPhone,
-        body,
-        window: "1h",
-        appointmentId: args.appointmentId,
-        templateVars: varsFrom(ctx, { appointmentDate: date, appointmentTime: time, meetingLink: args.meetingLink })
-      }
-    });
-  }
+    if (ctx.patientPhone) {
+      await enqueueJob(args.client, {
+        clinicId: args.clinicId,
+        patientId: args.patientId,
+        channel: "whatsapp",
+        topic: "appointment_reminder_whatsapp",
+        idempotencyKey: `appointment:${args.appointmentId}:reminder_${idempotencySuffix}_wa`,
+        scheduledFor,
+        doctorId: args.doctorId,
+        payload: {
+          phone: ctx.patientPhone,
+          body: waBody,
+          window,
+          appointmentId: args.appointmentId,
+          templateVars
+        }
+      });
+    }
+
+    if (ctx.patientEmail) {
+      await enqueueJob(args.client, {
+        clinicId: args.clinicId,
+        patientId: args.patientId,
+        channel: "email",
+        topic: "appointment_reminder_email",
+        idempotencyKey: `appointment:${args.appointmentId}:reminder_${idempotencySuffix}_email`,
+        scheduledFor,
+        doctorId: args.doctorId,
+        payload: {
+          to: ctx.patientEmail,
+          subject: emailMail.subject,
+          html: emailMail.html,
+          text: emailMail.text,
+          window,
+          appointmentId: args.appointmentId,
+          templateVars
+        }
+      });
+    }
+  };
+
+  await enqueueReminder("24h", reminder24, "24h");
+  await enqueueReminder("1h", reminder1, "1h");
 }
 
 export async function sendPostConsultationNotifications(args: {
@@ -252,6 +275,11 @@ export async function sendPostConsultationNotifications(args: {
   });
 
   if (args.sendEmail && ctx.patientEmail) {
+    const mail = consultationSummaryEmail({
+      ...v,
+      consultationSummary: args.summaryLine,
+      prescriptionLink: args.prescriptionLink
+    });
     await enqueueJob(args.client, {
       clinicId: args.clinicId,
       patientId: args.patientId,
@@ -261,9 +289,10 @@ export async function sendPostConsultationNotifications(args: {
       doctorId: args.doctorId,
       payload: {
         to: ctx.patientEmail,
-        subject: `Consultation summary — ${ctx.clinicName}`,
-        html: `<p>Dear ${v.patientName},</p><p>${args.summaryLine}</p><p><a href="${args.prescriptionLink}">View prescription</a></p>`,
-        text: `${args.summaryLine}\n${args.prescriptionLink}`
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        templateVars: { ...v, consultationSummary: args.summaryLine, prescriptionLink: args.prescriptionLink }
       }
     });
   }
@@ -303,7 +332,7 @@ export async function prepareOnlineAppointment(args: {
     expiresInHours: 96
   });
 
-  await args.client
+  const { error: upErr } = await args.client
     .from("appointments")
     .update({
       consultation_mode: "ONLINE",
@@ -312,7 +341,104 @@ export async function prepareOnlineAppointment(args: {
     })
     .eq("id", args.appointmentId);
 
+  if (upErr) {
+    await args.admin.from("patient_access_tokens").delete().eq("token", join.token);
+    throw new Error(upErr.message);
+  }
+
   return { meetingUrl: join.url, joinToken: join.token };
 }
 
-export { prescriptionWhatsApp, buildJitsiRoomUrl, roomIdForConsultation, joinUrl };
+/** Notify patient that doctor is ready (room live). */
+export async function sendConsultationReadyNotification(args: {
+  admin: SupabaseClient;
+  clinicId: string;
+  consultationId: string;
+}): Promise<void> {
+  const { data: consult } = await args.admin
+    .from("consultations")
+    .select("patient_id,attending_user_id,appointment_id")
+    .eq("id", args.consultationId)
+    .eq("clinic_id", args.clinicId)
+    .maybeSingle();
+  if (!consult) return;
+  const c = consult as { patient_id: string; attending_user_id: string | null; appointment_id: string | null };
+  const doctorId = c.attending_user_id;
+  if (!doctorId) return;
+
+  const ctx = await loadNotifyContext(args.admin, args.clinicId, c.patient_id, doctorId);
+  if (!ctx?.patientPhone) return;
+
+  let meetingLink = "";
+  const { data: tok } = await args.admin
+    .from("patient_access_tokens")
+    .select("token")
+    .eq("consultation_id", args.consultationId)
+    .eq("purpose", "join_consultation")
+    .gt("expires_at", new Date().toISOString())
+    .limit(1)
+    .maybeSingle();
+  if (tok) {
+    meetingLink = joinUrl((tok as { token: string }).token);
+  } else if (c.appointment_id) {
+    const { data: apt } = await args.admin
+      .from("appointments")
+      .select("join_token,meeting_url")
+      .eq("id", c.appointment_id)
+      .maybeSingle();
+    if (apt) {
+      const a = apt as { join_token: string | null; meeting_url: string | null };
+      meetingLink = a.meeting_url ?? (a.join_token ? joinUrl(a.join_token) : "");
+    }
+  }
+  if (!meetingLink) return;
+
+  const v = varsFrom(ctx, { meetingLink });
+  await enqueueJob(args.admin, {
+    clinicId: args.clinicId,
+    patientId: c.patient_id,
+    channel: "whatsapp",
+    topic: "consultation_ready_whatsapp",
+    idempotencyKey: `consultation:${args.consultationId}:ready_wa`,
+    doctorId,
+    payload: {
+      phone: ctx.patientPhone,
+      body: consultationReadyWhatsApp(v),
+      templateVars: v
+    }
+  });
+}
+
+export async function cancelAppointmentNotificationJobs(
+  client: SupabaseClient,
+  appointmentId: string
+): Promise<void> {
+  const keys = [
+    `appointment:${appointmentId}:reminder_24h_wa`,
+    `appointment:${appointmentId}:reminder_1h_wa`,
+    `appointment:${appointmentId}:reminder_24h_email`,
+    `appointment:${appointmentId}:reminder_1h_email`,
+    `appointment:${appointmentId}:invite_email`,
+    `appointment:${appointmentId}:invite_wa`
+  ];
+  await client
+    .from("notification_jobs")
+    .update({ status: "CANCELLED" })
+    .in("idempotency_key", keys)
+    .eq("status", "QUEUED");
+}
+
+export async function rescheduleAppointmentReminders(args: {
+  client: SupabaseClient;
+  clinicId: string;
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+  scheduledFor: string;
+  meetingLink: string;
+}): Promise<void> {
+  await cancelAppointmentNotificationJobs(args.client, args.appointmentId);
+  await scheduleAppointmentReminders(args);
+}
+
+export { prescriptionWhatsApp, roomIdForConsultation, joinUrl };

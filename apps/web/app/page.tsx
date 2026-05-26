@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Smartphone,
-  Sparkles,
   Stethoscope
 } from "lucide-react";
 import Link from "next/link";
@@ -75,9 +74,9 @@ function ConsultationMockup(): JSX.Element {
   const steps = [
     { label: "Patient overview", done: true },
     { label: "Clinical history", done: true },
-    { label: "AI Notetaker", active: true },
-    { label: "Prescription draft", done: false },
-    { label: "Advice & follow-up", done: false }
+    { label: "Clinical assessment", active: true },
+    { label: "Prescription", done: false },
+    { label: "Complete visit", done: false }
   ];
   return (
     <div className="relative mx-auto max-w-xs select-none" aria-hidden>
@@ -107,7 +106,7 @@ function ConsultationMockup(): JSX.Element {
               {s.done ? (
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-slate-300" strokeWidth={2} />
               ) : s.active ? (
-                <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                <ClipboardList className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               ) : (
                 <span className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-slate-200" />
               )}
@@ -115,20 +114,11 @@ function ConsultationMockup(): JSX.Element {
             </div>
           ))}
         </div>
-        <div className="mt-4 rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-            <p className="text-[10px] font-semibold text-sky-600">AI Notetaker · Recording</p>
-          </div>
-          <div className="flex items-end gap-0.5">
-            {[3, 5, 4, 6, 3, 5, 4, 3, 6, 4, 5, 3].map((h, i) => (
-              <div
-                key={i}
-                className="w-1 rounded-full bg-sky-400/70"
-                style={{ height: `${h * 3}px` }}
-              />
-            ))}
-          </div>
+        <div className="mt-4 rounded-lg border border-hs-primary/15 bg-hs-primary/[0.04] px-3 py-2">
+          <p className="text-[10px] font-semibold text-hs-primary">Structured case record</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-slate-600">
+            Chief complaints, modalities, mental and physical state — one chart for OPD and online visits.
+          </p>
         </div>
       </div>
     </div>
@@ -185,7 +175,7 @@ const STRUCTURED_DATA = {
       applicationCategory: "HealthApplication",
       operatingSystem: "Web, iOS, Android",
       description:
-        "Clinic software for homeopathy doctors: step-by-step consultations, AI-assisted notes, professional prescriptions, online visits, and a patient app under your clinic name.",
+        "Clinic software for homeopathy doctors: structured consultations, professional prescriptions, telemedicine, patient management, and a patient app under your clinic name.",
       url: SITE_URL,
       offers: { "@type": "Offer", priceCurrency: "INR", price: "1499" }
     },
@@ -354,43 +344,6 @@ export default function LandingPage(): JSX.Element {
           </div>
         </section>
 
-        {/* ── AI notetaker spotlight ───────────────────────────────── */}
-        <MotionSection
-          id="ai-notetaker"
-          className="bg-white px-5 py-20 sm:px-6 sm:py-24 md:px-10"
-        >
-          <div className="mx-auto grid max-w-5xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <div className="order-2 flex justify-center lg:order-1">
-              <ConsultationMockup />
-            </div>
-            <div className="order-1 lg:order-2">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-hs-primary">
-                AI notetaker
-              </p>
-              <h2 className="font-heading mt-3 text-balance text-[1.6rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[1.85rem]">
-                AI takes the notes. You run the consultation.
-              </h2>
-              <p className="mt-4 text-[0.93rem] leading-relaxed text-slate-500">
-                The AI notetaker listens while you consult. It drafts chief complaints, modalities,
-                emotional and physical symptoms in the homeopathic format you already use. Nothing is
-                saved until you approve it.
-              </p>
-              <ul className="mt-5 space-y-2.5 text-[0.88rem] text-slate-600">
-                {[
-                  "Works in the clinic and on video calls",
-                  "Output matches your usual case structure",
-                  "You edit, approve, or discard. It never saves on its own"
-                ].map((t) => (
-                  <li key={t} className="flex items-center gap-2.5">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-hs-primary" aria-hidden />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </MotionSection>
-
         {/* ── Prescription spotlight ───────────────────────────────── */}
         <MotionSection className="bg-slate-50/60 px-5 py-20 sm:px-6 sm:py-24 md:px-10">
           <div className="mx-auto grid max-w-5xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
@@ -453,7 +406,7 @@ export default function LandingPage(): JSX.Element {
                   body: "Your receptionist books appointments and registers patients. You see only your cases. Access stays under your control."
                 },
                 {
-                  Icon: Sparkles,
+                  Icon: Stethoscope,
                   title: "Multi-doctor setup",
                   body: "Each doctor sees their own patients. The clinic owner can see the full picture when needed."
                 }

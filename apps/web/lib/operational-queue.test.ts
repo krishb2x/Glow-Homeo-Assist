@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeActiveVisits, groupFollowUps } from "./operational-queue";
+import { dedupeActiveVisits, groupFollowUps, findOpenVisitForPatient, otherActiveVisits } from "./operational-queue";
 
 describe("dedupeActiveVisits", () => {
   it("keeps one row per patient (newest visit)", () => {
@@ -13,6 +13,31 @@ describe("dedupeActiveVisits", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.id).toBe("c2");
     expect(rows[0]!.duplicateCount).toBe(1);
+  });
+});
+
+describe("findOpenVisitForPatient", () => {
+  it("returns newest open visit for patient", () => {
+    const rows = dedupeActiveVisits(
+      [{ id: "c2", patientId: "p1", patientName: "A", startedAt: "2026-05-25T10:00:00Z" }],
+      []
+    );
+    expect(findOpenVisitForPatient("p1", rows)?.id).toBe("c2");
+    expect(findOpenVisitForPatient("p2", rows)).toBeUndefined();
+  });
+});
+
+describe("otherActiveVisits", () => {
+  it("excludes current consultation", () => {
+    const rows = dedupeActiveVisits(
+      [
+        { id: "c1", patientId: "p1", patientName: "A", startedAt: "2026-05-25T08:00:00Z" },
+        { id: "c2", patientId: "p2", patientName: "B", startedAt: "2026-05-25T09:00:00Z" }
+      ],
+      []
+    );
+    expect(otherActiveVisits(rows, "c1")).toHaveLength(1);
+    expect(otherActiveVisits(rows, "c1")[0]!.id).toBe("c2");
   });
 });
 

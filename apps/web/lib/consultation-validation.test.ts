@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyConsultationSnapshot } from "@homeoassist/testing";
 import {
+  buildFinalizeReadiness,
   validateAllSteps,
   validateExamination,
   validatePatient,
@@ -46,5 +47,37 @@ describe("validateAllSteps", () => {
     expect(Object.keys(all).sort()).toEqual(
       ["advice", "ai", "examination", "finalize", "followup", "history", "notes", "patient", "prescription"].sort()
     );
+  });
+});
+
+describe("buildFinalizeReadiness", () => {
+  it("blocks when chief complaint and notes missing", () => {
+    const validations = validateAllSteps(emptyConsultationSnapshot());
+    const r = buildFinalizeReadiness({
+      validations,
+      skipPrescription: false,
+      pendingPriorOutcome: false,
+      priorOutcomeSaved: true,
+      sendPrescriptionEmail: false,
+      notifyEmail: ""
+    });
+    expect(r.canFinalize).toBe(false);
+    expect(r.blockers.length).toBeGreaterThan(0);
+  });
+
+  it("allows skip prescription override", () => {
+    const s = emptyConsultationSnapshot();
+    s.patient.initialChiefComplaint = "Headache";
+    s.notes.chiefComplaints = "Throbbing pain";
+    const validations = validateAllSteps(s);
+    const r = buildFinalizeReadiness({
+      validations,
+      skipPrescription: true,
+      pendingPriorOutcome: false,
+      priorOutcomeSaved: true,
+      sendPrescriptionEmail: false,
+      notifyEmail: ""
+    });
+    expect(r.canFinalize).toBe(true);
   });
 });

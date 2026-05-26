@@ -18,7 +18,7 @@ export const AUTH_FOOTER_LINKS: AuthFooterLink[] = [
 /** Trust markers shown on the desktop split-screen brand panel. */
 export const AUTH_PANEL_HIGHLIGHTS: ReadonlyArray<string> = [
   "Structured homeopathic case-taking",
-  "AI notetaker — you approve every word",
+  "In-clinic & online consultations on one chart",
   "Professional prescriptions in seconds",
   "Patient care app under your clinic brand"
 ];

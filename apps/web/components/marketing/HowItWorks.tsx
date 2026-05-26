@@ -12,13 +12,13 @@ const STEPS: Step[] = [
     number: "01",
     Icon: ClipboardCheck,
     title: "Take the case",
-    body: "Run your consultation in the clinic or online. The AI notetaker quietly drafts the case while you focus on the patient."
+    body: "Run your consultation in the clinic or online. Document chief complaints, history, examination, and clinical assessment in a structured homeopathic chart."
   },
   {
     number: "02",
     Icon: FileSignature,
-    title: "Approve and prescribe",
-    body: "Review the draft, edit anything, and create a professional prescription with your registration number, signature, and clinic details. Nothing is saved until you approve."
+    title: "Prescribe and advise",
+    body: "Create a professional prescription with your registration number, signature, and clinic details. Add diet, lifestyle guidance, and follow-up dates in the same workflow."
   },
   {
     number: "03",

@@ -18,6 +18,15 @@ import {
   type MyDayResponse,
   type PatientListItem
 } from "../../../lib/doctor-api";
+import {
+  openConsultationTab,
+  liveConsultationHref
+} from "../../../lib/consultation-navigation";
+import {
+  activeVisitByPatientId,
+  dedupeActiveVisits,
+  findOpenVisitForPatient
+} from "../../../lib/operational-queue";
 import { ErrorState } from "../../../components/ui/LoadState";
 import { cn } from "../../../lib/cn";
 import {
@@ -85,15 +94,50 @@ export default function ConsultationStartPage(): JSX.Element {
     void load();
   }, [load, router]);
 
+  // Keep operational queue fresh during long clinic days.
+  useEffect(() => {
+    if (!getToken()) return;
+    const refresh = (): void => {
+      void fetchMyDay(3).then(setMyDay).catch(() => {});
+    };
+    refresh();
+    const onVis = (): void => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    const t = setInterval(refresh, 60_000);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
   const consultationModeFromQuery =
     searchParams.get("consultationMode") === "ONLINE" ? ("ONLINE" as const) : ("IN_CLINIC" as const);
 
   const patientIdFromQuery = searchParams.get("patientId");
 
+  const activeVisits = useMemo(
+    () =>
+      myDay
+        ? dedupeActiveVisits(
+            myDay.activeConsultations?.inClinic ?? [],
+            myDay.activeConsultations?.online ?? []
+          )
+        : [],
+    [myDay]
+  );
+  const openVisitByPatient = useMemo(() => activeVisitByPatientId(activeVisits), [activeVisits]);
+
   const quickStart = useCallback(
-    async (patientId: string): Promise<void> => {
+    async (patientId: string, opts?: { forceNew?: boolean }): Promise<void> => {
       if (!getToken()) {
         router.replace("/login");
+        return;
+      }
+      const existing = findOpenVisitForPatient(patientId, activeVisits);
+      if (existing && !opts?.forceNew) {
+        openConsultationTab(liveConsultationHref(existing.id));
         return;
       }
       setStartingId(patientId);
@@ -103,14 +147,14 @@ export default function ConsultationStartPage(): JSX.Element {
           appointmentId: appointmentIdFromQuery ?? undefined,
           consultationMode: consultationModeFromQuery
         });
-        router.push(`/consultation/${id}`);
+        openConsultationTab(liveConsultationHref(id));
       } catch (e) {
         setErr(e);
       } finally {
         setStartingId(null);
       }
     },
-    [router, appointmentIdFromQuery, consultationModeFromQuery]
+    [router, appointmentIdFromQuery, consultationModeFromQuery, activeVisits]
   );
 
   useEffect(() => {
@@ -140,13 +184,19 @@ export default function ConsultationStartPage(): JSX.Element {
   useEffect(() => {
     if (autoStartedRef.current) return;
     if (!patientIdFromQuery) return;
+    const existing = findOpenVisitForPatient(patientIdFromQuery, activeVisits);
+    if (existing) {
+      autoStartedRef.current = true;
+      openConsultationTab(liveConsultationHref(existing.id));
+      return;
+    }
     const p =
       list.find((x) => x.id === patientIdFromQuery) ??
       searchResults?.find((x) => x.id === patientIdFromQuery);
     if (!p) return;
     autoStartedRef.current = true;
     void quickStart(p.id);
-  }, [list, searchResults, patientIdFromQuery, quickStart]);
+  }, [list, searchResults, patientIdFromQuery, quickStart, activeVisits, router]);
 
   const { today, other } = useMemo(() => {
     const t: PatientListItem[] = [];
@@ -173,6 +223,22 @@ export default function ConsultationStartPage(): JSX.Element {
     if (!search.trim()) return null;
     return searchResults ?? list.filter((p) => matchesSearch(p, search));
   }, [list, search, searchResults]);
+
+  const renderVisitCard = (p: PatientListItem, extra?: { showDateHint?: boolean; highlight?: boolean }) => {
+    const open = openVisitByPatient.get(p.id);
+    return (
+      <PatientVisitCard
+        patient={p}
+        onStart={() => void quickStart(p.id)}
+        openVisitId={open?.id}
+        onStartNew={open ? () => void quickStart(p.id, { forceNew: true }) : undefined}
+        starting={startingId === p.id}
+        disabled={startingId !== null && startingId !== p.id}
+        showDateHint={extra?.showDateHint}
+        highlight={extra?.highlight}
+      />
+    );
+  };
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -289,14 +355,7 @@ export default function ConsultationStartPage(): JSX.Element {
             <ul className="space-y-3" role="list">
               {searchFlat.map((p) => (
                 <li key={p.id}>
-                  <PatientVisitCard
-                    patient={p}
-                    onStart={() => void quickStart(p.id)}
-                    starting={startingId === p.id}
-                    disabled={startingId !== null && startingId !== p.id}
-                    showDateHint
-                    highlight={p.id === patientIdFromQuery}
-                  />
+                  {renderVisitCard(p, { showDateHint: true, highlight: p.id === patientIdFromQuery })}
                 </li>
               ))}
             </ul>
@@ -318,15 +377,7 @@ export default function ConsultationStartPage(): JSX.Element {
             ) : (
               <ul className="space-y-3" role="list">
                 {filteredToday.map((p) => (
-                  <li key={p.id}>
-                    <PatientVisitCard
-                      patient={p}
-                      onStart={() => void quickStart(p.id)}
-                      starting={startingId === p.id}
-                      disabled={startingId !== null && startingId !== p.id}
-                      highlight
-                    />
-                  </li>
+                  <li key={p.id}>{renderVisitCard(p, { highlight: true })}</li>
                 ))}
               </ul>
             )}
@@ -341,15 +392,7 @@ export default function ConsultationStartPage(): JSX.Element {
             </h2>
             <ul className="space-y-3" role="list">
               {filteredOther.map((p) => (
-                <li key={p.id}>
-                  <PatientVisitCard
-                    patient={p}
-                    onStart={() => void quickStart(p.id)}
-                    starting={startingId === p.id}
-                    disabled={startingId !== null && startingId !== p.id}
-                    showDateHint
-                  />
-                </li>
+                <li key={p.id}>{renderVisitCard(p, { showDateHint: true })}</li>
               ))}
             </ul>
           </section>

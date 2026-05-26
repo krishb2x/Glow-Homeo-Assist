@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ConsultationLink } from "./ConsultationLink";
+import { liveConsultationHref } from "../../lib/consultation-navigation";
 import { Calendar, CheckCircle2, Download, FileText, HeartPulse, History, Loader2, Pill, Stethoscope } from "lucide-react";
 import {
   createFollowUp,
@@ -300,12 +302,12 @@ function ConsultationCard({ c }: { c: ConsultationEvent }): JSX.Element {
       )}
 
       <div className="mt-4">
-        <Link
-          href={`/consultation/${c.consultationId}`}
+        <ConsultationLink
+          href={liveConsultationHref(c.consultationId)}
           className="inline-flex min-h-9 items-center justify-center rounded-lg border border-hs-primary/35 bg-hs-cream/70 px-3 text-body-sm font-medium text-hs-primary transition hover:border-hs-primary/55"
         >
           Open consultation
-        </Link>
+        </ConsultationLink>
       </div>
     </div>
   );
@@ -461,9 +463,9 @@ function CaseOutcomeCard({ o }: { o: CaseOutcomeEvent }): JSX.Element {
       {o.assessment ? <p className="mt-1 text-body-sm text-hs-text-secondary">{o.assessment}</p> : null}
       {o.consultationId ? (
         <p className="mt-2 text-caption-sm">
-          <Link href={`/consultation/${encodeURIComponent(o.consultationId)}`} className="font-semibold text-hs-primary hover:underline">
+          <ConsultationLink href={liveConsultationHref(o.consultationId)} className="font-semibold text-hs-primary hover:underline">
             View consultation →
-          </Link>
+          </ConsultationLink>
         </p>
       ) : null}
     </div>

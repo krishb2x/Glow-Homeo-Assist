@@ -74,7 +74,7 @@ export function HeroShowcase(): JSX.Element {
           <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div className="h-full w-4/5 rounded-full bg-hs-primary" />
           </div>
-          <p className="mt-2 text-[0.75rem] text-slate-600">AI notes, yours to edit</p>
+          <p className="mt-2 text-[0.75rem] text-slate-600">Structured assessment, one chart</p>
         </motion.div>
 
         {/* Card 3: Between visits — bottom-center */}

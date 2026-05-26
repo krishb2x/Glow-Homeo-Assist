@@ -142,6 +142,7 @@ export type MyDayPayload = {
     complexity: string | null;
     reason: string | null;
     chiefComplaint: string | null;
+    consultationMode?: "IN_CLINIC" | "ONLINE";
   }>;
   followUps: FollowUpOut[];
   pendingOutcomes: Array<{
@@ -158,9 +159,30 @@ export type MyDayPayload = {
     startedAt: string;
   }>;
   activeConsultations: {
-    inClinic: Array<{ id: string; patientId: string; patientName: string; startedAt: string }>;
-    online: Array<{ id: string; patientId: string; patientName: string; startedAt: string }>;
+    inClinic: Array<{
+      id: string;
+      patientId: string;
+      patientName: string;
+      startedAt: string;
+      videoStatus?: string | null;
+      patientWaitingSince?: string | null;
+    }>;
+    online: Array<{
+      id: string;
+      patientId: string;
+      patientName: string;
+      startedAt: string;
+      videoStatus?: string | null;
+      patientWaitingSince?: string | null;
+    }>;
   };
+  missedConsultationsToday: Array<{
+    appointmentId: string;
+    patientId: string;
+    patientName: string;
+    scheduledFor: string;
+    noShowNotified: boolean;
+  }>;
 };
 
 function addDays(d: Date, n: number): Date {
@@ -182,7 +204,7 @@ export async function buildMyDay(
   const upcoming: MyDayPayload["upcomingAppointments"] = [];
   const { data: apts } = await client
     .from("appointments")
-    .select("id,scheduled_for,duration_minutes,status,patient_id,reason")
+    .select("id,scheduled_for,duration_minutes,status,patient_id,reason,consultation_mode")
     .eq("clinic_id", clinicId)
     .eq("doctor_id", doctorFilter)
     .gte("scheduled_for", from.toISOString())
@@ -201,6 +223,7 @@ export async function buildMyDay(
       status: string;
       patient_id: string;
       reason: string | null;
+      consultation_mode: string;
     };
     const pr = aptNames.get(r.patient_id);
     upcoming.push({
@@ -212,7 +235,8 @@ export async function buildMyDay(
       patientName: pr?.name ?? "Patient",
       complexity: null,
       reason: r.reason,
-      chiefComplaint: pr?.initialChiefComplaint ?? null
+      chiefComplaint: pr?.initialChiefComplaint ?? null,
+      consultationMode: r.consultation_mode === "ONLINE" ? "ONLINE" : "IN_CLINIC"
     });
   }
 
@@ -371,14 +395,73 @@ export async function buildMyDay(
       id: cr.id,
       patientId: cr.patient_id,
       patientName: liveNames.get(cr.patient_id)?.name ?? "Patient",
-      startedAt: cr.started_at
+      startedAt: cr.started_at,
+      videoStatus: null as string | null,
+      patientWaitingSince: null as string | null
     };
     if (cr.consultation_mode === "ONLINE") onlineOpen.push(row);
     else inClinicOpen.push(row);
   }
 
+  const onlineIds = onlineOpen.map((r) => r.id);
+  if (onlineIds.length > 0) {
+    const { data: sessions } = await client
+      .from("video_sessions")
+      .select("consultation_id,status,patient_waiting_since")
+      .in("consultation_id", onlineIds)
+      .not("status", "eq", "ENDED");
+    const byConsult = new Map(
+      (sessions ?? []).map((s) => {
+        const r = s as { consultation_id: string; status: string; patient_waiting_since: string | null };
+        return [r.consultation_id, r] as const;
+      })
+    );
+    for (const row of onlineOpen) {
+      const vs = byConsult.get(row.id);
+      if (vs) {
+        row.videoStatus = vs.status;
+        row.patientWaitingSince = vs.patient_waiting_since;
+      }
+    }
+  }
+
   inClinicOpen.sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
   onlineOpen.sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+
+  const missedConsultationsToday: MyDayPayload["missedConsultationsToday"] = [];
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(now);
+  dayEnd.setHours(23, 59, 59, 999);
+  const { data: missedRows } = await client
+    .from("appointments")
+    .select("id,patient_id,scheduled_for,no_show_notified_at")
+    .eq("clinic_id", clinicId)
+    .eq("doctor_id", doctorFilter)
+    .eq("consultation_mode", "ONLINE")
+    .eq("status", "NO_SHOW")
+    .not("missed_at", "is", null)
+    .gte("scheduled_for", dayStart.toISOString())
+    .lte("scheduled_for", dayEnd.toISOString())
+    .order("scheduled_for", { ascending: false })
+    .limit(10);
+  const missedPatientIds = (missedRows ?? []).map((m) => (m as { patient_id: string }).patient_id);
+  const missedNames = await loadPatientNames(client, missedPatientIds);
+  for (const m of missedRows ?? []) {
+    const mr = m as {
+      id: string;
+      patient_id: string;
+      scheduled_for: string;
+      no_show_notified_at: string | null;
+    };
+    missedConsultationsToday.push({
+      appointmentId: mr.id,
+      patientId: mr.patient_id,
+      patientName: missedNames.get(mr.patient_id)?.name ?? "Patient",
+      scheduledFor: mr.scheduled_for,
+      noShowNotified: Boolean(mr.no_show_notified_at)
+    });
+  }
 
   span.end({ followUps: followUps.length });
   return {
@@ -387,6 +470,7 @@ export async function buildMyDay(
     followUps: followUps.slice(0, 40),
     pendingOutcomes: pendingOutcomes.slice(0, 20),
     needsNoteFinalization: needsNoteFinalization.slice(0, 15),
-    activeConsultations: { inClinic: inClinicOpen, online: onlineOpen }
+    activeConsultations: { inClinic: inClinicOpen, online: onlineOpen },
+    missedConsultationsToday
   };
 }

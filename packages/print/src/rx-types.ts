@@ -48,6 +48,10 @@ export type RxDocumentMeta = {
   patientAge: number | null;
   patientGender?: string | null;
   patientCode?: string | null;
+  /** Human-readable visit reference (e.g. GH-NHC-V202605-0042). */
+  visitCode?: string | null;
+  followUpNote?: string | null;
+  symptomsToMonitor?: string[] | null;
   doctorSignatureLine?: string;
   followUpDateLabel?: string | null;
   signatureImageUrl?: string | null;

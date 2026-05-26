@@ -80,10 +80,15 @@ function headerHtml(meta: RxDocumentMeta): string {
 }
 
 function patientStripHtml(meta: RxDocumentMeta): string {
-  const id = meta.patientCode?.trim() ? ` · <strong>ID</strong> ${esc(meta.patientCode)}` : "";
+  const id = meta.patientCode?.trim() ? `<strong>ID</strong> ${esc(meta.patientCode)}` : "";
+  const visit = meta.visitCode?.trim() ? `<strong>Visit</strong> ${esc(meta.visitCode)}` : "";
+  const refs = [id, visit].filter(Boolean).join(" · ");
   return `
   <div class="rx-patient-strip">
-    <strong>Patient</strong> ${esc(meta.patientName)} · ${patientAgeGender(meta)}${id}
+    <div class="rx-patient-main">
+      <strong>Patient</strong> ${esc(meta.patientName)} · ${patientAgeGender(meta)}
+    </div>
+    ${refs ? `<div class="rx-patient-refs">${refs}</div>` : ""}
   </div>`;
 }
 
@@ -136,9 +141,22 @@ function adviceHtml(diet: string, lifestyle: string): string {
 }
 
 function footerHtml(meta: RxDocumentMeta): string {
-  const fu = meta.followUpDateLabel?.trim()
-    ? `<p><strong>Follow-up</strong><br/>${esc(meta.followUpDateLabel)}</p>`
-    : `<p><strong>Follow-up</strong><br/>As advised</p>`;
+  const fuDate = meta.followUpDateLabel?.trim();
+  const fuNote = meta.followUpNote?.trim();
+  const symptoms = meta.symptomsToMonitor?.filter((s) => s.trim()).slice(0, 8) ?? [];
+  let fuBlock = "";
+  if (fuDate || fuNote || symptoms.length > 0) {
+    fuBlock = `<p><strong>Follow-up</strong></p>`;
+    if (fuDate) fuBlock += `<p>${esc(fuDate)}</p>`;
+    if (fuNote) fuBlock += `<p class="rx-followup-note">${esc(fuNote)}</p>`;
+    if (symptoms.length > 0) {
+      fuBlock += `<p class="rx-monitor-label"><strong>Monitor</strong></p><ul class="rx-monitor-list">${symptoms
+        .map((s) => `<li>${esc(s)}</li>`)
+        .join("")}</ul>`;
+    }
+  } else {
+    fuBlock = `<p><strong>Follow-up</strong><br/>As advised</p>`;
+  }
 
   const showSig = meta.documentPrefs.showSignature;
   const sigImg =
@@ -161,7 +179,7 @@ function footerHtml(meta: RxDocumentMeta): string {
   return `
   <footer class="rx-footer">
     <div class="rx-footer-row">
-      <div class="rx-footer-left">${fu}${qr ? `<div class="rx-qr-wrap">${qr}</div>` : ""}</div>
+      <div class="rx-footer-left">${fuBlock}${qr ? `<div class="rx-qr-wrap">${qr}</div>` : ""}</div>
       <div class="rx-footer-right">
         ${sigImg}
         ${sigLine}

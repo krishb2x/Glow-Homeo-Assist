@@ -50,7 +50,7 @@ export default function PrivacyPage(): JSX.Element {
 
       <section className="space-y-3">
         <h2 className="font-heading text-lg font-semibold text-slate-900">How we use data</h2>
-        <p>We use data to provide and improve {BRAND_NAME}, authenticate users, support onboarding, prevent abuse, and meet legal obligations. Features described on our website (such as optional AI-assisted documentation) only operate within the product flows we publish.</p>
+        <p>We use data to provide and improve {BRAND_NAME}, authenticate users, support onboarding, prevent abuse, and meet legal obligations. We only process the features and workflows published in the product.</p>
       </section>
 
       <section className="space-y-3">

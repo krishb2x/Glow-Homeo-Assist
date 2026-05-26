@@ -36,7 +36,7 @@ Built as a TypeScript monorepo: a **Next.js** doctor/clinic web app, an **Expres
 | **Data** | Supabase Postgres | Patients, consultations, prescriptions, appointments, RLS per clinic |
 | **Storage** | AWS S3 (optional) | Prescription PDFs, signatures, patient documents, recordings |
 | **Realtime** | Supabase + WebSocket | Patient inbox updates; live consultation audio stream |
-| **Integrations** | Meta WhatsApp, Jitsi, Resend, Gemini | Messaging, video visits, email, AI scribe |
+| **Integrations** | Meta WhatsApp, Daily.co, Resend | Messaging, video visits, email |
 
 A **patient mobile app** (React Native / Expo) is designed and documented; API scaffolding is in progress. See [Patient mobile app](#patient-facing-surfaces).
 
@@ -102,7 +102,7 @@ The browser talks to the API through **same-origin Next.js proxies** (`/api/auth
 
 ## Backend (`apps/api`)
 
-**Purpose:** Business logic, authorization, Supabase access with user JWT or service role, file uploads to S3, outbound notifications, WhatsApp webhooks, telemedicine (Jitsi), and AI-assisted consultation notes.
+**Purpose:** Business logic, authorization, Supabase access with user JWT or service role, file uploads to S3, outbound notifications, WhatsApp webhooks, telemedicine (Daily.co), and clinical consultation workflow.
 
 | Module | Responsibility |
 |--------|----------------|
@@ -161,7 +161,7 @@ Summary across the whole platform:
 | File storage | AWS S3 | PDFs, images, recordings (optional) |
 | Email | Resend | Prescription and appointment emails |
 | WhatsApp | Meta Cloud API | Invites, reminders, broadcasts |
-| Video | Jitsi Meet | Online consultations (JWT when configured) |
+| Video | Daily.co | Online consultations with waiting room |
 | AI scribe | Google Gemini | Draft clinical notes from audio |
 | PDF | Puppeteer + `@homeoassist/print` | Branded prescription slips |
 | Queue | `notification_jobs` table + in-process pollers | Reliable outbound messages |
@@ -215,7 +215,7 @@ If production logs mention missing columns or tables (e.g. `appointments.consult
 
 ### Telemedicine
 
-- **Online appointments** — Jitsi room provisioning, patient join links (`patient_access_tokens`).
+- **Online appointments** — Daily.co room provisioning, patient join links (`patient_access_tokens`), waiting room.
 - **Reminders** — 24h and 1h WhatsApp/email jobs.
 - **Public join** — `/join/[token]` and API `GET /public/join/:token`.
 
@@ -247,7 +247,7 @@ Planned mobile capabilities: medication and diet reminders, care library (doctor
 
 - **Node.js 22+** and **npm 10+**
 - **Supabase** project (URL, anon key, service role key)
-- Optional: **AWS S3**, **Redis**, **Chrome** (for PDF), **Meta** / **Jitsi** / **Resend** / **Gemini** keys for full feature set
+- Optional: **AWS S3**, **Redis**, **Chrome** (for PDF), **Meta** / **Daily.co** / **Resend** keys for full feature set
 
 ### Install and configure
 
@@ -321,7 +321,7 @@ Single `.env` at repo root is loaded by both `apps/api` and `apps/web`.
 | **Storage** | `AWS_*`, `AWS_S3_PRIVATE_BUCKET` | Optional; without S3 some assets stay inline |
 | **Notifications** | `RESEND_API_KEY`, `TWILIO_*`, `NOTIFICATION_MOCK_SEND` | Mock send for local dev |
 | **WhatsApp** | `META_*`, `WHATSAPP_TOKEN_ENCRYPTION_KEY` | Per-clinic doctor connections |
-| **Telemedicine** | `JITSI_BASE_URL`, `JITSI_APP_ID`, `JITSI_APP_SECRET` | Video visits |
+| **Telemedicine** | `DAILY_API_KEY`, `DAILY_DOMAIN`, `DAILY_WEBHOOK_SECRET` | Video visits |
 | **AI** | `GEMINI_API_KEY` | Scribe / draft notes |
 | **Workers** | `REDIS_URL`, `WORKER_MODE`, `RATE_*_PER_MIN` | Scale and throttling |
 | **PDF** | `PUPPETEER_EXECUTABLE_PATH` | Chrome/Chromium path |

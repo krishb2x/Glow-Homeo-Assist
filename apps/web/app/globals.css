@@ -500,6 +500,31 @@
       transform: none;
     }
   }
+
+  /* ── Consultation workspace (Cursor-inspired calm productivity shell) ── */
+  .cw-shell {
+    @apply bg-[#f8f8f6];
+  }
+  .cw-panel {
+    @apply border-black/[0.06] bg-white/90;
+  }
+  @supports (backdrop-filter: blur(10px)) {
+    .cw-panel-blur {
+      @apply bg-white/75 backdrop-blur-xl;
+    }
+  }
+  .cw-ghost-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition duration-200 hover:bg-black/[0.04] hover:text-neutral-800;
+  }
+  .cw-ghost-btn-active {
+    @apply bg-black/[0.06] text-neutral-900;
+  }
+  .cw-input {
+    @apply w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2.5 text-[0.9375rem] leading-relaxed text-neutral-900 placeholder:text-neutral-400 transition duration-200 focus:border-hs-primary/40 focus:outline-none focus:ring-[3px] focus:ring-hs-primary/10 disabled:opacity-50;
+  }
+  .cw-textarea {
+    @apply w-full min-h-[5.5rem] resize-y rounded-lg border border-black/[0.08] bg-white px-3 py-3 text-[0.9375rem] leading-relaxed text-neutral-900 placeholder:text-neutral-400 transition duration-200 focus:border-hs-primary/40 focus:outline-none focus:ring-[3px] focus:ring-hs-primary/10 disabled:opacity-50;
+  }
 }
 
 @layer base {

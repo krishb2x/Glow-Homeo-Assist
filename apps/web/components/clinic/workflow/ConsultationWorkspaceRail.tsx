@@ -1,14 +1,13 @@
 "use client";
 
-import { Calendar, PanelRightClose, Sparkles, X, Zap } from "lucide-react";
+import { Calendar, PanelRightClose, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "../../../lib/cn";
 
-export type WorkspaceDrawer = "none" | "ai" | "schedule";
+export type WorkspaceDrawer = "none" | "schedule";
 
 type Props = {
   activeDrawer: WorkspaceDrawer;
-  aiEnabled: boolean;
-  onOpenAi: () => void;
   onOpenSchedule: () => void;
   onClose: () => void;
   className?: string;
@@ -16,8 +15,6 @@ type Props = {
 
 export function ConsultationWorkspaceRail({
   activeDrawer,
-  aiEnabled,
-  onOpenAi,
   onOpenSchedule,
   onClose,
   className
@@ -31,23 +28,6 @@ export function ConsultationWorkspaceRail({
       role="toolbar"
       aria-label="Workspace tools"
     >
-      {aiEnabled ? (
-        <button
-          type="button"
-          onClick={activeDrawer === "ai" ? onClose : onOpenAi}
-          title="AI co-pilot (Alt+I)"
-          aria-pressed={activeDrawer === "ai"}
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hs-primary/30",
-            activeDrawer === "ai"
-              ? "bg-hs-primary text-white shadow-ds-sm"
-              : "text-hs-text-secondary hover:bg-hs-cream hover:text-hs-primary"
-          )}
-        >
-          <Sparkles className="h-4 w-4" aria-hidden />
-        </button>
-      ) : null}
-
       <button
         type="button"
         onClick={activeDrawer === "schedule" ? onClose : onOpenSchedule}
@@ -88,7 +68,7 @@ export function ConsultationWorkspaceDrawer({
 }: {
   open: boolean;
   title: string;
-  icon: typeof Sparkles;
+  icon: LucideIcon;
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
@@ -133,14 +113,4 @@ export function DrawerHint({ children }: { children: React.ReactNode }): JSX.Ele
 
 export function DrawerSectionTitle({ children }: { children: React.ReactNode }): JSX.Element {
   return <p className="mb-2 text-caption-sm font-semibold text-hs-text-secondary">{children}</p>;
-}
-
-/** Badge shown when AI is recording from the drawer context. */
-export function DrawerLiveBadge({ label }: { label: string }): JSX.Element {
-  return (
-    <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-caption-sm font-semibold text-rose-800">
-      <Zap className="h-3 w-3 animate-pulse" aria-hidden />
-      {label}
-    </span>
-  );
 }

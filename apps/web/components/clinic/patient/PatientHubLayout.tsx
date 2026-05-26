@@ -11,6 +11,7 @@ import {
   startConsultation,
   type PatientDetail
 } from "../../../lib/doctor-api";
+import { openConsultationTab, liveConsultationHref } from "../../../lib/consultation-navigation";
 import { PatientSubNav } from "../PatientSubNav";
 import { ConsultationPatientBar } from "../workflow/ConsultationPatientBar";
 import { DS_BTN_PRIMARY_ROUNDED, DS_BTN_SECONDARY } from "../../../lib/ds-classes";
@@ -54,7 +55,7 @@ export function PatientHubLayout({ children }: { children: React.ReactNode }): J
       const { id: cid } = await startConsultation(id, {
         type: hasHistory ? "FOLLOW_UP" : "INITIAL"
       });
-      router.push(`/consultation/${cid}`);
+      openConsultationTab(liveConsultationHref(cid));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not start");
     } finally {

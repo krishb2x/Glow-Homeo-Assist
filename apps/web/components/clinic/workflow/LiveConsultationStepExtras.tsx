@@ -1,20 +1,12 @@
 "use client";
 
 /**
- * Supplemental UI rendered below each step in ConsultationContinuousFeed.
+ * Supplemental UI rendered below each workflow step.
  * Keeps LiveConsultationClient focused on state + persistence while preserving
- * templates, AI draft merge, prior-outcome, prescription tools, and export.
+ * templates, prior-outcome, prescription tools, and export.
  */
 import Link from "next/link";
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronRight,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Zap
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ConsultationStep } from "../../../lib/clinical-workflow-config";
 import type {
@@ -26,27 +18,6 @@ import type {
 import { CaseOutcomePanel } from "../CaseOutcomePanel";
 import { cn } from "../../../lib/cn";
 import type { PrescriptionEntry } from "./steps";
-
-type NoteDraft = {
-  chiefComplaints: string;
-  emotionalState: string;
-  physicalSymptoms: string;
-  modalities: string;
-  timeline: string;
-};
-
-type AiDraft = NoteDraft & { needsReview: boolean; generatedAt: string | null };
-
-type LiveAudio = {
-  phase: string;
-  err: string | null;
-  lastMock: boolean;
-  hasStagingAudio: boolean;
-  busy: boolean;
-  liveTranscript: string;
-  keepStagingAudio: () => Promise<void>;
-  discardStagingAudio: () => Promise<void>;
-};
 
 export type StepExtrasContext = {
   formDisabled: boolean;
@@ -61,7 +32,6 @@ export type StepExtrasContext = {
     clinicName: string;
     qualification: string | null;
     registrationNumber: string | null;
-    aiNotetakerEnabled?: boolean;
   } | null;
   ctx: {
     patientInitialComplaint: string | null;
@@ -90,17 +60,6 @@ export type StepExtrasContext = {
   setPriorOutcomeValue: (v: CaseOutcomeValue | "") => void;
   setPriorOutcomeAssessment: (v: string) => void;
   savePriorOutcome: () => Promise<void>;
-  aiDraftGenerated: boolean;
-  aiDraft: AiDraft;
-  setActiveStep: (s: ConsultationStep) => void;
-  transcriptInput: string;
-  setTranscriptInput: (v: string) => void;
-  isGeneratingDraft: boolean;
-  generateAiNotes: () => Promise<void>;
-  setAiDraft: React.Dispatch<React.SetStateAction<AiDraft>>;
-  setAiDraftGenerated: (v: boolean) => void;
-  insertAiIntoNotes: () => void;
-  liveAudio: LiveAudio;
   prevRx: PrescriptionEntry[] | null;
   showPrevRx: boolean;
   setShowPrevRx: (v: boolean | ((p: boolean) => boolean)) => void;
@@ -131,7 +90,12 @@ export type StepExtrasContext = {
   notifyEmail: string;
   setNotifyEmail: (v: string) => void;
   patientHasPhone: boolean;
+  skipPrescription: boolean;
+  setSkipPrescription: (v: boolean) => void;
+  hasPrescriptionLines: boolean;
+  finalizeReadiness: { canFinalize: boolean; blockedReason: string | null; blockers: string[] };
   finalizeConsultation: () => Promise<void>;
+  deliveryStatusMessage?: string | null;
   rxOutPrefs: { showSymptoms: boolean; showNotes: boolean; showInstructions: boolean };
   setRxOutPrefs: (prefs: { showSymptoms?: boolean; showNotes?: boolean; showInstructions?: boolean }) => void;
   openPreview: (mode: "doctor" | "patient") => void;
@@ -200,14 +164,6 @@ function InputField({
 }
 
 export function buildConsultationStepExtras(c: StepExtrasContext): Partial<Record<ConsultationStep, ReactNode>> {
-  const hasAiContent =
-    c.aiDraftGenerated &&
-    (c.aiDraft.chiefComplaints ||
-      c.aiDraft.emotionalState ||
-      c.aiDraft.physicalSymptoms ||
-      c.aiDraft.modalities ||
-      c.aiDraft.timeline);
-
   const filteredTemplates = c.adviceTemplates.filter(
     (t) =>
       t.title.toLowerCase().includes(c.templateSearch.toLowerCase()) ||
@@ -218,20 +174,6 @@ export function buildConsultationStepExtras(c: StepExtrasContext): Partial<Recor
   return {
     patient: (
       <>
-        {c.ctx?.patientInitialComplaint ? (
-          <SectionCard className="border-hs-border/40 bg-hs-cream/40">
-            <p className="text-caption-sm font-semibold uppercase tracking-wide text-hs-text-tertiary">
-              Initial complaint on file
-            </p>
-            <p className="mt-1 text-body-sm text-hs-ink">{c.ctx.patientInitialComplaint}</p>
-          </SectionCard>
-        ) : null}
-        {c.ctx?.patientNotes ? (
-          <SectionCard className="border-hs-border/40 bg-hs-cream/30">
-            <p className="text-caption-sm font-semibold uppercase tracking-wide text-hs-text-tertiary">Chart notes</p>
-            <p className="mt-0.5 text-body-sm text-hs-ink">{c.ctx.patientNotes}</p>
-          </SectionCard>
-        ) : null}
         {c.lastCaseOutcome ? (
           <p className="text-caption-sm text-hs-text-secondary">
             Last outcome:{" "}
@@ -333,148 +275,6 @@ export function buildConsultationStepExtras(c: StepExtrasContext): Partial<Recor
             </div>
           </SectionCard>
         ) : null}
-      </>
-    ),
-
-    notes:
-      c.aiDraftGenerated && (c.aiDraft.chiefComplaints || c.aiDraft.physicalSymptoms || c.aiDraft.emotionalState) ? (
-        <SectionCard className="border-hs-primary/25 bg-hs-primary-very-light/40">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 shrink-0 text-hs-primary" aria-hidden />
-              <div>
-                <p className="text-body-sm font-semibold text-hs-primary">AI draft ready — not yet inserted</p>
-                <p className="text-caption-sm text-hs-text-secondary">Review in the AI step, then merge here.</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => c.setActiveStep("ai")}
-              className="shrink-0 rounded-lg border border-hs-primary/35 bg-hs-primary-very-light px-3 py-1.5 text-caption-sm font-semibold text-hs-primary"
-            >
-              Review →
-            </button>
-          </div>
-        </SectionCard>
-      ) : null,
-
-    ai: (
-      <>
-        {c.liveAudio.err ? (
-          <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-caption-sm text-rose-900" role="alert">
-            {c.liveAudio.err}
-          </p>
-        ) : null}
-        {c.liveAudio.phase === "reviewing" && c.liveAudio.hasStagingAudio ? (
-          <SectionCard className="border-amber-200/70 bg-amber-50/60">
-            <p className="text-body-sm font-semibold text-amber-900">Audio staged for review</p>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => void c.liveAudio.keepStagingAudio()}
-                disabled={c.liveAudio.busy}
-                className="rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-semibold text-white disabled:opacity-50"
-              >
-                Save recording
-              </button>
-              <button
-                type="button"
-                onClick={() => void c.liveAudio.discardStagingAudio()}
-                disabled={c.liveAudio.busy}
-                className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-caption-sm font-semibold text-rose-800 disabled:opacity-50"
-              >
-                Discard
-              </button>
-            </div>
-          </SectionCard>
-        ) : null}
-        {c.liveAudio.liveTranscript ? (
-          <SectionCard>
-            <p className="text-caption-sm font-semibold text-hs-text-secondary">Live stream</p>
-            <p className="mt-2 whitespace-pre-wrap text-body-sm text-hs-ink">{c.liveAudio.liveTranscript}</p>
-          </SectionCard>
-        ) : null}
-        <SectionCard>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-body-sm font-semibold text-hs-ink">Generate structured notes</p>
-              <p className="text-caption-sm text-hs-text-secondary">From transcript — always review before inserting.</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void c.generateAiNotes()}
-                disabled={c.isGeneratingDraft || c.formDisabled || !c.transcriptInput.trim()}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-hs-ink/90 px-4 py-2 text-caption-sm font-semibold text-white disabled:opacity-50"
-              >
-                {c.isGeneratingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Zap className="h-3.5 w-3.5" aria-hidden />}
-                {c.isGeneratingDraft ? "Generating…" : "Generate notes"}
-              </button>
-              {c.aiDraftGenerated ? (
-                <button
-                  type="button"
-                  onClick={() => void c.generateAiNotes()}
-                  disabled={c.isGeneratingDraft || c.formDisabled || !c.transcriptInput.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-hs-border/50 px-3 py-2 text-caption-sm font-semibold disabled:opacity-50"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                  Regenerate
-                </button>
-              ) : null}
-            </div>
-          </div>
-          {hasAiContent ? (
-            <div className="mt-4 space-y-3 rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/30 p-4">
-              {(
-                [
-                  ["chiefComplaints", "Chief complaints"] as const,
-                  ["emotionalState", "Emotional / mental state"] as const,
-                  ["physicalSymptoms", "Physical symptoms"] as const,
-                  ["modalities", "Modalities"] as const,
-                  ["timeline", "Timeline"] as const
-                ] as const
-              ).map(([field, label]) => (
-                <label key={field} className="block">
-                  <FieldLabel>{label}</FieldLabel>
-                  <TaField
-                    value={c.aiDraft[field]}
-                    onChange={(v) => c.setAiDraft((prev) => ({ ...prev, [field]: v }))}
-                    rows={2}
-                    disabled={c.formDisabled}
-                  />
-                </label>
-              ))}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={c.insertAiIntoNotes}
-                  disabled={c.formDisabled}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-hs-primary px-4 py-2 text-body-sm font-semibold text-white disabled:opacity-50"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden />
-                  Insert into Case Notes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    c.setAiDraft((p) => ({
-                      ...p,
-                      chiefComplaints: "",
-                      emotionalState: "",
-                      physicalSymptoms: "",
-                      modalities: "",
-                      timeline: ""
-                    }));
-                    c.setAiDraftGenerated(false);
-                  }}
-                  className="rounded-xl border border-hs-border/50 px-3 py-2 text-caption-sm font-semibold text-hs-text-secondary"
-                >
-                  Clear draft
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </SectionCard>
       </>
     ),
 
@@ -703,10 +503,39 @@ export function buildConsultationStepExtras(c: StepExtrasContext): Partial<Recor
               ) : null}
             </div>
 
+            {!c.hasPrescriptionLines && !c.skipPrescription ? (
+              <label className="mt-3 flex items-start gap-2 rounded-lg border border-hs-border/30 bg-white px-3 py-2.5 text-body-sm text-hs-ink">
+                <input
+                  type="checkbox"
+                  checked={c.skipPrescription}
+                  onChange={(e) => c.setSkipPrescription(e.target.checked)}
+                  disabled={c.busy || c.sessionEnded}
+                  className="mt-0.5 h-4 w-4 rounded border-hs-border accent-hs-primary"
+                />
+                <span>
+                  <span className="font-medium">No prescription this visit</span>
+                  <span className="mt-0.5 block text-caption-sm text-hs-text-secondary">
+                    Check only if no medicines are being prescribed today.
+                  </span>
+                </span>
+              </label>
+            ) : null}
+
+            {!c.finalizeReadiness.canFinalize && !c.sessionEnded ? (
+              <p className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200/70 bg-amber-50/50 px-3 py-2 text-caption-sm text-amber-950">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                <span>{c.finalizeReadiness.blockedReason ?? "Complete required sections above."}</span>
+              </p>
+            ) : null}
+
             <button
               type="button"
               onClick={() => void c.finalizeConsultation()}
-              disabled={c.busy || c.sessionEnded || (c.sendPrescriptionEmail && !c.notifyEmail.trim())}
+              disabled={
+                c.busy ||
+                c.sessionEnded ||
+                !c.finalizeReadiness.canFinalize
+              }
               className="mt-4 flex w-full min-h-12 items-center justify-center rounded-xl bg-hs-primary text-body-sm font-bold text-white disabled:opacity-50"
             >
               {c.busy ? (
@@ -770,6 +599,9 @@ export function buildConsultationStepExtras(c: StepExtrasContext): Partial<Recor
               <CheckCircle2 className="h-6 w-6 text-emerald-600" aria-hidden />
               <p className="text-body-sm font-bold text-emerald-900">Consultation finalized</p>
             </div>
+            {c.deliveryStatusMessage ? (
+              <p className="mt-2 text-caption-sm text-emerald-900/85">{c.deliveryStatusMessage}</p>
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-3 text-caption-sm">
               <button
                 type="button"

@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "Does it work for online consultations too?",
-    a: "Yes. Whether the patient is in your room or on a video call, you use the same chart, AI notetaker, prescription flow, and advice templates."
+    a: "Yes. Whether the patient is in your room or on a video call, you use the same chart, prescription flow, advice templates, and follow-up tools."
   },
   {
     q: "Will this replace my paper register and case files?",

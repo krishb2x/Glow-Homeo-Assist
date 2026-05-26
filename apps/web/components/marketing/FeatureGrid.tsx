@@ -2,10 +2,11 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  CalendarCheck,
   FileText,
+  MessageCircle,
   Package,
   Smartphone,
-  Sparkles,
   Stethoscope,
   TrendingUp
 } from "lucide-react";
@@ -15,7 +16,7 @@ const features = [
   {
     Icon: Stethoscope,
     title: "Consultation workspace",
-    body: "Take homeopathic cases in OPD and online with the same chart and the same steps every time. AI notes help in the background without interrupting you.",
+    body: "Take homeopathic cases in OPD and online with the same chart and the same steps every time. Structured fields for chief complaints, modalities, history, and examination.",
     tag: "In-clinic & online",
     accent: "border-hs-primary/20 bg-hs-primary/[0.03]",
     iconBg: "bg-hs-primary/[0.09] text-hs-primary ring-hs-primary/15"
@@ -29,9 +30,9 @@ const features = [
     iconBg: "bg-emerald-600/[0.08] text-emerald-700 ring-emerald-200/60"
   },
   {
-    Icon: Sparkles,
-    title: "AI notetaker",
-    body: "Records and drafts clinical notes during the consultation. You review, edit, and approve before anything is saved.",
+    Icon: CalendarCheck,
+    title: "Scheduling & follow-ups",
+    body: "Book OPD and online appointments, manage your follow-up queue, and keep continuity of care visible from one operational dashboard.",
     accent: "border-sky-200/60 bg-sky-50/25",
     iconBg: "bg-sky-500/[0.07] text-sky-700 ring-sky-200/60"
   },
@@ -41,6 +42,13 @@ const features = [
     body: "Print-ready PDFs with your name, registration, clinic details, and signature. Send to the patient app, WhatsApp, or email. Doctor and patient copies stay aligned.",
     accent: "border-amber-200/60 bg-amber-50/25",
     iconBg: "bg-amber-500/[0.08] text-amber-700 ring-amber-200/60"
+  },
+  {
+    Icon: MessageCircle,
+    title: "WhatsApp & messaging",
+    body: "Send prescriptions and clinic communications on WhatsApp and email under your practice brand — not from scattered personal numbers.",
+    accent: "border-teal-200/60 bg-teal-50/25",
+    iconBg: "bg-teal-500/[0.08] text-teal-700 ring-teal-200/60"
   },
   {
     Icon: Package,

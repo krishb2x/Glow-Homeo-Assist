@@ -4,28 +4,37 @@
 // Imports
 // ──────────────────────────────────────────────────────────────────────────
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Mic, Pause, Play, Square } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import {
   apiFetchJson,
   completeConsultation,
-  fetchConsultation,
-  fetchWorkspaceContext,
+  fetchMyDay,
   getToken,
   haProxyPath,
   patchPrescription,
+  createPrescription,
   recordCaseOutcome,
   updatePatient,
   type CaseOutcomeValue,
   type ConsultationDetail,
   type ConsultationLifecycle,
+  type MyDayResponse,
   type PendingPriorOutcome,
   type PrescriptionDocumentPrefs,
-  type WorkspaceContext
+  type WorkspaceContext,
+  endConsultationVideo
 } from "../../lib/doctor-api";
 import { friendlyLoadError } from "../../lib/friendly-error";
-import { clearLocalNoteDraft, loadLocalNoteDraft } from "../../lib/note-draft-local";
+import { clearLocalNoteDraft } from "../../lib/note-draft-local";
+import { clearLocalRxDraft } from "../../lib/consultation-rx-draft-local";
+import { prescriptionEntriesToApiItems } from "../../lib/prescription-api-items";
+import {
+  getSavedConsultationStep,
+  saveConsultationStep,
+  clearSavedConsultationStep
+} from "../../lib/consultation-step-persistence";
 import {
   buildPrescriptionDocumentHtml,
   openPrintWindow,
@@ -40,9 +49,14 @@ import {
 } from "../../lib/prescription-output-settings";
 import { setLastCase } from "../../lib/workflow-storage";
 import {
+  formatDeliveryStatusMessage,
+  loadFinalizeDeliveryStatus,
+  saveFinalizeDeliveryStatus
+} from "../../lib/finalize-delivery-status";
+import { useConsultationTabLock } from "../../lib/useConsultationTabLock";
+import {
   createAdviceTemplate,
   fetchAdviceTemplates,
-  fetchPatientTimeline,
   fetchTreatmentPlans,
   type AdviceTemplate,
   type TreatmentPlan
@@ -50,32 +64,31 @@ import {
 import { PrescriptionPreviewModal } from "../consultation/PrescriptionPreviewModal";
 import { ErrorState } from "../ui/LoadState";
 import { SkeletonCard } from "./SkeletonCard";
-import { formatRecordingTime, useConsultationLiveAudio, type NoteShape } from "./useConsultationLiveAudio";
+import { dedupeActiveVisits } from "../../lib/operational-queue";
 import {
   nextStep,
   prevStep,
   type ConsultationStep
 } from "../../lib/clinical-workflow-config";
-import { ConsultationPatientBar } from "./workflow/ConsultationPatientBar";
+import { ConsultationVisitSwitcher } from "./workflow/ConsultationVisitSwitcher";
 import { ConsultationWorkflowFooter } from "./workflow/ConsultationWorkflowFooter";
+import { ConsultationClinicalShell } from "./workflow/ConsultationClinicalShell";
+import { ConsultationStepPanel } from "./workflow/ConsultationStepPanel";
+import { ConsultationContextPanel } from "./workflow/ConsultationContextPanel";
 import { useConsultationKeyboardNav } from "./workflow/useConsultationKeyboardNav";
 import { useConsultationAutosave } from "./workflow/useConsultationAutosave";
-import { validateAllSteps, type ConsultationSnapshot } from "../../lib/consultation-validation";
-import {
-  ConsultationContinuousFeed,
-  scrollFeedToWorkflowStep
-} from "./workflow/ConsultationContinuousFeed";
-import { ConsultationProgressStrip } from "./workflow/ConsultationProgressStrip";
+import { validateAllSteps, buildFinalizeReadiness, type ConsultationSnapshot } from "../../lib/consultation-validation";
 import { buildConsultationStepExtras } from "./workflow/LiveConsultationStepExtras";
-import {
-  ConsultationWorkspaceShell,
-  type WorkspaceDrawer
-} from "./workflow/ConsultationWorkspaceShell";
 import { useConsultationWorkspaceShortcuts } from "./workflow/useConsultationWorkspaceShortcuts";
-import { AICopilotDrawer } from "./scribe/AICopilotDrawer";
 import { ScheduleFollowUpDrawer } from "./schedule/ScheduleFollowUpDrawer";
-import type { AdviceCard, AIStepStatus } from "./workflow/steps";
+import { DailyConsultationVideo } from "./video/DailyConsultationVideo";
+import type { AdviceCard } from "./workflow/steps";
 import { cn } from "../../lib/cn";
+import { consultationStepHref, stepFromQuery } from "../../lib/consultation-step-url";
+import { bootstrapConsultationSession } from "../../lib/consultation-session-bootstrap";
+import { formatSymptomsToMonitor, parseSymptomsToMonitor } from "../../lib/symptoms-monitor";
+
+type SideDrawer = "none" | "context" | "schedule";
 
 type TimingSlot = "morning" | "afternoon" | "evening" | "night";
 
@@ -130,7 +143,6 @@ type WorkspaceBranding = {
   signatureUrl: string | null;
   signatureObjectKey: string | null;
   documentPrefs: PrescriptionDocumentPrefs;
-  aiNotetakerEnabled: boolean;
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -165,15 +177,6 @@ function randomId(): string {
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function parseDifferentialHints(text: string): string[] {
-  if (!text.trim()) return [];
-  const parts = text
-    .split(/[,;\n]|(?:\s+vs\.?\s+)/i)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 1);
-  return [...new Set(parts)].slice(0, 8);
-}
-
 function emptyEntry(): PrescriptionEntry {
   return {
     id: randomId(),
@@ -206,57 +209,8 @@ function entryToLine(e: PrescriptionEntry): PrescriptionLine {
   };
 }
 
-function normalizeEntries(raw: unknown): PrescriptionEntry[] {
-  if (!Array.isArray(raw) || raw.length === 0) return [emptyEntry()];
-  const out: PrescriptionEntry[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== "object") continue;
-    const o = item as Record<string, unknown>;
-    if (o.kind === "remedy" || o.kind === "medicine") {
-      out.push({
-        id: String(o.id ?? randomId()),
-        kind: o.kind,
-        name: String(o.name ?? ""),
-        potency: String(o.potency ?? ""),
-        doseCount: String(o.doseCount ?? ""),
-        frequency: String(o.frequency ?? "twice"),
-        customFrequency: String(o.customFrequency ?? ""),
-        timingSlots: Array.isArray(o.timingSlots) ? (o.timingSlots as TimingSlot[]) : [],
-        duration: String(o.duration ?? ""),
-        instructions: String(o.instructions ?? "")
-      });
-    } else if (typeof o.remedyName === "string") {
-      out.push({
-        id: randomId(),
-        kind: "remedy",
-        name: o.remedyName,
-        potency: String(o.potency ?? ""),
-        doseCount: String(o.dosage ?? "").split(/\s+[—–-]\s+/u)[0] ?? "",
-        frequency: String(o.frequency ?? "twice"),
-        customFrequency: "",
-        timingSlots: [],
-        duration: String(o.duration ?? ""),
-        instructions: String(o.instructions ?? "")
-      });
-    }
-  }
-  return out.length > 0 ? out : [emptyEntry()];
-}
-
 function emptyDraft(): NoteDraft {
   return { chiefComplaints: "", emotionalState: "", physicalSymptoms: "", modalities: "", timeline: "" };
-}
-
-function mergeDraft(raw: unknown): NoteDraft {
-  if (!raw || typeof raw !== "object") return emptyDraft();
-  const o = raw as Record<string, unknown>;
-  return {
-    chiefComplaints: typeof o.chiefComplaints === "string" ? o.chiefComplaints : "",
-    emotionalState: typeof o.emotionalState === "string" ? o.emotionalState : "",
-    physicalSymptoms: typeof o.physicalSymptoms === "string" ? o.physicalSymptoms : "",
-    modalities: typeof o.modalities === "string" ? o.modalities : "",
-    timeline: typeof o.timeline === "string" ? o.timeline : ""
-  };
 }
 
 function emptyClinical(): ClinicalRecordState {
@@ -266,55 +220,6 @@ function emptyClinical(): ClinicalRecordState {
     history: { pastDiseases: "", medications: "", familyHistory: "", drugAllergies: "" },
     vitals: { bp: "", pulse: "", temperature: "", spO2: "" },
     adviceCards: []
-  };
-}
-
-function mergeClinical(raw: unknown): ClinicalRecordState {
-  const d = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const labsRaw = d.labs;
-  const labs = Array.isArray(labsRaw)
-    ? labsRaw.map((x) => {
-        if (!x || typeof x !== "object") return { id: randomId(), testName: "", result: "", notes: "" };
-        const l = x as Record<string, unknown>;
-        return {
-          id: typeof l.id === "string" ? l.id : randomId(),
-          testName: String(l.testName ?? ""),
-          result: String(l.result ?? ""),
-          notes: String(l.notes ?? "")
-        };
-      })
-    : [];
-  const cn = d.clinicalNotes && typeof d.clinicalNotes === "object" ? (d.clinicalNotes as Record<string, unknown>) : {};
-  const hist = d.history && typeof d.history === "object" ? (d.history as Record<string, unknown>) : {};
-  const vit = d.vitals && typeof d.vitals === "object" ? (d.vitals as Record<string, unknown>) : {};
-  const adviceRaw = Array.isArray(d.advice) ? (d.advice as Array<Record<string, unknown>>) : [];
-  const adviceCards: AdviceCard[] = adviceRaw
-    .filter((x) => x && typeof x === "object")
-    .map((x) => ({
-      id: typeof x.id === "string" ? x.id : randomId(),
-      category:
-        x.category === "lifestyle" || x.category === "restriction"
-          ? (x.category as AdviceCard["category"])
-          : "diet",
-      title: typeof x.title === "string" ? x.title : "",
-      detail: typeof x.detail === "string" ? x.detail : ""
-    }));
-  return {
-    labs,
-    clinicalNotes: { observations: String(cn.observations ?? ""), diagnosisThinking: String(cn.diagnosisThinking ?? "") },
-    history: {
-      pastDiseases: String(hist.pastDiseases ?? ""),
-      medications: String(hist.medications ?? ""),
-      familyHistory: String(hist.familyHistory ?? ""),
-      drugAllergies: String(hist.drugAllergies ?? "")
-    },
-    vitals: {
-      bp: String(vit.bp ?? ""),
-      pulse: String(vit.pulse ?? ""),
-      temperature: String(vit.temperature ?? ""),
-      spO2: String(vit.spO2 ?? "")
-    },
-    adviceCards
   };
 }
 
@@ -334,17 +239,8 @@ function mapWorkspaceBranding(w: WorkspaceContext): WorkspaceBranding {
       showClinicDetails: prefs?.showClinicDetails ?? true,
       showSignature: prefs?.showSignature ?? true,
       showRegistrationNumber: prefs?.showRegistrationNumber ?? true
-    },
-    aiNotetakerEnabled: w.features?.aiNotetaker ?? false
+    }
   };
-}
-
-function toDatetimeLocalValue(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -360,35 +256,22 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
 
-  // Navigation
-  const [activeStep, setActiveStep] = useState<ConsultationStep>("patient");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const [activeDrawer, setActiveDrawer] = useState<WorkspaceDrawer>("none");
+  const searchParams = useSearchParams();
+  const urlStepSynced = useRef(false);
 
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((v) => {
-      const next = !v;
-      try {
-        localStorage.setItem("ha_consult_sidebar_collapsed", next ? "1" : "0");
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("ha_consult_sidebar_collapsed");
-      if (stored === "0") setSidebarCollapsed(false);
-      if (stored === "1") setSidebarCollapsed(true);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  // Navigation — initial step from ?step= query or last viewed step
+  const [activeStep, setActiveStep] = useState<ConsultationStep>(() => {
+    const fromUrl = searchParams.get("step");
+    if (fromUrl) return stepFromQuery(fromUrl);
+    const saved = getSavedConsultationStep(id);
+    return saved ?? "patient";
+  });
+  const [activeDrawer, setActiveDrawer] = useState<SideDrawer>("none");
 
   // Patient
   const [patientId, setPatientId] = useState("");
+  const [patientCode, setPatientCode] = useState<string | null>(null);
+  const [visitCode, setVisitCode] = useState<string | null>(null);
   const [patientName, setPatientName] = useState("");
   const [sessionEnded, setSessionEnded] = useState(false);
   const [editingLocked, setEditingLocked] = useState(false);
@@ -417,7 +300,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     patientNotes: ""
   });
   const [patientEditOpen, setPatientEditOpen] = useState(false);
-  const feedRef = useRef<HTMLDivElement>(null);
 
   // Patient safety
   const [patientAllergies, setPatientAllergies] = useState<string | null>(null);
@@ -430,7 +312,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const [rxEntries, setRxEntries] = useState<PrescriptionEntry[]>([emptyEntry()]);
   const [prescriptionId, setPrescriptionId] = useState<string | null>(null);
   const [prevRx, setPrevRx] = useState<PrescriptionEntry[] | null>(null);
-  const [prevRxLoaded, setPrevRxLoaded] = useState(false);
   const [showPrevRx, setShowPrevRx] = useState(false);
 
   // Advice
@@ -444,10 +325,13 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const [followUpEnabled, setFollowUpEnabled] = useState(false);
   const [followUpRecommendedAt, setFollowUpRecommendedAt] = useState("");
   const [followUpNote, setFollowUpNote] = useState("");
+  const [symptomsToMonitor, setSymptomsToMonitor] = useState("");
   const [createFollowUpTask, setCreateFollowUpTask] = useState(true);
+  const [skipPrescription, setSkipPrescription] = useState(false);
 
   // Workspace / branding
   const [workspace, setWorkspace] = useState<WorkspaceBranding | null>(null);
+  const [myDay, setMyDay] = useState<MyDayResponse | null>(null);
 
   // Autosave guard — flip this immediately before performing an explicit save
   // so the debounced server autosave doesn't fire a redundant request.
@@ -468,134 +352,85 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewTitle, setPreviewTitle] = useState("Preview");
   const [previewMode, setPreviewMode] = useState<"doctor" | "patient">("patient");
+  const [deliveryStatusMessage, setDeliveryStatusMessage] = useState<string | null>(null);
 
-  // AI Notetaker state — kept separate from doctor's `draft` to prevent auto-overwrite
-  const [transcriptInput, setTranscriptInput] = useState("");
-  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
-  const [aiDraft, setAiDraft] = useState<NoteDraft & { needsReview: boolean; generatedAt: string | null }>({
-    chiefComplaints: "",
-    emotionalState: "",
-    physicalSymptoms: "",
-    modalities: "",
-    timeline: "",
-    needsReview: false,
-    generatedAt: null
-  });
-  const [aiDraftGenerated, setAiDraftGenerated] = useState(false);
+  const { blocked: tabBlocked, takeOver: takeOverTab } = useConsultationTabLock(
+    id ?? null,
+    !sessionEnded && lifecycleStatus !== "FINALIZED"
+  );
 
-  // ── Audio hook ─────────────────────────────────────────────────────────
-  // WebSocket noteDraft events â†’ populate aiDraft (NOT the doctor's draft)
-  const onLiveNoteDraft = useCallback((d: NoteShape) => {
-    setAiDraft((prev) => ({
-      chiefComplaints: d.chiefComplaints || prev.chiefComplaints,
-      emotionalState: d.emotionalState || prev.emotionalState,
-      physicalSymptoms: d.physicalSymptoms || prev.physicalSymptoms,
-      modalities: d.modalities ?? prev.modalities,
-      timeline: d.timeline || prev.timeline,
-      needsReview: d.needsReview,
-      generatedAt: prev.generatedAt
-    }));
-    // Mark as generated if there's real content
-    if (d.chiefComplaints || d.physicalSymptoms || d.emotionalState) {
-      setAiDraftGenerated(true);
+  useEffect(() => {
+    if (!id) return;
+    const saved = loadFinalizeDeliveryStatus(id);
+    if (saved) setDeliveryStatusMessage(formatDeliveryStatusMessage(saved));
+  }, [id]);
+
+  // ── Load unified consultation session ───────────────────────────────────
+  const applySession = useCallback((session: Awaited<ReturnType<typeof bootstrapConsultationSession>>) => {
+    suppressAutosave.current = true;
+    setPatientId(session.patientId);
+    setPatientCode(session.patientCode);
+    setVisitCode(session.visitCode);
+    setPatientName(session.patientName);
+    setSessionEnded(session.sessionEnded);
+    setEditingLocked(session.editingLocked);
+    setLifecycleStatus(session.lifecycleStatus ?? "ACTIVE");
+    setConsultationMode(session.consultationMode);
+    setConsultationRunning(session.consultationRunning);
+    setPatientAllergies(session.patientAllergies);
+    setCtx(session.ctx);
+    setPatientForm(session.patientForm);
+    setSendPrescriptionWhatsApp(session.sendPrescriptionWhatsApp);
+    if (session.workspace) setWorkspace(mapWorkspaceBranding(session.workspace));
+    setLastCase({
+      patientId: session.patientId,
+      consultationId: session.consultationId,
+      patientName: session.patientName,
+      visitStatus: session.sessionEnded ? "closed" : "in_progress"
+    });
+    setDraft(session.draft);
+    setClinicalRecord(session.clinicalRecord);
+    setAdvice(session.advice);
+    setFollowUpRecommendedAt(session.followUpRecommendedAt);
+    setFollowUpNote(session.followUpNote);
+    setSymptomsToMonitor(formatSymptomsToMonitor(session.symptomsToMonitor));
+    setFollowUpEnabled(session.followUpEnabled);
+    if (session.prescriptionId) {
+      setPrescriptionId(session.prescriptionId);
+      setRxEntries(session.rxEntries);
+    } else {
+      setPrescriptionId(null);
+      setRxEntries(session.rxEntries);
+    }
+    setPrevRx(session.prevRx);
+    setPendingPriorOutcome(session.pendingPriorOutcome ?? null);
+    setLastCaseOutcome(session.lastCaseOutcome);
+    setPriorOutcomeSaved(!session.pendingPriorOutcome);
+    setPriorOutcomeValue("");
+    setPriorOutcomeAssessment("");
+    setAdviceTemplates(session.adviceTemplates);
+    setTreatmentPlans(session.treatmentPlans);
+    if (session.myDay) setMyDay(session.myDay);
+    if (session.consultationMode === "ONLINE") {
+      setActiveDrawer("context");
     }
   }, []);
 
-  const liveAudio = useConsultationLiveAudio(id, {
-    sessionOpen: consultationRunning,
-    onTranscript: setTranscriptInput,
-    onNoteDraft: onLiveNoteDraft
-  });
-
-  // ── Load ───────────────────────────────────────────────────────────────
   const reload = useCallback(() => {
     void (async () => {
       if (!getToken()) return;
       setLoading(true);
       setLoadError(null);
       try {
-        const [c, w] = await Promise.all([
-          fetchConsultation(id),
-          fetchWorkspaceContext().catch(() => null)
-        ]);
-        suppressAutosave.current = true;
-        const cd = c as ConsultationDetail & Record<string, unknown>;
-        setPatientId(cd.patientId);
-        setPatientName(cd.patientName);
-        setSessionEnded(Boolean(cd.endedAt));
-        setEditingLocked(Boolean(cd.editingLocked));
-        setLifecycleStatus((cd.lifecycleStatus as ConsultationLifecycle) ?? "ACTIVE");
-        setConsultationMode((cd.consultationMode as "IN_CLINIC" | "ONLINE") ?? "IN_CLINIC");
-        setConsultationRunning(!cd.endedAt);
-        setPatientAllergies((cd.patientAllergies as string | null | undefined) ?? null);
-        const patNotes = cd.patientNotes as string | null | undefined;
-        setCtx({
-          lastVisitAt: cd.lastVisitAt ?? null,
-          patientAge: cd.patientAge ?? null,
-          patientGender: cd.patientGender ?? null,
-          patientPhone: cd.patientPhone ?? null,
-          patientAddress: cd.patientAddress ?? null,
-          patientNotes: patNotes ?? null,
-          patientInitialComplaint: cd.patientInitialComplaint ?? null,
-          complexity: cd.complexity ?? "STANDARD",
-          consultationType: cd.type ?? "INITIAL",
-          startedAt: cd.startedAt
-        });
-        setPatientForm({
-          name: cd.patientName,
-          age: cd.patientAge != null ? String(cd.patientAge) : "",
-          gender: cd.patientGender ?? "",
-          phone: cd.patientPhone ?? "",
-          address: cd.patientAddress ?? "",
-          initialChiefComplaint: cd.patientInitialComplaint ?? "",
-          patientNotes: patNotes ?? ""
-        });
-        setSendPrescriptionWhatsApp(Boolean(cd.patientPhone?.trim()));
-        if (w) setWorkspace(mapWorkspaceBranding(w));
-        setLastCase({
-          patientId: cd.patientId,
-          consultationId: id,
-          patientName: cd.patientName,
-          visitStatus: cd.endedAt ? "closed" : "in_progress"
-        });
-        if (cd.transcriptText) setTranscriptInput(String(cd.transcriptText));
-        let d = mergeDraft(cd.noteDraft);
-        const local = loadLocalNoteDraft(id);
-        if (local) {
-          const pick = (server: string, loc: string) => (loc.trim().length > server.trim().length ? loc : server);
-          d = {
-            chiefComplaints: pick(d.chiefComplaints, local.chiefComplaints),
-            emotionalState: pick(d.emotionalState, local.emotionalState),
-            physicalSymptoms: pick(d.physicalSymptoms, local.physicalSymptoms),
-            modalities: pick(d.modalities, local.modalities),
-            timeline: pick(d.timeline, local.timeline)
-          };
-        }
-        setDraft(d);
-        setClinicalRecord(mergeClinical(cd.clinicalRecord));
-        const adv = cd.advice as Record<string, unknown> | null | undefined;
-        setAdvice({ diet: String(adv?.diet ?? ""), lifestyle: String(adv?.lifestyle ?? "") });
-        const fuAt = cd.followUpRecommendedAt as string | null | undefined;
-        const fuNote = cd.followUpNote as string | null | undefined;
-        setFollowUpRecommendedAt(toDatetimeLocalValue(fuAt));
-        setFollowUpNote(fuNote ?? "");
-        setFollowUpEnabled(Boolean(fuAt));
-        if (cd.prescription?.items) {
-          setPrescriptionId(cd.prescription.id);
-          setRxEntries(normalizeEntries(cd.prescription.items));
-        }
-        setPendingPriorOutcome(cd.pendingPriorOutcome ?? null);
-        setLastCaseOutcome(cd.lastCaseOutcome ?? null);
-        setPriorOutcomeSaved(!cd.pendingPriorOutcome);
-        setPriorOutcomeValue("");
-        setPriorOutcomeAssessment("");
+        const session = await bootstrapConsultationSession(id);
+        applySession(session);
       } catch (e) {
         setLoadError(e);
       } finally {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, applySession]);
 
   useEffect(() => {
     if (!getToken()) {
@@ -603,13 +438,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       return;
     }
     reload();
-    void Promise.all([
-      fetchAdviceTemplates().catch(() => [] as AdviceTemplate[]),
-      fetchTreatmentPlans().catch(() => [] as TreatmentPlan[])
-    ]).then(([templates, plans]) => {
-      setAdviceTemplates(templates);
-      setTreatmentPlans(plans);
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -620,9 +448,39 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     };
   }, []);
 
+  // Operational queue — lightweight refresh while in consult (session data stays cached).
+  useEffect(() => {
+    if (!getToken()) return;
+    const refresh = (): void => {
+      void fetchMyDay(1).then(setMyDay).catch(() => {});
+    };
+    refresh();
+    const onVis = (): void => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    const t = setInterval(refresh, 60_000);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [id]);
+
+  const activeVisits = useMemo(
+    () =>
+      myDay
+        ? dedupeActiveVisits(
+            myDay.activeConsultations?.inClinic ?? [],
+            myDay.activeConsultations?.online ?? []
+          )
+        : [],
+    [myDay]
+  );
+
   // ── Autosave (extracted to dedicated hook) ─────────────────────────────
-  const { localSave, serverSave } = useConsultationAutosave({
+  const { localSave, serverSave, saveError } = useConsultationAutosave({
     consultationId: id,
+    patientId,
     loading,
     draft,
     clinicalRecord,
@@ -630,6 +488,10 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     followUpEnabled,
     followUpRecommendedAt,
     followUpNote,
+    symptomsToMonitor: parseSymptomsToMonitor(symptomsToMonitor),
+    rxEntries,
+    prescriptionId,
+    onPrescriptionCreated: setPrescriptionId,
     paused: editingLocked && sessionEnded,
     suppressNext: suppressAutosave
   });
@@ -640,14 +502,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     const t = setTimeout(() => setStatusMsg(""), 3500);
     return () => clearTimeout(t);
   }, [statusMsg]);
-
-  // ── Lazy-load previous prescription on first visit to that step ────────
-  useEffect(() => {
-    if (activeStep === "prescription" && !prevRxLoaded && patientId) {
-      void loadPrevRx();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeStep, patientId]);
 
   const formDisabled = editingLocked && sessionEnded;
 
@@ -694,77 +548,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     }
   }
 
-  async function loadPrevRx(): Promise<void> {
-    if (prevRxLoaded || !patientId) return;
-    setPrevRxLoaded(true);
-    try {
-      const timeline = await fetchPatientTimeline(patientId);
-      const rxEvents = timeline.events
-        .filter((e) => e.kind === "prescription")
-        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-      const latest = rxEvents[0];
-      if (latest && latest.kind === "prescription" && Array.isArray(latest.items) && latest.items.length > 0) {
-        // Map the old simple items format into PrescriptionEntry
-        const entries: PrescriptionEntry[] = latest.items.map((item) => ({
-          ...emptyEntry(),
-          id: randomId(),
-          kind: "remedy" as const,
-          name: item.remedy || item.code || "",
-          instructions: item.dosage || ""
-        }));
-        setPrevRx(entries);
-      } else {
-        setPrevRx([]);
-      }
-    } catch {
-      setPrevRx([]);
-    }
-  }
-
-  async function generateAiNotes(): Promise<void> {
-    if (!id) return;
-    setIsGeneratingDraft(true);
-    try {
-      const data = await apiFetchJson<{
-        aiReady: boolean;
-        transcriptSaved: boolean;
-        noteDraft: Record<string, unknown> | null;
-        message: string;
-      }>(
-        haProxyPath(`doctor/consultations/${id}/generate-draft`),
-        {
-          method: "POST",
-          body: JSON.stringify({
-            transcriptText: transcriptInput || "",
-            transcriptLanguage: "mixed-hi-en",
-            transcriptConfidence: 0.85
-          })
-        }
-      );
-
-      if (data?.aiReady && data.noteDraft) {
-        const nd = data.noteDraft;
-        setAiDraft({
-          chiefComplaints: String(nd.chiefComplaints ?? ""),
-          emotionalState: String(nd.emotionalState ?? ""),
-          physicalSymptoms: String(nd.physicalSymptoms ?? ""),
-          modalities: String(nd.modalities ?? ""),
-          timeline: String(nd.timeline ?? ""),
-          needsReview: Boolean(nd.needsReview ?? true),
-          generatedAt: new Date().toISOString()
-        });
-        setAiDraftGenerated(true);
-        setStatusMsg("AI notes generated — review before inserting into case notes.");
-      } else {
-        setStatusMsg(data?.message ?? "Transcript saved. AI not yet available.");
-      }
-    } catch (e) {
-      setStatusMsg(friendlyLoadError(e));
-    } finally {
-      setIsGeneratingDraft(false);
-    }
-  }
-
   async function savePriorOutcome(): Promise<void> {
     if (!pendingPriorOutcome || !patientId || !priorOutcomeValue) return;
     await recordCaseOutcome({
@@ -780,6 +563,11 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   async function finalizeConsultation(): Promise<void> {
     if (!id || !patientId) return;
+    if (!finalizeReadiness.canFinalize) {
+      setStatusMsg(finalizeReadiness.blockedReason ?? "Complete required sections before finalizing.");
+      return;
+    }
+    suppressAutosave.current = true;
     setBusy(true);
     try {
       await apiFetchJson(haProxyPath(`doctor/consultations/${id}/finalize-note`), {
@@ -787,15 +575,13 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         body: JSON.stringify({ ...draft })
       });
       clearLocalNoteDraft(id);
-      const completePrescription = rxEntries.filter((e) => e.name.trim().length > 0);
-      if (completePrescription.length > 0) {
+      clearLocalRxDraft(id);
+      const rxItems = prescriptionEntriesToApiItems(rxEntries);
+      if (!skipPrescription && rxItems.length > 0) {
         if (prescriptionId) {
-          await patchPrescription(prescriptionId, completePrescription as unknown[]);
+          await patchPrescription(prescriptionId, rxItems);
         } else {
-          const pr = await apiFetchJson<{ id: string }>(haProxyPath("doctor/prescriptions"), {
-            method: "POST",
-            body: JSON.stringify({ patientId, consultationId: id, items: completePrescription })
-          });
+          const pr = await createPrescription({ patientId, consultationId: id, items: rxItems });
           if (pr?.id) setPrescriptionId(pr.id);
         }
       }
@@ -808,9 +594,14 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         lockEditing: lockAfterFinalize,
         followUpRecommendedAt: fuIso,
         followUpNote: followUpNote || null,
+        symptomsToMonitor: parseSymptomsToMonitor(symptomsToMonitor),
         createFollowUp:
           createFollowUpTask && fuIso
-            ? { dueAt: fuIso, reason: followUpNote.trim() || "Follow-up visit" }
+            ? {
+                dueAt: fuIso,
+                reason: followUpNote.trim() || "Follow-up visit",
+                symptomsToMonitor: parseSymptomsToMonitor(symptomsToMonitor)
+              }
             : undefined,
         distribute: {
           sendEmail: sendPrescriptionEmail,
@@ -819,27 +610,33 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         }
       });
       if (r?.ok) {
+        if (consultationMode === "ONLINE") {
+          void endConsultationVideo(id, "consultation_finalized").catch(() => undefined);
+        }
         setSessionEnded(true);
         setConsultationRunning(false);
         setLifecycleStatus("FINALIZED");
         if (lockAfterFinalize) setEditingLocked(true);
         const dist = r.distribution;
         if (dist?.pdfReady) {
-          const parts: string[] = ["Prescription saved."];
-          if (dist.whatsapp === "sent") parts.push("WhatsApp sent.");
-          else if (dist.whatsapp === "failed") parts.push("WhatsApp failed.");
-          else if (dist.whatsapp === "skipped" && sendPrescriptionWhatsApp) {
-            parts.push(dist.whatsappDetail ?? "WhatsApp skipped.");
-          }
-          if (dist.email === "sent") parts.push("Email sent.");
-          else if (dist.email === "failed") parts.push("Email failed.");
-          else if (dist.email === "skipped" && sendPrescriptionEmail) {
-            parts.push(dist.emailDetail ?? "Email skipped.");
-          }
-          setStatusMsg(parts.join(" "));
+          const status = {
+            consultationId: id,
+            finalizedAt: new Date().toISOString(),
+            pdfReady: true,
+            whatsapp: dist.whatsapp ?? null,
+            whatsappDetail: dist.whatsappDetail ?? null,
+            email: dist.email ?? null,
+            emailDetail: dist.emailDetail ?? null
+          };
+          saveFinalizeDeliveryStatus(status);
+          const msg = formatDeliveryStatusMessage(status);
+          setDeliveryStatusMessage(msg);
+          setStatusMsg(msg);
         } else {
           setStatusMsg("Consultation finalized.");
         }
+        clearSavedConsultationStep(id);
+        clearLocalRxDraft(id);
         setActiveDrawer("schedule");
         reload();
       }
@@ -888,8 +685,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         enabled: followUpEnabled,
         recommendedAt: followUpRecommendedAt || null
       },
-      finalize: { sessionEnded, lifecycleStatus },
-      aiTranscript: transcriptInput
+      finalize: { sessionEnded, lifecycleStatus }
     }),
     [
       patientForm.initialChiefComplaint,
@@ -901,12 +697,31 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       followUpEnabled,
       followUpRecommendedAt,
       sessionEnded,
-      lifecycleStatus,
-      transcriptInput
+      lifecycleStatus
     ]
   );
 
   const stepValidations = useMemo(() => validateAllSteps(consultationSnapshot), [consultationSnapshot]);
+
+  const finalizeReadiness = useMemo(
+    () =>
+      buildFinalizeReadiness({
+        validations: stepValidations,
+        skipPrescription,
+        pendingPriorOutcome: Boolean(pendingPriorOutcome),
+        priorOutcomeSaved,
+        sendPrescriptionEmail,
+        notifyEmail
+      }),
+    [
+      stepValidations,
+      skipPrescription,
+      pendingPriorOutcome,
+      priorOutcomeSaved,
+      sendPrescriptionEmail,
+      notifyEmail
+    ]
+  );
 
   const stepDone: Record<ConsultationStep, boolean> = useMemo(
     () => ({
@@ -925,18 +740,43 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
 
   const autosaveLabel =
-    serverSave === "saving"
-      ? "Syncing…"
-      : serverSave === "saved"
-        ? "Synced"
-        : localSave === "saved"
-          ? "Draft saved"
-          : "";
+    serverSave === "error"
+      ? saveError ?? "Sync failed"
+      : serverSave === "saving"
+        ? "Syncing…"
+        : serverSave === "saved"
+          ? "Synced"
+          : localSave === "saved"
+            ? "Draft saved locally"
+            : "";
 
-  const selectStep = useCallback((step: ConsultationStep) => {
-    setActiveStep(step);
-    scrollFeedToWorkflowStep(feedRef.current, step);
-  }, []);
+  const selectStep = useCallback(
+    (step: ConsultationStep) => {
+      const normalized = step === "ai" ? "notes" : step;
+      setActiveStep(normalized);
+      saveConsultationStep(id, normalized);
+      const href = consultationStepHref(id, normalized);
+      if (typeof window !== "undefined" && window.location.pathname + window.location.search !== href) {
+        router.replace(href, { scroll: false });
+      }
+    },
+    [id, router]
+  );
+
+  // Sync step when user navigates with browser back/forward
+  useEffect(() => {
+    const fromUrl = stepFromQuery(searchParams.get("step"));
+    setActiveStep((prev) => (prev === fromUrl ? prev : fromUrl));
+  }, [searchParams]);
+
+  // After first load, ensure URL reflects the active step (bookmarkable)
+  useEffect(() => {
+    if (loading || loadError || urlStepSynced.current) return;
+    urlStepSynced.current = true;
+    if (!searchParams.get("step")) {
+      router.replace(consultationStepHref(id, activeStep), { scroll: false });
+    }
+  }, [loading, loadError, searchParams, id, activeStep, router]);
 
   const goNextStep = useCallback(() => {
     const n = nextStep(activeStep);
@@ -950,69 +790,14 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   useConsultationKeyboardNav(goPrevStep, goNextStep, !loading && !loadError && !sessionEnded);
 
-  const toggleRecording = useCallback(() => {
-    if (!workspace?.aiNotetakerEnabled || !consultationRunning || sessionEnded || formDisabled) return;
-    if (liveAudio.phase === "recording") liveAudio.pauseRecording();
-    else if (liveAudio.phase === "paused") liveAudio.resumeRecording();
-    else void liveAudio.startRecording();
-  }, [workspace?.aiNotetakerEnabled, consultationRunning, sessionEnded, formDisabled, liveAudio]);
-
   useConsultationWorkspaceShortcuts({
     enabled: !loading && !loadError,
-    onToggleAiDrawer: () => setActiveDrawer((d) => (d === "ai" ? "none" : "ai")),
-    onToggleRecording: toggleRecording,
     onFinalize: () => {
-      if (!sessionEnded && activeStep === "finalize") void finalizeConsultation();
-    },
-    recordingEnabled: Boolean(workspace?.aiNotetakerEnabled && consultationRunning && !sessionEnded)
+      if (!sessionEnded && activeStep === "finalize" && finalizeReadiness.canFinalize) {
+        void finalizeConsultation();
+      }
+    }
   });
-
-  const differentialHints = useMemo(
-    () => parseDifferentialHints(clinicalRecord.clinicalNotes.diagnosisThinking),
-    [clinicalRecord.clinicalNotes.diagnosisThinking]
-  );
-
-  // Re-scroll after data finishes loading so the initially selected step lines up
-  // under the sticky strip. Step changes inside the session are already handled by
-  // `selectStep`, so we don't add `activeStep` to the deps (avoids double scroll
-  // and double-render-induced jank).
-  useEffect(() => {
-    if (loading || loadError) return;
-    scrollFeedToWorkflowStep(feedRef.current, activeStep);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, loadError]);
-
-  const insertAiIntoNotes = useCallback(() => {
-    setDraft((prev) => ({
-      chiefComplaints: aiDraft.chiefComplaints
-        ? prev.chiefComplaints
-          ? `${prev.chiefComplaints}\n\n${aiDraft.chiefComplaints}`
-          : aiDraft.chiefComplaints
-        : prev.chiefComplaints,
-      emotionalState: aiDraft.emotionalState
-        ? prev.emotionalState
-          ? `${prev.emotionalState}\n\n${aiDraft.emotionalState}`
-          : aiDraft.emotionalState
-        : prev.emotionalState,
-      physicalSymptoms: aiDraft.physicalSymptoms
-        ? prev.physicalSymptoms
-          ? `${prev.physicalSymptoms}\n\n${aiDraft.physicalSymptoms}`
-          : aiDraft.physicalSymptoms
-        : prev.physicalSymptoms,
-      modalities: aiDraft.modalities
-        ? prev.modalities
-          ? `${prev.modalities}\n\n${aiDraft.modalities}`
-          : aiDraft.modalities
-        : prev.modalities,
-      timeline: aiDraft.timeline
-        ? prev.timeline
-          ? `${prev.timeline}\n\n${aiDraft.timeline}`
-          : aiDraft.timeline
-        : prev.timeline
-    }));
-    setStatusMsg("AI notes merged into Case Notes — review and edit them there.");
-    selectStep("notes");
-  }, [aiDraft, selectStep]);
 
   const applyAdviceTemplate = useCallback((t: AdviceTemplate) => {
     if (t.category === "diet" || t.category === "restriction") {
@@ -1055,14 +840,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     setNewTemplate(null);
   }, [newTemplate]);
 
-  const aiStepStatus: AIStepStatus = useMemo(() => {
-    if (isGeneratingDraft) return "processing";
-    if (liveAudio.phase === "recording") return "recording";
-    if (liveAudio.phase === "paused") return "paused";
-    if (aiDraftGenerated) return "ready";
-    return "idle";
-  }, [isGeneratingDraft, liveAudio.phase, aiDraftGenerated]);
-
   const adviceCards = useMemo((): AdviceCard[] => {
     if (clinicalRecord.adviceCards.length > 0) return clinicalRecord.adviceCards;
     const cards: AdviceCard[] = [];
@@ -1092,6 +869,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const patientSnapshot = useMemo(
     () => ({
       name: patientName || "Patient",
+      patientCode,
       age: ctx?.patientAge ?? null,
       gender: ctx?.patientGender ?? null,
       phone: ctx?.patientPhone ?? null,
@@ -1100,7 +878,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       lastVisitAt: ctx?.lastVisitAt ?? null,
       chiefComplaint: ctx?.patientInitialComplaint ?? null
     }),
-    [patientName, ctx, patientAllergies]
+    [patientName, patientCode, ctx, patientAllergies]
   );
 
   const patientStepValue = useMemo(
@@ -1153,29 +931,46 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       enabled: followUpEnabled,
       recommendedAt: followUpRecommendedAt,
       reason: followUpNote,
-      symptomsToMonitor: ""
+      symptomsToMonitor
     }),
-    [followUpEnabled, followUpRecommendedAt, followUpNote]
+    [followUpEnabled, followUpRecommendedAt, followUpNote, symptomsToMonitor]
   );
 
   const finalizeItems = useMemo(
     () =>
       (
         [
-          { id: "patient", label: "Chief complaint", step: "patient" as ConsultationStep },
-          { id: "history", label: "History captured", step: "history" as ConsultationStep },
-          { id: "examination", label: "Examination notes", step: "examination" as ConsultationStep },
-          { id: "notes", label: "Case notes", step: "notes" as ConsultationStep },
-          { id: "prescription", label: "Prescription", step: "prescription" as ConsultationStep },
-          { id: "advice", label: "Advice for patient", step: "advice" as ConsultationStep }
+          { id: "patient", label: "Chief complaint", step: "patient" as ConsultationStep, required: true },
+          { id: "history", label: "History captured", step: "history" as ConsultationStep, required: false },
+          { id: "examination", label: "Examination notes", step: "examination" as ConsultationStep, required: false },
+          { id: "notes", label: "Clinical assessment", step: "notes" as ConsultationStep, required: true },
+          {
+            id: "prescription",
+            label: skipPrescription ? "Prescription (skipped)" : "Prescription",
+            step: "prescription" as ConsultationStep,
+            required: !skipPrescription
+          },
+          { id: "advice", label: "Advice for patient", step: "advice" as ConsultationStep, required: false }
         ] as const
-      ).map(({ id, label, step }) => ({
-        id,
-        label,
-        status: stepDone[step] ? ("done" as const) : ("missing" as const),
-        hint: stepDone[step] ? undefined : "Complete this section before finalizing"
-      })),
-    [stepDone]
+      ).map(({ id, label, step, required }) => {
+        const done = stepDone[step];
+        const skipped = id === "prescription" && skipPrescription;
+        return {
+          id,
+          label,
+          step,
+          status: skipped || done ? ("done" as const) : required ? ("missing" as const) : ("warn" as const),
+          hint:
+            skipped
+              ? "No medicines prescribed this visit"
+              : done
+                ? undefined
+                : required
+                  ? "Required before finalizing"
+                  : "Recommended — optional"
+        };
+      }),
+    [stepDone, skipPrescription]
   );
 
   const stepExtras = useMemo(
@@ -1203,17 +998,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         setPriorOutcomeValue,
         setPriorOutcomeAssessment,
         savePriorOutcome,
-        aiDraftGenerated,
-        aiDraft,
-        setActiveStep: selectStep,
-        transcriptInput,
-        setTranscriptInput,
-        isGeneratingDraft,
-        generateAiNotes,
-        setAiDraft,
-        setAiDraftGenerated,
-        insertAiIntoNotes,
-        liveAudio,
         prevRx,
         showPrevRx,
         setShowPrevRx,
@@ -1242,15 +1026,18 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         notifyEmail,
         setNotifyEmail,
         patientHasPhone: Boolean(ctx?.patientPhone?.trim()),
+        skipPrescription,
+        setSkipPrescription,
+        hasPrescriptionLines: completePrescriptionLines.length > 0,
+        finalizeReadiness,
         finalizeConsultation,
+        deliveryStatusMessage,
         rxOutPrefs,
         setRxOutPrefs: (prefs) => setRxOutPrefs(setPrescriptionOutputPrefs(prefs)),
         openPreview
       }),
-    // We deliberately exclude function expressions (`savePatient`, `generateAiNotes`,
-    // `insertAiIntoNotes`, `finalizeConsultation`, `openPreview`, `savePriorOutcome`)
-    // because they are re-created every render and would force `stepExtras` to be
-    // rebuilt on every keystroke. Their *inputs* are tracked, which is what matters.
+    // We deliberately exclude function expressions (`savePatient`, `finalizeConsultation`,
+    // `openPreview`, `savePriorOutcome`) because they are re-created every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       formDisabled,
@@ -1269,12 +1056,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       priorOutcomeSaved,
       priorOutcomeValue,
       priorOutcomeAssessment,
-      aiDraftGenerated,
-      aiDraft,
       selectStep,
-      transcriptInput,
-      isGeneratingDraft,
-      liveAudio,
       prevRx,
       showPrevRx,
       advice,
@@ -1291,6 +1073,9 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       sendPrescriptionWhatsApp,
       sendPrescriptionEmail,
       notifyEmail,
+      skipPrescription,
+      finalizeReadiness,
+      completePrescriptionLines.length,
       rxOutPrefs
     ]
   );
@@ -1351,6 +1136,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       setFollowUpEnabled(v.enabled);
       setFollowUpRecommendedAt(v.recommendedAt);
       setFollowUpNote(v.reason);
+      setSymptomsToMonitor(v.symptomsToMonitor);
     },
     []
   );
@@ -1373,7 +1159,10 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       patientName: patientName || "Patient",
       patientAge: ctx?.patientAge ?? null,
       patientGender: ctx?.patientGender ?? null,
-      patientCode: patientId || null,
+      patientCode: patientCode ?? null,
+      visitCode: visitCode ?? null,
+      followUpNote: followUpEnabled ? followUpNote : null,
+      symptomsToMonitor: parseSymptomsToMonitor(symptomsToMonitor),
       doctorSignatureLine: dn.toLowerCase().startsWith("dr.") ? dn : `Dr. ${dn}`,
       followUpDateLabel:
         followUpEnabled && followUpRecommendedAt
@@ -1450,134 +1239,102 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     );
   }
 
-  const LIFECYCLE_COLORS: Record<string, string> = {
-    FINALIZED: "border-emerald-300/70 bg-emerald-50 text-emerald-900",
-    REVIEWING: "border-amber-300/70 bg-amber-50 text-amber-900",
-    ACTIVE: "border-hs-primary/30 bg-hs-primary-very-light text-hs-primary",
-    DRAFT: "border-hs-border/50 bg-hs-cream text-hs-text-secondary"
-  };
+  if (tabBlocked) {
+    return (
+      <div className="mx-auto max-w-lg space-y-4 p-6 text-center">
+        <AlertTriangle className="mx-auto h-10 w-10 text-amber-600" aria-hidden />
+        <h1 className="font-heading text-lg font-semibold text-hs-ink">This visit is open elsewhere</h1>
+        <p className="text-body-sm text-hs-text-secondary">
+          To protect autosave and avoid conflicting edits, only one browser tab should chart this
+          consultation at a time.
+        </p>
+        <button
+          type="button"
+          onClick={takeOverTab}
+          className="rounded-full bg-hs-primary px-5 py-2.5 text-body-sm font-semibold text-white"
+        >
+          Continue in this tab
+        </button>
+      </div>
+    );
+  }
+
+  const normalizedStep = activeStep === "ai" ? "notes" : activeStep;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-hs-surface">
-      <header className="flex shrink-0 items-center gap-2 border-b border-hs-border/50 bg-hs-paper px-3 py-2 sm:gap-3 sm:px-4">
-        <Link
-          href="/consultation"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-hs-border/50 bg-hs-cream/60 px-2.5 py-1.5 text-caption-sm font-semibold text-hs-ink transition hover:border-hs-primary/30"
-          aria-label="Back to consultation hub"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-          <span className="hidden sm:inline">Hub</span>
-        </Link>
-
-        <span
-          className={cn(
-            "rounded-full border px-2 py-0.5 text-caption-sm font-medium",
-            LIFECYCLE_COLORS[lifecycleStatus] ?? "border-hs-border/50 bg-hs-cream text-hs-text-secondary"
-          )}
-        >
-          {lifecycleStatus.charAt(0) + lifecycleStatus.slice(1).toLowerCase()}
-        </span>
-
-        <div className="flex-1" />
-
-        {!sessionEnded && workspace?.aiNotetakerEnabled ? (
-          <div className="flex shrink-0 items-center gap-1.5">
-            {liveAudio.phase === "recording" ? (
-              <>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/70 bg-rose-50 px-2.5 py-1 text-caption-sm font-bold text-rose-700">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" aria-hidden />
-                  {formatRecordingTime(liveAudio.elapsedSeconds)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => liveAudio.pauseRecording()}
-                  className="inline-flex items-center gap-1 rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1.5 text-caption-sm font-semibold text-amber-800 transition hover:bg-amber-100"
-                  aria-label="Pause recording"
-                >
-                  <Pause className="h-3 w-3" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => liveAudio.stopRecording()}
-                  className="inline-flex items-center gap-1 rounded-full border border-rose-300/80 bg-rose-50 px-2.5 py-1.5 text-caption-sm font-bold text-rose-800 transition hover:bg-rose-100"
-                  aria-label="Stop recording"
-                >
-                  <Square className="h-3 w-3" aria-hidden />
-                </button>
-              </>
-            ) : liveAudio.phase === "paused" ? (
-              <>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-caption-sm font-bold text-amber-700">
-                  <Pause className="h-3 w-3" aria-hidden />
-                  {formatRecordingTime(liveAudio.elapsedSeconds)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => liveAudio.resumeRecording()}
-                  className="inline-flex items-center gap-1 rounded-full bg-hs-primary px-2.5 py-1.5 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
-                >
-                  <Play className="h-3 w-3" aria-hidden />
-                  <span className="hidden sm:inline">Resume</span>
-                </button>
-              </>
-            ) : consultationRunning ? (
-              <button
-                type="button"
-                onClick={() => void liveAudio.startRecording()}
-                disabled={liveAudio.busy || formDisabled}
-                className="inline-flex items-center gap-1.5 rounded-full border border-hs-primary/35 bg-hs-primary-very-light px-3 py-1.5 text-caption-sm font-semibold text-hs-primary shadow-sm transition hover:bg-hs-primary/15 disabled:opacity-60"
-              >
-                <Mic className="h-3.5 w-3.5" aria-hidden />
-                <span className="hidden sm:inline">{liveAudio.busy ? "Starting…" : "Record"}</span>
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </header>
-
-      {patientId && ctx ? (
-        <ConsultationPatientBar
-          patientId={patientId}
-          patientName={patientName}
-          age={ctx.patientAge}
-          gender={ctx.patientGender}
-          phone={ctx.patientPhone}
-          allergies={patientAllergies}
-          visitType={ctx.consultationType}
-          lastVisitAt={ctx.lastVisitAt}
-          lastCaseOutcome={lastCaseOutcome}
-          consultationMode={consultationMode}
-        />
-      ) : null}
-
-      <ConsultationWorkspaceShell
-        mode={consultationMode}
-        patientId={patientId}
-        consultationId={id}
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <ConsultationClinicalShell
         activeStep={activeStep}
         stepDone={stepDone}
-        sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={toggleSidebar}
         onSelectStep={selectStep}
-        activeDrawer={activeDrawer}
-        onActiveDrawerChange={setActiveDrawer}
-        aiEnabled={Boolean(workspace?.aiNotetakerEnabled)}
-        progressStrip={
-          <ConsultationProgressStrip
-            activeStep={activeStep}
-            validations={stepValidations}
-            onSelectStep={selectStep}
-            autosave={serverSave}
-            autosaveLabel={autosaveLabel}
-          />
+        patientLine={
+          patientId ? (
+            <>
+              <span className="truncate text-[0.9375rem] font-semibold text-neutral-900">
+                {patientName || patientForm.name || "Patient"}
+              </span>
+              <span className="text-[0.75rem] text-neutral-500">
+                {[
+                  ctx?.patientAge != null
+                    ? `${ctx.patientAge} yrs`
+                    : patientForm.age
+                      ? `${patientForm.age} yrs`
+                      : null,
+                  ctx?.patientGender ?? patientForm.gender ?? null,
+                  consultationMode === "ONLINE" ? "Online" : "In-clinic",
+                  ctx?.consultationType === "FOLLOW_UP" ? "Follow-up" : ctx ? "Initial" : null
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+              {(patientForm.initialChiefComplaint || ctx?.patientInitialComplaint)?.trim() ? (
+                <span className="hidden max-w-[16rem] truncate text-[0.75rem] text-neutral-400 xl:inline">
+                  {(patientForm.initialChiefComplaint || ctx?.patientInitialComplaint)?.trim()}
+                </span>
+              ) : null}
+              {(patientCode || visitCode) && (
+                <span className="font-mono text-[0.6875rem] font-medium text-hs-primary/90">
+                  {[patientCode, visitCode].filter(Boolean).join(" · ")}
+                </span>
+              )}
+              {(ctx?.patientPhone ?? patientForm.phone)?.trim() ? (
+                <a
+                  href={`tel:${(ctx?.patientPhone ?? patientForm.phone)!.replace(/\s/g, "")}`}
+                  className="hidden text-[0.75rem] font-medium text-hs-primary hover:underline lg:inline"
+                >
+                  {(ctx?.patientPhone ?? patientForm.phone)!.trim()}
+                </a>
+              ) : null}
+              <ConsultationVisitSwitcher visits={activeVisits} currentConsultationId={id} />
+            </>
+          ) : loading ? (
+            <span className="text-[0.8125rem] text-neutral-400">Loading visit…</span>
+          ) : (
+            <span className="text-[0.8125rem] text-neutral-400">Patient unavailable</span>
+          )
         }
-        center={
-          <ConsultationContinuousFeed
-            ref={feedRef}
+        safetyBadge={
+          patientAllergies?.trim() ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50/90 px-2 py-0.5 text-[0.6875rem] font-medium text-amber-900 ring-1 ring-amber-200/50">
+              <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+              {patientAllergies.length > 48 ? `${patientAllergies.slice(0, 48)}…` : patientAllergies}
+            </span>
+          ) : null
+        }
+        autosave={serverSave}
+        autosaveLabel={autosaveLabel || undefined}
+        contextOpen={activeDrawer === "context"}
+        scheduleDrawerOpen={activeDrawer === "schedule"}
+        onToggleContext={() =>
+          setActiveDrawer((d) => (d === "context" ? "none" : "context"))
+        }
+        onCloseDrawer={() => setActiveDrawer("none")}
+        stepPanel={
+          <ConsultationStepPanel
             activeStep={activeStep}
             readOnly={formDisabled}
-            stepValidations={stepValidations}
-            stepExtras={stepExtras}
+            validation={stepValidations[normalizedStep]}
+            extra={stepExtras?.[normalizedStep]}
             patient={patientSnapshot}
             patientStep={patientStepValue}
             onPatientStepChange={onPatientStepChange}
@@ -1587,18 +1344,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             onExaminationStepChange={onExaminationStepChange}
             notesStep={notesStepValue}
             onNotesStepChange={onNotesStepChange}
-            aiEnabled={Boolean(workspace?.aiNotetakerEnabled)}
-            aiStatus={aiStepStatus}
-            aiTranscript={transcriptInput}
-            aiDurationSec={liveAudio.elapsedSeconds}
-            aiIsMock={liveAudio.lastMock}
-            aiError={liveAudio.err}
-            onAiDismissError={liveAudio.clearError}
-            onAiStart={() => void liveAudio.startRecording()}
-            onAiPause={() => liveAudio.pauseRecording()}
-            onAiStop={() => liveAudio.stopRecording()}
-            onAiResume={() => liveAudio.resumeRecording()}
-            onAiTranscriptChange={setTranscriptInput}
             prescriptionEntries={rxEntries}
             onPrescriptionChange={setRxEntries}
             adviceCards={adviceCards}
@@ -1607,6 +1352,9 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             onFollowUpChange={onFollowUpStepChange}
             finalizeItems={finalizeItems}
             alreadyFinalized={sessionEnded && lifecycleStatus === "FINALIZED"}
+            finalizeBlockedReason={finalizeReadiness.blockedReason ?? undefined}
+            onFinalizeGoToStep={selectStep}
+            chartNotes={ctx?.patientNotes ?? patientForm.patientNotes ?? null}
           />
         }
         footer={
@@ -1617,29 +1365,23 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             disableNext={formDisabled}
             disablePrev={formDisabled}
             sessionEnded={sessionEnded}
-            nextLabel={activeStep === "followup" ? "Review & finalize" : undefined}
+            nextLabel={activeStep === "followup" ? "Review & complete visit" : undefined}
           />
         }
-        aiDrawer={
-          <AICopilotDrawer
-            open={activeDrawer === "ai"}
-            onClose={() => setActiveDrawer("none")}
-            isRecording={liveAudio.phase === "recording"}
-            isMock={liveAudio.lastMock}
-            transcript={transcriptInput}
-            onTranscriptChange={setTranscriptInput}
-            aiDraft={aiDraft}
-            aiDraftReady={aiDraftGenerated}
-            isGenerating={isGeneratingDraft}
-            onGenerate={() => void generateAiNotes()}
-            onInsertIntoNotes={insertAiIntoNotes}
-            differentialHints={differentialHints}
-            readOnly={formDisabled}
-          />
+        contextDrawer={
+          patientId ? (
+            <ConsultationContextPanel
+              mode={consultationMode}
+              patientId={patientId}
+              consultationId={id}
+              videoInRail={consultationMode === "ONLINE"}
+            />
+          ) : null
         }
         scheduleDrawer={
           <ScheduleFollowUpDrawer
-            open={activeDrawer === "schedule"}
+            open
+            embedded
             onClose={() => setActiveDrawer("none")}
             value={followUpStepValue}
             onChange={onFollowUpStepChange}
@@ -1647,6 +1389,11 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             onCreateTaskChange={setCreateFollowUpTask}
             readOnly={formDisabled}
           />
+        }
+        videoRail={
+          consultationMode === "ONLINE" && patientId ? (
+            <DailyConsultationVideo consultationId={id} compact />
+          ) : undefined
         }
       />
 

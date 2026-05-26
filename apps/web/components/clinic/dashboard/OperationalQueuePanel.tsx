@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultationLink } from "../ConsultationLink";
+import { liveConsultationHref } from "../../../lib/consultation-navigation";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -30,8 +32,8 @@ type Props = {
 
 function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
   return (
-    <Link
-      href={`/consultation/${encodeURIComponent(visit.id)}`}
+    <ConsultationLink
+      href={liveConsultationHref(visit.id)}
       className="flex items-center justify-between gap-3 rounded-xl border border-hs-border/30 bg-hs-paper px-3.5 py-2.5 text-body-sm transition hover:border-hs-primary/35 hover:bg-hs-primary-very-light/25"
     >
       <span className="flex min-w-0 items-center gap-2">
@@ -45,6 +47,16 @@ function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
           <span className="flex flex-wrap items-center gap-1.5 text-caption-sm text-hs-text-tertiary">
             <Clock className="h-3 w-3" aria-hidden />
             {formatVisitAge(visit.ageMinutes)}
+            {visit.mode === "ONLINE" ? (
+              <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-800">
+                Video
+              </span>
+            ) : null}
+            {visit.mode === "ONLINE" && visit.patientWaitingSince ? (
+              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                Waiting
+              </span>
+            ) : null}
             {visit.stale ? (
               <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
                 Stale
@@ -57,7 +69,7 @@ function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
         </span>
       </span>
       <span className="shrink-0 text-caption-sm font-semibold text-hs-primary">Resume →</span>
-    </Link>
+    </ConsultationLink>
   );
 }
 
@@ -120,8 +132,8 @@ export function OperationalQueuePanel({ myDay, className }: Props): JSX.Element 
           <ul className="mt-2 space-y-1.5">
             {draftNotes.slice(0, 3).map((n) => (
               <li key={n.consultationId}>
-                <Link
-                  href={`/consultation/${encodeURIComponent(n.consultationId)}`}
+                <ConsultationLink
+                  href={liveConsultationHref(n.consultationId, "notes")}
                   className="flex items-center justify-between gap-2 rounded-lg bg-hs-paper/80 px-3 py-2 text-caption-sm transition hover:bg-hs-paper"
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -132,13 +144,13 @@ export function OperationalQueuePanel({ myDay, className }: Props): JSX.Element 
                     </span>
                   </span>
                   <span className="shrink-0 font-semibold text-hs-primary">Open →</span>
-                </Link>
+                </ConsultationLink>
               </li>
             ))}
             {pendingOutcomes.slice(0, 2).map((o) => (
               <li key={o.consultationId}>
-                <Link
-                  href={`/consultation/${encodeURIComponent(o.consultationId)}`}
+                <ConsultationLink
+                  href={liveConsultationHref(o.consultationId, "finalize")}
                   className="flex items-center justify-between gap-2 rounded-lg bg-hs-paper/80 px-3 py-2 text-caption-sm transition hover:bg-hs-paper"
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -149,7 +161,7 @@ export function OperationalQueuePanel({ myDay, className }: Props): JSX.Element 
                     </span>
                   </span>
                   <span className="shrink-0 font-semibold text-hs-primary">Open →</span>
-                </Link>
+                </ConsultationLink>
               </li>
             ))}
           </ul>

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultationLink } from "../../../components/clinic/ConsultationLink";
+import { consultationStartHref } from "../../../lib/consultation-navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, Pencil, Search, Stethoscope } from "lucide-react";
@@ -196,14 +198,14 @@ export default function PatientsPage(): JSX.Element {
                               Edit
                             </span>
                           </Link>
-                          <Link
-                            href={`/consultation?patientId=${encodeURIComponent(p.id)}`}
+                          <ConsultationLink
+                            href={consultationStartHref({ patientId: p.id })}
                             className={cn(DS_LINK_ACTION, "inline-flex items-center gap-1 font-semibold")}
                             title="Start visit"
                           >
                             <Stethoscope className="h-3.5 w-3.5 sm:hidden" aria-hidden />
                             Visit →
-                          </Link>
+                          </ConsultationLink>
                         </div>
                       </td>
                     </tr>

@@ -115,6 +115,16 @@ export default function LoginPage(): JSX.Element {
           localStorage.setItem("ha_token", accessToken);
           localStorage.setItem("ha_role", me.role.toLowerCase());
           localStorage.setItem("ha_clinic_id", me.clinicId ?? "");
+          await fetch("/api/ha/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              accessToken,
+              role: me.role,
+              clinicId: me.clinicId
+            })
+          });
           router.push(postLoginPath);
           router.refresh();
         } catch (verifyErr) {

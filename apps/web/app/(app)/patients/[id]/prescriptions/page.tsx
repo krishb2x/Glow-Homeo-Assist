@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ConsultationLink } from "../../../../../components/clinic/ConsultationLink";
+import { consultationStartHref, liveConsultationHref } from "../../../../../lib/consultation-navigation";
 import { FileSignature, Loader2, Pill } from "lucide-react";
 import {
   fetchPatientTimeline,
@@ -73,10 +75,10 @@ export default function PatientPrescriptionsPage(): JSX.Element {
             All prescriptions issued from finalised consultations. Open one to print or share with the patient.
           </p>
         </div>
-        <Link href={`/consultation?patientId=${encodeURIComponent(id)}`} className={cn(DS_BTN_PRIMARY, "gap-2")}>
+        <ConsultationLink href={consultationStartHref({ patientId: id })} className={cn(DS_BTN_PRIMARY, "gap-2")}>
           <FileSignature className="h-4 w-4" aria-hidden />
           New prescription
-        </Link>
+        </ConsultationLink>
       </div>
 
       <div className="mt-5">
@@ -157,12 +159,12 @@ function RxCard({ rx, highlight = false }: { rx: PrescriptionEvent; highlight?: 
       )}
       {rx.consultationId ? (
         <p className="mt-3 text-caption-sm">
-          <Link
-            href={`/consultation/${encodeURIComponent(rx.consultationId)}`}
+          <ConsultationLink
+            href={liveConsultationHref(rx.consultationId)}
             className="font-semibold text-hs-primary hover:underline"
           >
             Open consultation →
-          </Link>
+          </ConsultationLink>
         </p>
       ) : null}
     </article>

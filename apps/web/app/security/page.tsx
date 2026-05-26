@@ -46,12 +46,12 @@ const PILLARS: Pillar[] = [
   {
     Icon: ServerCog,
     title: "Tenant isolation",
-    body: "Each clinic is a fully isolated tenant. Data, AI prompts, and supporting logs are scoped so no information ever crosses clinics."
+    body: "Each clinic is a fully isolated tenant. Data and operational logs are scoped so no information ever crosses clinics."
   },
   {
     Icon: EyeOff,
-    title: "AI you can opt out of",
-    body: "The AI notetaker is opt-in per consultation. Recordings are processed for transcription, then purged on a strict schedule."
+    title: "Minimal data exposure",
+    body: "Role-based access and audit logging limit who can view or change patient records. Exports and deletion follow documented schedules."
   },
   {
     Icon: Database,
@@ -135,7 +135,7 @@ export default function SecurityPage(): JSX.Element {
                 </>,
                 <>
                   We will <span className="font-semibold">never use your clinical data</span> to
-                  train external AI models.
+                  train third-party models or sell insights derived from patient records.
                 </>,
                 <>
                   We give you a <span className="font-semibold">full export</span> of your patient

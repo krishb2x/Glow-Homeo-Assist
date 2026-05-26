@@ -20,8 +20,7 @@ const GROUPS: Group[] = [
   {
     group: "Clinical workflow",
     rows: [
-      { label: "Structured 9-step consultation", values: [true, true, true] },
-      { label: "AI notetaker (transcription + draft)", values: [true, true, true] },
+      { label: "Structured consultation workflow", values: [true, true, true] },
       { label: "Vitals, examination & labs capture", values: [true, true, true] },
       { label: "In-clinic + online consultations", values: [true, true, true] },
       {

@@ -3,7 +3,7 @@
 import { ConsultationMemoStrip } from "../memos/ConsultationMemoStrip";
 import { ClinicalWorkflowSidebar } from "./ClinicalWorkflowSidebar";
 import { ConsultationPastVisitsPanel } from "./ConsultationPastVisitsPanel";
-import { ConsultationVideoTile } from "../video/ConsultationVideoTile";
+import { DailyConsultationVideo as ConsultationVideoTile } from "../video/DailyConsultationVideo";
 import type { ConsultationStep } from "../../../lib/clinical-workflow-config";
 import { cn } from "../../../lib/cn";
 
@@ -33,7 +33,7 @@ export function ConsultationLeftColumn({
   return (
     <aside
       className={cn(
-        "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-hs-border/40 bg-hs-paper/95 transition-[width] duration-200 lg:flex",
+        "hidden min-h-0 shrink-0 flex-col overflow-hidden border-r border-hs-border/40 bg-hs-paper/95 transition-[width] duration-200 md:flex",
         collapsed ? "w-[4.5rem]" : "w-[280px]",
         className
       )}

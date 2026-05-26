@@ -8,6 +8,7 @@ import { cn } from "../../../lib/cn";
 type Props = {
   open: boolean;
   onClose: () => void;
+  embedded?: boolean;
   value: FollowUpStepValue;
   onChange: (next: FollowUpStepValue) => void;
   createTaskOnFinalize: boolean;
@@ -24,16 +25,19 @@ function presetDate(days: number): string {
 export function ScheduleFollowUpDrawer({
   open,
   onClose,
+  embedded = false,
   value,
   onChange,
   createTaskOnFinalize,
   onCreateTaskChange,
   readOnly = false
-}: Props): JSX.Element {
-  return (
-    <ConsultationWorkspaceDrawer open={open} title="Schedule follow-up" icon={Calendar} onClose={onClose}>
+}: Props): JSX.Element | null {
+  if (!embedded && !open) return null;
+
+  const body = (
+    <>
       <DrawerHint>
-        Optional — set when the patient should return. Opens automatically after finalize if enabled in settings later.
+        Optional — set when the patient should return.
       </DrawerHint>
 
       <label className="mb-4 flex items-center gap-2 text-body-sm font-semibold text-hs-ink">
@@ -88,8 +92,7 @@ export function ScheduleFollowUpDrawer({
               className="mt-1 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 px-3 py-2 text-body-sm disabled:opacity-60"
             />
             <p className="mt-1.5 text-caption-sm text-hs-text-tertiary">
-              Use <span className="font-semibold text-hs-ink">Step 8 — Follow-up</span> in the main
-              chart feed for symptoms to monitor and the full follow-up plan.
+              Use <span className="font-semibold text-hs-ink">Follow-up</span> in the main workflow for the full plan.
             </p>
           </div>
 
@@ -106,7 +109,7 @@ export function ScheduleFollowUpDrawer({
         </div>
       ) : (
         <p className="text-body-sm text-hs-text-secondary">
-          Enable scheduling above, or use Step 8 in the main chart feed.
+          Enable scheduling above, or use the Follow-up step in the workflow.
         </p>
       )}
 
@@ -118,6 +121,16 @@ export function ScheduleFollowUpDrawer({
         </a>
         .
       </p>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="px-4 py-4">{body}</div>;
+  }
+
+  return (
+    <ConsultationWorkspaceDrawer open={open} title="Schedule follow-up" icon={Calendar} onClose={onClose}>
+      {body}
     </ConsultationWorkspaceDrawer>
   );
 }

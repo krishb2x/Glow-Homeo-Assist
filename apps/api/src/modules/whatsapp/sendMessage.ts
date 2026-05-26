@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logger } from "../../lib/logger";
 import { sendPrescriptionWhatsApp } from "../distribution/notificationProviders";
 import { sendMetaTemplateMessage, sendMetaTextMessage } from "./metaCloudApi";
+import { resolveWhatsAppSendConnection, type WhatsAppSenderSource } from "./platformWhatsApp";
 import type { WhatsAppConnectionRow } from "./types";
 import { decryptAccessToken } from "./credentialVault";
 
@@ -18,42 +20,60 @@ export type WhatsAppSendOutput = {
   error?: string;
   provider?: string;
   messageId?: string;
+  sender?: WhatsAppSenderSource | "twilio" | "mock";
 };
 
 export async function sendWhatsAppMessage(input: WhatsAppSendInput): Promise<WhatsAppSendOutput> {
   const phone = input.toPhone.trim();
   if (!phone) return { ok: false, error: "No phone number" };
 
-  const conn = input.connection;
-  if (
-    conn?.status === "connected" &&
-    conn.provider === "meta_cloud" &&
-    conn.phone_number_id &&
-    conn.access_token
-  ) {
+  const { connection: conn, sender } = resolveWhatsAppSendConnection(input.connection);
+
+  if (conn) {
+    if (sender === "platform") {
+      logger.info("whatsapp_send_platform", { to: phone.slice(-4) });
+    }
+
     if (input.metaTemplateName?.trim()) {
       const r = await sendMetaTemplateMessage({
-        phoneNumberId: conn.phone_number_id,
-        accessToken: conn.access_token,
+        phoneNumberId: conn.phone_number_id!,
+        accessToken: conn.access_token!,
         toPhoneE164: phone,
         templateName: input.metaTemplateName.trim(),
         languageCode: input.languageCode ?? "en",
         bodyParameters: input.templateParameters
       });
-      return { ok: r.ok, error: r.error, provider: r.provider, messageId: r.messageId };
+      return {
+        ok: r.ok,
+        error: r.error,
+        provider: sender === "platform" ? "meta_cloud_platform" : r.provider,
+        messageId: r.messageId,
+        sender: sender ?? undefined
+      };
     }
+
     const r = await sendMetaTextMessage({
-      phoneNumberId: conn.phone_number_id,
-      accessToken: conn.access_token,
+      phoneNumberId: conn.phone_number_id!,
+      accessToken: conn.access_token!,
       toPhoneE164: phone,
       body: input.body
     });
-    return { ok: r.ok, error: r.error, provider: r.provider, messageId: r.messageId };
+    return {
+      ok: r.ok,
+      error: r.error,
+      provider: sender === "platform" ? "meta_cloud_platform" : r.provider,
+      messageId: r.messageId,
+      sender: sender ?? undefined
+    };
   }
 
   const fallback = await sendPrescriptionWhatsApp({ toPhone: phone, body: input.body });
   if (!fallback.ok) return { ok: false, error: fallback.error };
-  return { ok: true, provider: fallback.provider };
+  return {
+    ok: true,
+    provider: fallback.provider,
+    sender: fallback.mock ? "mock" : "twilio"
+  };
 }
 
 export async function loadDoctorWhatsAppConnection(
@@ -74,3 +94,5 @@ export async function loadDoctorWhatsAppConnection(
   const token = decryptAccessToken(row.access_token_encrypted ?? null, row.access_token);
   return { ...row, access_token: token ?? row.access_token };
 }
+
+export { resolveWhatsAppSendConnection, isPlatformWhatsAppConfigured, getPlatformWhatsAppDisplayPhone } from "./platformWhatsApp";

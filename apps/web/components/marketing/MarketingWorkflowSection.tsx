@@ -4,7 +4,6 @@ import {
   FileText,
   MessageCircle,
   Smartphone,
-  Sparkles,
   Stethoscope,
   Users
 } from "lucide-react";
@@ -30,11 +29,11 @@ const workflow: readonly WorkflowItem[] = [
   },
   {
     step: "03",
-    title: "Support while you take the case",
+    title: "Structured clinical record",
     description:
-      "During the consultation, an AI notetaker can help you capture and organise points while you run the case. You always read, change, and approve what is saved. It assists you; it does not treat the patient.",
-    accent: "ms-accent-ai",
-    Icon: Sparkles
+      "Document chief complaints, modalities, mental and physical state, and your clinical impression in a consistent homeopathic format. Every note stays in the patient chart you control.",
+    accent: "ms-accent-doc",
+    Icon: FileText
   },
   {
     step: "04",

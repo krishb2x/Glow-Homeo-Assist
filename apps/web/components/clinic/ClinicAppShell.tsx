@@ -18,7 +18,9 @@ export function ClinicAppShell({ children }: { children: ReactNode }): JSX.Eleme
   const router = useRouter();
   const [tokenReady, setTokenReady] = useState(false);
   const { role, workspace, loading, activeClinicId, clinics, setActiveClinicId, error, refresh } = useAppRole();
-  const consultationMode = isConsultationSessionPath(pathname);
+  const isLiveConsult = isConsultationSessionPath(pathname);
+  /** Dedicated session chrome — no dashboard sidebar during an active visit. */
+  const consultationMode = isLiveConsult;
 
   useWorkspaceShortcutNav();
 
@@ -149,6 +151,7 @@ export function ClinicAppShell({ children }: { children: ReactNode }): JSX.Eleme
         doctorName={displayName}
         onLogout={handleLogout}
         mainMaxClass={mainMaxClass}
+        mainFullBleed={false}
         hideNewPatient={hideNewPatient}
         navItems={navItems}
         clinicContextLabel={clinicContextLabel}

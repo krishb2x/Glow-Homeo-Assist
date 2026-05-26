@@ -7,7 +7,7 @@ import { getDb } from "./db";
 import { resolveClinicScope } from "./lib/clinicScope";
 import { jsonError, jsonSuccess } from "./lib/apiEnvelope";
 import { AppError } from "./lib/errors";
-import { jsonErrorDb } from "./lib/safeError";
+import { jsonErrorDb, logAndSanitizeError } from "./lib/safeError";
 import {
   buildMyDay,
   buildSuggestedFollowUps,
@@ -18,8 +18,11 @@ import { supabaseAdmin } from "./supabase";
 import {
   prepareOnlineAppointment,
   sendAppointmentInvite,
-  scheduleAppointmentReminders
+  scheduleAppointmentReminders,
+  cancelAppointmentNotificationJobs,
+  rescheduleAppointmentReminders
 } from "./modules/telemedicine/consultationNotifyService";
+import { joinUrl } from "./modules/telemedicine/patientAccess";
 
 /**
  * Register HomeoSync doctor routes (my-day, appointments, merged follow-ups, case outcomes).
@@ -131,6 +134,29 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
       let meetingUrl: string | null = null;
       let joinToken: string | null = null;
 
+      const { data, error } = await client
+        .from("appointments")
+        .insert({
+          id: appointmentId,
+          clinic_id: clinicId,
+          patient_id: parsed.data.patientId,
+          doctor_id: docId,
+          scheduled_for: parsed.data.scheduledFor,
+          duration_minutes: parsed.data.durationMinutes,
+          status: parsed.data.status,
+          reason: parsed.data.reason ?? null,
+          consultation_mode: parsed.data.consultationMode,
+          meeting_url: null,
+          join_token: null,
+          notify_patient: parsed.data.notifyPatient
+        })
+        .select("id,scheduled_for,status,patient_id,consultation_mode,meeting_url")
+        .single();
+      if (error) {
+        jsonErrorDb(res, "appointments_create", error);
+        return;
+      }
+
       if (parsed.data.consultationMode === "ONLINE") {
         try {
           const prep = await prepareOnlineAppointment({
@@ -145,35 +171,18 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
           meetingUrl = prep.meetingUrl;
           joinToken = prep.joinToken;
         } catch (e) {
+          await supabaseAdmin.from("patient_access_tokens").delete().eq("appointment_id", appointmentId);
+          await client.from("appointments").delete().eq("id", appointmentId);
           if (e instanceof AppError && e.code === "SCHEMA_NOT_READY") {
             jsonError(res, e.statusCode, e.message, { code: e.code });
             return;
           }
-          throw e;
+          logAndSanitizeError("online_appointment_prepare_failed", e);
+          jsonError(res, 503, "Could not prepare the online consultation link. Please try again.", {
+            code: "TELEMEDICINE_PREP_FAILED"
+          });
+          return;
         }
-      }
-
-      const { data, error } = await client
-        .from("appointments")
-        .insert({
-          id: appointmentId,
-          clinic_id: clinicId,
-          patient_id: parsed.data.patientId,
-          doctor_id: docId,
-          scheduled_for: parsed.data.scheduledFor,
-          duration_minutes: parsed.data.durationMinutes,
-          status: parsed.data.status,
-          reason: parsed.data.reason ?? null,
-          consultation_mode: parsed.data.consultationMode,
-          meeting_url: meetingUrl,
-          join_token: joinToken,
-          notify_patient: parsed.data.notifyPatient
-        })
-        .select("id,scheduled_for,status,patient_id,consultation_mode,meeting_url")
-        .single();
-      if (error) {
-        jsonErrorDb(res, "appointments_create", error);
-        return;
       }
 
       if (parsed.data.notifyPatient && meetingUrl) {
@@ -228,6 +237,26 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
         return;
       }
       const client = getDb(claims);
+      const { data: existing } = await client
+        .from("appointments")
+        .select("id,patient_id,doctor_id,scheduled_for,consultation_mode,meeting_url,join_token,status")
+        .eq("id", req.params.id)
+        .eq("clinic_id", clinicId)
+        .maybeSingle();
+      if (!existing) {
+        jsonError(res, 404, "Appointment not found", { code: "NOT_FOUND" });
+        return;
+      }
+      const prev = existing as {
+        patient_id: string;
+        doctor_id: string;
+        scheduled_for: string;
+        consultation_mode: string;
+        meeting_url: string | null;
+        join_token: string | null;
+        status: string;
+      };
+
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
       if (parsed.data.status != null) updates.status = parsed.data.status;
       if (parsed.data.scheduledFor != null) updates.scheduled_for = parsed.data.scheduledFor;
@@ -237,7 +266,7 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
         .update(updates)
         .eq("id", req.params.id)
         .eq("clinic_id", clinicId)
-        .select("id,status")
+        .select("id,status,scheduled_for,consultation_mode")
         .maybeSingle();
       if (error) {
         jsonErrorDb(res, "appointments_patch", error);
@@ -247,6 +276,44 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
         jsonError(res, 404, "Appointment not found", { code: "NOT_FOUND" });
         return;
       }
+
+      const idParse = z.string().uuid().safeParse(req.params.id);
+      if (!idParse.success) {
+        jsonError(res, 400, "Invalid appointment id", { code: "VALIDATION_ERROR" });
+        return;
+      }
+      const aptId = idParse.data;
+      if (parsed.data.status === "CANCELLED") {
+        await cancelAppointmentNotificationJobs(client, aptId);
+      } else if (
+        parsed.data.scheduledFor != null &&
+        prev.consultation_mode === "ONLINE" &&
+        prev.scheduled_for !== parsed.data.scheduledFor
+      ) {
+        let link = prev.meeting_url ?? (prev.join_token ? joinUrl(prev.join_token) : null);
+        if (!link) {
+          const prep = await prepareOnlineAppointment({
+            client,
+            admin: supabaseAdmin,
+            clinicId,
+            appointmentId: aptId,
+            patientId: prev.patient_id,
+            doctorId: prev.doctor_id,
+            scheduledFor: parsed.data.scheduledFor
+          });
+          link = prep.meetingUrl;
+        }
+        await rescheduleAppointmentReminders({
+          client,
+          clinicId,
+          appointmentId: aptId,
+          patientId: prev.patient_id,
+          doctorId: prev.doctor_id,
+          scheduledFor: parsed.data.scheduledFor,
+          meetingLink: link!
+        });
+      }
+
       jsonSuccess(res, 200, data);
     }
   );

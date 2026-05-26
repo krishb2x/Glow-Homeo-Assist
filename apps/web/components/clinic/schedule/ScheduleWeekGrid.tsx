@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo } from "react";
 import Link from "next/link";
+import { ConsultationLink } from "../ConsultationLink";
+import { consultationStartHref } from "../../../lib/consultation-navigation";
 import { ChevronLeft, ChevronRight, GripVertical, Stethoscope } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../../../lib/cn";
@@ -247,13 +249,22 @@ export function ScheduleWeekGrid({
                           <GripVertical className="h-3 w-3" />
                         </div>
                         <div className="min-w-0 flex-1 px-0.5 py-0.5 text-left">
-                          <Link
-                            href={`/consultation?patientId=${encodeURIComponent(a.patientId)}&appointmentId=${encodeURIComponent(a.id)}`}
+                          <ConsultationLink
+                            href={consultationStartHref({
+                              patientId: a.patientId,
+                              appointmentId: a.id,
+                              consultationMode: a.consultationMode
+                            })}
                             className="line-clamp-2 text-caption-sm font-semibold leading-tight text-hs-ink"
                           >
                             {a.patientName}
-                          </Link>
+                          </ConsultationLink>
                           <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            {a.consultationMode === "ONLINE" ? (
+                              <span className="inline-flex items-center rounded border border-sky-400/40 bg-sky-50 px-1 text-[0.55rem] font-semibold uppercase tracking-wide text-sky-800">
+                                Video
+                              </span>
+                            ) : null}
                             {a.status === "IN_PROGRESS" ? (
                               <span className="inline-flex items-center rounded bg-hs-primary px-1 text-[0.55rem] font-bold uppercase tracking-wide text-white">
                                 Live

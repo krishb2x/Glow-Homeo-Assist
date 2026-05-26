@@ -1,9 +1,12 @@
+import "./lib/loadMonorepoEnv";
 import path from "node:path";
-import { config as loadEnv } from "dotenv";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { config as loadEnvDotenv } from "dotenv";
 
-// Monorepo: single `.env` at repository root (`apps/api/src` or `dist` → three levels up).
-loadEnv({ path: path.join(__dirname, "..", "..", "..", ".env") });
+// Fallback: dotenv for any edge cases our parser misses.
+const rootFromHere = path.join(__dirname, "..", "..", "..");
+loadEnvDotenv({ path: path.join(rootFromHere, ".env") });
+
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;

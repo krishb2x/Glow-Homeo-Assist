@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultationLink } from "../ConsultationLink";
+import { consultationStartHref, liveConsultationHref } from "../../../lib/consultation-navigation";
 import { useMemo } from "react";
 import { ArrowRight, Calendar, FileEdit, Inbox, MessageSquare, PlayCircle, Sparkles } from "lucide-react";
 import type { MyDayAppointment, MyDayResponse } from "../../../lib/doctor-api";
@@ -28,7 +30,7 @@ function buildActions(
       id: "resume",
       title: "Resume open consultation",
       hint: lastCase.patientName ? `With ${lastCase.patientName}` : "In progress",
-      href: `/consultation/${encodeURIComponent(lastCase.consultationId)}`,
+      href: liveConsultationHref(lastCase.consultationId),
       cta: "Continue",
       primary: true,
       icon: PlayCircle
@@ -39,7 +41,10 @@ function buildActions(
       id: "next",
       title: `Next visit · ${formatTimeLabel(nextToday.scheduledFor)}`,
       hint: nextToday.patientName,
-      href: `/consultation?patientId=${encodeURIComponent(nextToday.patientId)}&appointmentId=${encodeURIComponent(nextToday.id)}`,
+      href: consultationStartHref({
+        patientId: nextToday.patientId,
+        appointmentId: nextToday.id
+      }),
       cta: "Start",
       primary: out.length === 0,
       icon: Calendar
@@ -51,7 +56,7 @@ function buildActions(
       id: "fu",
       title: f.overdue ? "Overdue follow-up" : "Follow-up",
       hint: `${f.patientName} — ${f.title}`,
-      href: `/consultation?patientId=${encodeURIComponent(f.patientId)}`,
+      href: consultationStartHref({ patientId: f.patientId }),
       cta: "Start visit",
       primary: out.length === 0,
       icon: Inbox
@@ -63,7 +68,7 @@ function buildActions(
       id: "note",
       title: "Note needs finalization",
       hint: note.patientName,
-      href: `/consultation/${encodeURIComponent(note.consultationId)}`,
+      href: liveConsultationHref(note.consultationId, "notes"),
       cta: "Open",
       primary: out.length === 0,
       icon: FileEdit
@@ -75,7 +80,7 @@ function buildActions(
       id: "outcome",
       title: "Document case outcome",
       hint: `${pendingOutcome.patientName} — ${pendingOutcome.summary.slice(0, 60)}`,
-      href: `/consultation/${encodeURIComponent(pendingOutcome.consultationId)}`,
+      href: liveConsultationHref(pendingOutcome.consultationId, "finalize"),
       cta: "Record",
       primary: out.length === 0,
       icon: FileEdit
@@ -123,7 +128,7 @@ export function SmartNextActions({
           const Icon = a.icon;
           return (
             <li key={a.id}>
-              <Link
+              <ConsultationLink
                 href={a.href}
                 className={
                   "group flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition " +
@@ -147,7 +152,7 @@ export function SmartNextActions({
                   <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
                   {a.cta}
                 </span>
-              </Link>
+              </ConsultationLink>
             </li>
           );
         })}

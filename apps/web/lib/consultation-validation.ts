@@ -70,7 +70,6 @@ export type ConsultationSnapshot = {
     sessionEnded: boolean;
     lifecycleStatus: string;
   };
-  aiTranscript: string;
 };
 
 export type StepValidation = {
@@ -147,10 +146,8 @@ export function validateNotes(s: ConsultationSnapshot): StepValidation {
   };
 }
 
-export function validateAi(s: ConsultationSnapshot): StepValidation {
-  // AI is optional. Treat as done if a transcript or notes exist (so step doesn't show as missing for clinics that don't use AI).
-  const any = Boolean(s.aiTranscript.trim() || s.notes.chiefComplaints.trim());
-  return { done: any, missing: [], warnings: [] };
+export function validateAi(_s: ConsultationSnapshot): StepValidation {
+  return { done: true, missing: [], warnings: [] };
 }
 
 export function validatePrescription(s: ConsultationSnapshot): StepValidation {
@@ -230,4 +227,52 @@ export function validateAllSteps(
 
 export function validateStep(step: ConsultationStep, s: ConsultationSnapshot): StepValidation {
   return VALIDATORS[step](s);
+}
+
+export type FinalizeReadiness = {
+  canFinalize: boolean;
+  blockedReason: string | null;
+  blockers: string[];
+};
+
+/** Hard gates before finalize & send — chief complaint, assessment, Rx or explicit skip. */
+export function buildFinalizeReadiness(args: {
+  validations: Record<ConsultationStep, StepValidation>;
+  skipPrescription: boolean;
+  pendingPriorOutcome: boolean;
+  priorOutcomeSaved: boolean;
+  sendPrescriptionEmail: boolean;
+  notifyEmail: string;
+}): FinalizeReadiness {
+  const blockers: string[] = [];
+
+  if (!args.validations.patient.done) {
+    blockers.push(...args.validations.patient.missing);
+  }
+  if (!args.validations.notes.done) {
+    blockers.push(...args.validations.notes.missing);
+  }
+  if (!args.skipPrescription && !args.validations.prescription.done) {
+    blockers.push(...args.validations.prescription.missing);
+  }
+  if (!args.validations.followup.done) {
+    blockers.push(...args.validations.followup.missing);
+  }
+  if (args.pendingPriorOutcome && !args.priorOutcomeSaved) {
+    blockers.push("Document outcome from the previous visit");
+  }
+  if (args.sendPrescriptionEmail && !args.notifyEmail.trim()) {
+    blockers.push("Email address for prescription delivery");
+  }
+
+  return {
+    canFinalize: blockers.length === 0,
+    blockedReason:
+      blockers.length > 0
+        ? blockers.length === 1
+          ? blockers[0]!
+          : `Complete ${blockers.length} required items before finalizing`
+        : null,
+    blockers
+  };
 }

@@ -13,6 +13,8 @@ export type ActiveVisitRow = ActiveConsultationRow & {
   stale: boolean;
   /** Minutes since start. */
   ageMinutes: number;
+  videoStatus?: string | null;
+  patientWaitingSince?: string | null;
 };
 
 export type FollowUpGroup = "overdue" | "today" | "upcoming";
@@ -27,8 +29,24 @@ export function dedupeActiveVisits(
   online: ActiveConsultationRow[]
 ): ActiveVisitRow[] {
   const tagged: ActiveVisitRow[] = [
-    ...inClinic.map((v) => ({ ...v, mode: "IN_CLINIC" as const, duplicateCount: 0, stale: false, ageMinutes: 0 })),
-    ...online.map((v) => ({ ...v, mode: "ONLINE" as const, duplicateCount: 0, stale: false, ageMinutes: 0 }))
+    ...inClinic.map((v) => ({
+      ...v,
+      mode: "IN_CLINIC" as const,
+      duplicateCount: 0,
+      stale: false,
+      ageMinutes: 0,
+      videoStatus: null,
+      patientWaitingSince: null
+    })),
+    ...online.map((v) => ({
+      ...v,
+      mode: "ONLINE" as const,
+      duplicateCount: 0,
+      stale: false,
+      ageMinutes: 0,
+      videoStatus: v.videoStatus ?? null,
+      patientWaitingSince: v.patientWaitingSince ?? null
+    }))
   ];
 
   const byPatient = new Map<string, ActiveVisitRow[]>();
@@ -57,6 +75,31 @@ export function dedupeActiveVisits(
     if (a.stale !== b.stale) return a.stale ? -1 : 1;
     return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
   });
+}
+
+/** Index active visits by patient for O(1) duplicate-open lookup at hub start. */
+export function activeVisitByPatientId(visits: ActiveVisitRow[]): Map<string, ActiveVisitRow> {
+  const map = new Map<string, ActiveVisitRow>();
+  for (const v of visits) {
+    map.set(v.patientId, v);
+  }
+  return map;
+}
+
+/** Newest open visit for a patient, if any. */
+export function findOpenVisitForPatient(
+  patientId: string,
+  visits: ActiveVisitRow[]
+): ActiveVisitRow | undefined {
+  return activeVisitByPatientId(visits).get(patientId);
+}
+
+/** Other in-progress visits excluding the current consultation. */
+export function otherActiveVisits(
+  visits: ActiveVisitRow[],
+  currentConsultationId: string
+): ActiveVisitRow[] {
+  return visits.filter((v) => v.id !== currentConsultationId);
 }
 
 export function groupFollowUps(items: FollowUpQueueItem[], now = new Date()): GroupedFollowUp[] {

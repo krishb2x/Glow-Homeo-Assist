@@ -60,12 +60,15 @@ Variables marked **Public** are exposed to the browser via `NEXT_PUBLIC_*`.
 | `WORKER_ID` | Unique id per replica |
 | `RATE_*_PER_MIN` | Per-route rate limit overrides |
 
-## Telemedicine (Jitsi)
+## Telemedicine (Daily.co)
 
 | Variable | Description |
 |----------|-------------|
-| `JITSI_BASE_URL` | Meet host |
-| `JITSI_APP_ID`, `JITSI_APP_SECRET` | JWT auth for self-hosted Jitsi |
+| `DAILY_API_KEY` | Daily.co REST API key |
+| `DAILY_DOMAIN` | Your Daily domain (e.g. `clinic.daily.co`) |
+| `DAILY_WEBHOOK_SECRET` | Webhook verification |
+| `DAILY_ROOM_PREFIX` | Room name prefix (optional) |
+| `APP_PUBLIC_URL` | Patient join link base URL |
 
 ## PDF
 

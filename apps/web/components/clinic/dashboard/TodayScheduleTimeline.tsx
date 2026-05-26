@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultationLink } from "../ConsultationLink";
+import { consultationStartHref } from "../../../lib/consultation-navigation";
 import { useMemo } from "react";
-import { Clock } from "lucide-react";
+import { Clock, Video } from "lucide-react";
 import type { MyDayAppointment, PatientListItem } from "../../../lib/doctor-api";
 import { appointmentDisplayTag } from "../../../lib/appointment-display-tag";
 import { formatTimeLabel } from "./home-utils";
@@ -126,6 +128,12 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-body-sm font-semibold text-hs-ink">{a.patientName}</p>
+                        {a.consultationMode === "ONLINE" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-800">
+                            <Video className="h-3 w-3" aria-hidden />
+                            Video
+                          </span>
+                        ) : null}
                         <PatientTagBadges tags={[appointmentDisplayTag(a, rosterById.get(a.patientId))]} />
                         {status === "current" ? (
                           <span className="rounded-full bg-hs-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
@@ -143,8 +151,12 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
                         {a.chiefComplaint ? ` · ${a.chiefComplaint}` : ""}
                       </p>
                     </div>
-                    <Link
-                      href={`/consultation?patientId=${encodeURIComponent(a.patientId)}&appointmentId=${encodeURIComponent(a.id)}`}
+                    <ConsultationLink
+                      href={consultationStartHref({
+                        patientId: a.patientId,
+                        appointmentId: a.id,
+                        consultationMode: a.consultationMode
+                      })}
                       className={cn(
                         "shrink-0 rounded-lg px-3 py-1.5 text-caption-sm font-semibold transition",
                         status === "past"
@@ -153,7 +165,7 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
                       )}
                     >
                       {status === "past" ? "Open" : "Start"}
-                    </Link>
+                    </ConsultationLink>
                   </div>
                 </article>
               </li>

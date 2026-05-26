@@ -18,10 +18,11 @@ import {
 import { resolveAudience } from "./audienceResolver";
 import { extractTemplateVariables } from "./variableResolver";
 import { verifyMetaConnection } from "./metaCloudApi";
-import { loadDoctorWhatsAppConnection, sendWhatsAppMessage } from "./sendMessage";
+import { loadDoctorWhatsAppConnection, sendWhatsAppMessage, resolveWhatsAppSendConnection, isPlatformWhatsAppConfigured, getPlatformWhatsAppDisplayPhone } from "./sendMessage";
 import { createWhatsAppBroadcast } from "./broadcastService";
 import { encryptAccessToken } from "./credentialVault";
-import { handleMetaWebhook, verifyMetaWebhook } from "./webhookHandler";
+import { handleMetaWebhook, verifyMetaWebhook, verifyMetaWebhookSignature, shouldRequireMetaWebhookSignature } from "./webhookHandler";
+import { rateLimitMiddleware } from "../../lib/rateLimit";
 import { doctorRateLimit } from "../../lib/rateLimit";
 import { completeEmbeddedSignup, getEmbeddedSignupPublicConfig } from "./metaEmbeddedSignup";
 import { syncMetaTemplatesForDoctor } from "./metaTemplateSync";
@@ -42,6 +43,12 @@ const waTemplateSyncLimit = doctorRateLimit(
   "whatsapp_template_sync",
   Number(process.env.RATE_WHATSAPP_TEMPLATE_SYNC_PER_MIN ?? "5")
 );
+
+const metaWebhookLimit = rateLimitMiddleware({
+  keyPrefix: "meta_whatsapp_webhook",
+  windowMs: 60_000,
+  max: Number(process.env.RATE_META_WEBHOOK_PER_MIN ?? "120")
+});
 
 async function syncTemplatesAfterConnect(
   client: ReturnType<typeof getDb>,
@@ -196,20 +203,44 @@ export function registerWhatsAppRoutes(app: express.Express): void {
 
       const client = getDb(claims);
       const row = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
-      if (!row) {
-        jsonSuccess(res, 200, { status: "disconnected", connected: false });
+      if (row?.status === "connected") {
+        jsonSuccess(res, 200, {
+          status: row.status,
+          connected: true,
+          senderSource: "doctor",
+          provider: row.provider,
+          wabaId: row.waba_id,
+          phoneNumberId: row.phone_number_id,
+          displayPhone: row.display_phone,
+          accessTokenMasked: maskToken(row.access_token),
+          verifiedAt: row.verified_at,
+          qualityRating: row.quality_rating,
+          platformFallbackAvailable: isPlatformWhatsAppConfigured()
+        });
         return;
       }
+
+      const { connection, sender } = resolveWhatsAppSendConnection(row);
+      if (sender === "platform" && connection) {
+        jsonSuccess(res, 200, {
+          status: "platform_fallback",
+          connected: true,
+          senderSource: "platform",
+          provider: "meta_cloud",
+          displayPhone: connection.display_phone ?? getPlatformWhatsAppDisplayPhone(),
+          ownConnectionConnected: false,
+          platformFallbackAvailable: true,
+          message:
+            "Patient notifications are sent from the GlowHomeo platform WhatsApp number. Connect your own WhatsApp Business in Settings to send from your clinic number."
+        });
+        return;
+      }
+
       jsonSuccess(res, 200, {
-        status: row.status,
-        connected: row.status === "connected",
-        provider: row.provider,
-        wabaId: row.waba_id,
-        phoneNumberId: row.phone_number_id,
-        displayPhone: row.display_phone,
-        accessTokenMasked: maskToken(row.access_token),
-        verifiedAt: row.verified_at,
-        qualityRating: row.quality_rating
+        status: "disconnected",
+        connected: false,
+        senderSource: null,
+        platformFallbackAvailable: isPlatformWhatsAppConfigured()
       });
     }
   );
@@ -303,16 +334,22 @@ export function registerWhatsAppRoutes(app: express.Express): void {
       }
 
       const client = getDb(claims);
-      const conn = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
-      if (!conn || conn.status !== "connected") {
-        jsonError(res, 400, "Connect WhatsApp Business first.", { code: "NOT_CONNECTED" });
+      const doctorConn = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
+      const { connection: conn, sender } = resolveWhatsAppSendConnection(doctorConn);
+      if (!conn) {
+        jsonError(res, 400, "Connect WhatsApp Business or configure the GlowHomeo platform sender.", {
+          code: "NOT_CONNECTED"
+        });
         return;
       }
 
       const result = await sendWhatsAppMessage({
-        connection: conn,
+        connection: doctorConn,
         toPhone: testPhone.data,
-        body: "GlowHomeo Assist: your WhatsApp Business connection is verified. You can send patient broadcasts from Settings → Messages."
+        body:
+          sender === "platform"
+            ? "GlowHomeo Assist: platform WhatsApp is active. Patient notifications will reach you from this number until you connect your own WhatsApp Business."
+            : "GlowHomeo Assist: your WhatsApp Business connection is verified. You can send patient broadcasts from Settings → Messages."
       });
 
       if (!result.ok) {
@@ -481,9 +518,10 @@ export function registerWhatsAppRoutes(app: express.Express): void {
       }
 
       const client = getDb(claims);
-      const conn = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
-      if (!conn || conn.status !== "connected") {
-        jsonError(res, 400, "Connect and verify WhatsApp Business in Settings first.", {
+      const doctorConn = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
+      const { connection: sendConn } = resolveWhatsAppSendConnection(doctorConn);
+      if (!sendConn) {
+        jsonError(res, 400, "Connect WhatsApp Business or enable the GlowHomeo platform sender.", {
           code: "NOT_CONNECTED"
         });
         return;
@@ -567,11 +605,32 @@ export function registerWhatsAppRoutes(app: express.Express): void {
     res.sendStatus(403);
   });
 
-  app.post("/webhooks/meta/whatsapp", async (req, res) => {
+  app.post("/webhooks/meta/whatsapp", metaWebhookLimit, async (req, res) => {
+    const rawBody = (req as express.Request & { rawBody?: string }).rawBody ?? "";
+    const signature = req.headers["x-hub-signature-256"] as string | undefined;
+
+    if (shouldRequireMetaWebhookSignature()) {
+      if (!verifyMetaWebhookSignature(rawBody, signature)) {
+        logger.warn("meta_webhook_signature_rejected");
+        res.sendStatus(403);
+        return;
+      }
+    } else if (process.env.META_APP_SECRET?.trim() && rawBody) {
+      if (!verifyMetaWebhookSignature(rawBody, signature)) {
+        logger.warn("meta_webhook_signature_invalid_dev");
+        res.sendStatus(403);
+        return;
+      }
+    }
+
     try {
-      await handleMetaWebhook(supabaseAdmin, req.body ?? {});
+      const body = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : (req.body ?? {});
+      await handleMetaWebhook(supabaseAdmin, body);
       res.sendStatus(200);
-    } catch {
+    } catch (e) {
+      logger.warn("meta_webhook_handler_failed", {
+        message: e instanceof Error ? e.message : String(e)
+      });
       res.sendStatus(500);
     }
   });

@@ -14,7 +14,7 @@ type Props = {
   activeStep: ConsultationStep;
   validations: Record<ConsultationStep, StepValidation>;
   onSelectStep: (step: ConsultationStep) => void;
-  autosave?: "idle" | "saving" | "saved";
+  autosave?: "idle" | "saving" | "saved" | "error";
   autosaveLabel?: string;
 };
 
@@ -43,8 +43,8 @@ export const ConsultationProgressStrip = memo(function ConsultationProgressStrip
   const warnings = current?.warnings ?? [];
 
   return (
-    <div className="sticky top-0 z-20 border-b border-hs-border/30 bg-hs-paper/95 backdrop-blur supports-[backdrop-filter]:bg-hs-paper/85">
-      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-1.5 px-4 py-2 sm:px-6">
+    <div className="border-b border-hs-border/30 bg-hs-paper/95 backdrop-blur supports-[backdrop-filter]:bg-hs-paper/90">
+      <div className="mx-auto flex w-full flex-col gap-1.5 px-4 py-2 sm:px-6">
         <div className="flex items-center gap-2">
           <ol
             className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
@@ -110,12 +110,19 @@ export const ConsultationProgressStrip = memo(function ConsultationProgressStrip
 
           {autosaveLabel ? (
             <span
-              className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-hs-cream/70 px-2 py-1 text-caption-sm font-medium text-hs-text-tertiary"
+              className={cn(
+                "ml-2 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-caption-sm font-medium",
+                autosave === "error"
+                  ? "bg-rose-50 text-rose-800"
+                  : "bg-hs-cream/70 text-hs-text-tertiary"
+              )}
               role="status"
               aria-live="polite"
             >
               {autosave === "saving" ? (
                 <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : autosave === "error" ? (
+                <AlertTriangle className="h-3 w-3" aria-hidden />
               ) : (
                 <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-hidden />
               )}

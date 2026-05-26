@@ -27,16 +27,11 @@ function formatTime(iso: string): string {
 
 const PLAN_TIERS: { value: PlanTier; label: string; description: string; color: string }[] = [
   { value: "BASIC", label: "Basic", description: "Core clinical workflows — patient management, consultations, prescriptions.", color: "text-hs-text-secondary" },
-  { value: "PRO", label: "Pro", description: "All Basic features + AI Notetaker, advanced messaging.", color: "text-hs-primary" },
+  { value: "PRO", label: "Pro", description: "All Basic features + advanced messaging, scheduling, and team roles.", color: "text-hs-primary" },
   { value: "ENTERPRISE", label: "Enterprise", description: "All Pro features + WhatsApp integration, priority support.", color: "text-amber-700" }
 ];
 
 const FEATURE_META: Record<string, { label: string; description: string; icon: React.ComponentType<{ className?: string }> }> = {
-  ai_notetaker: {
-    label: "AI Notetaker",
-    description: "Real-time transcription + AI-structured clinical notes during consultation.",
-    icon: Sparkles
-  },
   messages: {
     label: "Messaging",
     description: "Inbox and patient communication within the platform.",

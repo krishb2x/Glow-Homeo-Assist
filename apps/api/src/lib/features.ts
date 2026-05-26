@@ -11,10 +11,7 @@
  *   4. Expose it via `workspace-context` so the frontend can lock/unlock UI.
  */
 
-export type FeatureKey =
-  | "ai_notetaker"
-  | "messages"
-  | "whatsapp_integration";
+export type FeatureKey = "messages" | "whatsapp_integration";
 
 export type PlanTier = "BASIC" | "PRO" | "ENTERPRISE";
 
@@ -23,14 +20,13 @@ export type PlanTier = "BASIC" | "PRO" | "ENTERPRISE";
  * Higher tiers always include everything from lower tiers.
  */
 export const PLAN_FEATURES: Record<PlanTier, ReadonlyArray<FeatureKey>> = {
-  BASIC:      ["messages"],
-  PRO:        ["messages", "ai_notetaker"],
-  ENTERPRISE: ["messages", "ai_notetaker", "whatsapp_integration"],
+  BASIC: ["messages"],
+  PRO: ["messages"],
+  ENTERPRISE: ["messages", "whatsapp_integration"]
 };
 
 export type ClinicFeatures = {
   planTier: PlanTier;
-  aiNotetaker: boolean;
   messages: boolean;
   whatsappIntegration: boolean;
 };
@@ -50,7 +46,7 @@ function normalizeTier(raw: string | null | undefined): PlanTier {
  */
 export function resolveFeatures(
   planTier: string | null | undefined,
-  overrides: Record<string, boolean> = {},
+  overrides: Record<string, boolean> = {}
 ): ClinicFeatures {
   const tier = normalizeTier(planTier);
   const planIncludes = PLAN_FEATURES[tier];
@@ -65,9 +61,8 @@ export function resolveFeatures(
 
   return {
     planTier: tier,
-    aiNotetaker: feat("ai_notetaker"),
     messages: feat("messages"),
-    whatsappIntegration: feat("whatsapp_integration"),
+    whatsappIntegration: feat("whatsapp_integration")
   };
 }
 
@@ -92,15 +87,8 @@ export async function getClinicFeatures(clinicId: string | null | undefined): Pr
   const { supabaseAdmin } = await import("../supabase");
 
   const [{ data: clinic }, { data: overrideRows }] = await Promise.all([
-    supabaseAdmin
-      .from("clinics")
-      .select("plan_tier")
-      .eq("id", clinicId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("clinic_feature_overrides")
-      .select("feature_key, enabled")
-      .eq("clinic_id", clinicId),
+    supabaseAdmin.from("clinics").select("plan_tier").eq("id", clinicId).maybeSingle(),
+    supabaseAdmin.from("clinic_feature_overrides").select("feature_key, enabled").eq("clinic_id", clinicId)
   ]);
 
   const tier = (clinic as { plan_tier?: string } | null)?.plan_tier ?? "BASIC";
@@ -116,10 +104,11 @@ export async function getClinicFeatures(clinicId: string | null | undefined): Pr
 /**
  * Check a single feature for a clinic. Returns false when clinicId is falsy.
  */
-export async function isFeatureEnabled(clinicId: string | null | undefined, feature: FeatureKey): Promise<boolean> {
+export async function isFeatureEnabled(
+  clinicId: string | null | undefined,
+  feature: FeatureKey
+): Promise<boolean> {
   if (!clinicId) return false;
   const feats = await getClinicFeatures(clinicId);
-  return feats[feature === "ai_notetaker" ? "aiNotetaker"
-    : feature === "whatsapp_integration" ? "whatsappIntegration"
-    : "messages"] as boolean;
+  return feats[feature === "whatsapp_integration" ? "whatsappIntegration" : "messages"] as boolean;
 }

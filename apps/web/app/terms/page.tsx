@@ -37,9 +37,9 @@ export default function TermsPage(): JSX.Element {
       <section className="space-y-3">
         <h2 className="font-heading text-lg font-semibold text-slate-900">Clinical responsibility</h2>
         <p>
-          The Service may include optional AI-assisted tools. You remain solely responsible for clinical decisions,
-          prescriptions, and the content of medical records. You must review and approve any AI-generated material
-          before relying on it clinically.
+          You remain solely responsible for clinical decisions, prescriptions, and the content of
+          medical records entered in the Service. {BRAND_NAME} is a clinic-management and
+          documentation tool — it does not replace your professional judgement.
         </p>
       </section>
 

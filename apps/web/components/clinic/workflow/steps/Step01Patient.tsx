@@ -6,6 +6,7 @@ import { StepShell, FieldRow, STEP_TEXTAREA_CLS } from "./StepShell";
 
 export type PatientSnapshot = {
   name: string;
+  patientCode?: string | null;
   age?: number | null;
   gender?: string | null;
   phone?: string | null;
@@ -45,12 +46,12 @@ export function Step01Patient({
     <StepShell
       stepNumber={stepNumber}
       icon={User}
-      title="Today's complaint"
-      description="One line the doctor enters before history-taking begins."
+      title="Patient overview"
+      description="Review the patient summary above, then capture today's presenting complaint."
       status={status}
     >
       {hasAllergies ? (
-        <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-caption-sm text-amber-950">
+        <div className="mb-5 flex items-start gap-2 rounded-lg bg-amber-50/90 px-3.5 py-2.5 text-[0.8125rem] text-amber-950 ring-1 ring-amber-200/50">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
             <span className="font-semibold">Allergy on file:</span> {patient.allergies}

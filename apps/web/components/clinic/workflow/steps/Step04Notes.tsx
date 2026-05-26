@@ -29,8 +29,8 @@ export function Step04Notes({ stepNumber, value, onChange, readOnly = false }: P
     <StepShell
       stepNumber={stepNumber}
       icon={FileText}
-      title="Case notes"
-      description="Structured case-taking — the narrative under your signature."
+      title="Clinical assessment"
+      description="Document your clinical impression and structured case record."
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <FieldRow label="Chief complaints" hint="Patient's own words — what brought them in today.">

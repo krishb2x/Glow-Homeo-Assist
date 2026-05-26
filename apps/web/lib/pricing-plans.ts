@@ -50,8 +50,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     doctorSeats: 1,
     features: [
       ...SHARED_FEATURES,
-      { label: "AI notetaker", detail: "Live transcription with doctor approval — never auto-saves" },
-      { label: "Remedy inventory tracking" },
+      { label: "Appointment scheduling & follow-up queue" },
       { label: "Email & WhatsApp delivery for prescriptions" }
     ],
     ctaLabel: "Start with Solo",

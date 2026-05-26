@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ConsultationLink } from "./ConsultationLink";
+import { consultationStartHref } from "../../lib/consultation-navigation";
 import { useRouter } from "next/navigation";
 import { Loader2, Search, X } from "lucide-react";
 import {
@@ -349,12 +351,16 @@ export function SchedulePageClient(): JSX.Element {
                         <p className="mt-0.5 line-clamp-1 text-caption-sm text-hs-text-secondary">{a.reason}</p>
                       ) : null}
                     </div>
-                    <Link
-                      href={`/consultation?patientId=${encodeURIComponent(a.patientId)}&appointmentId=${encodeURIComponent(a.id)}${a.consultationMode === "ONLINE" ? "&consultationMode=ONLINE" : ""}`}
+                    <ConsultationLink
+                      href={consultationStartHref({
+                        patientId: a.patientId,
+                        appointmentId: a.id,
+                        consultationMode: a.consultationMode === "ONLINE" ? "ONLINE" : "IN_CLINIC"
+                      })}
                       className={cn(DS_LINK_ACTION, "shrink-0")}
                     >
                       {a.consultationMode === "ONLINE" ? "Start video →" : "Start visit →"}
-                    </Link>
+                    </ConsultationLink>
                   </div>
                 </li>
               ))}

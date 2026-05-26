@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ConsultationLink } from "../../../../../components/clinic/ConsultationLink";
+import { consultationStartHref } from "../../../../../lib/consultation-navigation";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Timeline } from "../../../../../components/clinic/Timeline";
@@ -76,12 +78,12 @@ export default function PatientTimelinePage(): JSX.Element {
         title={patient.name}
         description="Clinical timeline and visit history"
         action={
-          <Link
-            href={`/consultation?patientId=${encodeURIComponent(id)}`}
+          <ConsultationLink
+            href={consultationStartHref({ patientId: id })}
             className={DS_LINK_ACTION}
           >
             Start visit →
-          </Link>
+          </ConsultationLink>
         }
       />
 

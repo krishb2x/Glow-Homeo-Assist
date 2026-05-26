@@ -6,6 +6,8 @@ export const TELEMEDICINE_TEMPLATE_SLUGS: Record<string, string> = {
   appointment_invite_whatsapp: "telemedicine_appointment_invite",
   appointment_reminder_whatsapp: "telemedicine_appointment_reminder",
   consultation_summary_whatsapp: "telemedicine_consultation_summary",
+  consultation_ready_whatsapp: "telemedicine_consultation_ready",
+  consultation_missed_whatsapp: "telemedicine_consultation_missed",
   prescription_delivery_whatsapp: "telemedicine_prescription_ready"
 };
 
@@ -40,6 +42,14 @@ const DEFAULT_PARAM_ORDER: Record<string, (keyof NotificationTemplateVars)[]> = 
     "clinicName",
     "consultationSummary",
     "prescriptionLink"
+  ],
+  consultation_ready_whatsapp: ["patientName", "doctorName", "clinicName", "meetingLink"],
+  consultation_missed_whatsapp: [
+    "patientName",
+    "doctorName",
+    "clinicName",
+    "appointmentDate",
+    "appointmentTime"
   ],
   prescription_delivery_whatsapp: ["patientName", "doctorName", "clinicName", "prescriptionLink"]
 };

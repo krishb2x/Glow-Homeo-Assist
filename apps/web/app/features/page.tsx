@@ -8,7 +8,6 @@ import {
   FileText,
   Package,
   Smartphone,
-  Sparkles,
   Stethoscope,
   TrendingUp,
   Users
@@ -48,16 +47,16 @@ const MODULES: Module[] = [
     ]
   },
   {
-    Icon: Sparkles,
-    eyebrow: "AI notetaker",
-    title: "AI takes the notes. You stay with the patient.",
+    Icon: CalendarCheck,
+    eyebrow: "Telemedicine & scheduling",
+    title: "In-clinic and online visits on the same chart.",
     body:
-      "The AI notetaker listens, transcribes, and structures notes in the homeopathic format. Every word stays a draft until you review and approve it.",
+      "Run OPD consultations and video visits without maintaining separate records. Appointments, follow-up dates, and the operational queue stay connected to each patient file.",
     bullets: [
-      "Live transcription on consultation",
-      "Structured output: chief complaints, modalities, mental state, etc.",
-      "You must approve before anything is saved",
-      "Opt-in per consultation, with audio purged on a strict schedule"
+      "One chart for in-clinic and online consultations",
+      "Appointment booking for OPD and telemedicine",
+      "Follow-up queue with due dates and priorities",
+      "Secure visit links for patients joining online"
     ]
   },
   {

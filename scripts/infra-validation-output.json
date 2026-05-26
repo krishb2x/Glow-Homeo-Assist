@@ -1,0 +1,187 @@
+﻿{
+  "ts": "2026-05-26T16:40:47.106Z",
+  "sections": {
+    "environment": {
+      "status": "partial",
+      "missing": [
+        "DAILY_API_KEY",
+        "DAILY_DOMAIN",
+        "DAILY_WEBHOOK_SECRET",
+        "META_APP_ID",
+        "META_APP_SECRET",
+        "META_WEBHOOK_VERIFY_TOKEN",
+        "WHATSAPP_TOKEN_ENCRYPTION_KEY"
+      ],
+      "metaEmbeddedSignupConfigMissing": true,
+      "mockSend": true,
+      "nodeEnv": "development",
+      "checks": {
+        "DAILY_API_KEY": {
+          "set": false,
+          "masked": "(empty)"
+        },
+        "DAILY_DOMAIN": {
+          "set": false,
+          "masked": "(empty)"
+        },
+        "DAILY_WEBHOOK_SECRET": {
+          "set": false,
+          "masked": "(empty)"
+        },
+        "META_APP_ID": {
+          "set": false,
+          "masked": "(empty)"
+        },
+        "META_APP_SECRET": {
+          "set": false,
+          "masked": "(empty)"
+        },
+        "META_WEBHOOK_VERIFY_TOKEN": {
+          "set": false,
+          "masked": "(empty)"
+        },
+        "WHATSAPP_TOKEN_ENCRYPTION_KEY": {
+          "set": false,
+          "masked": "(empty)"
+        },
+        "APP_PUBLIC_URL": {
+          "set": true,
+          "masked": "httpΓÇª3000 (21 chars)",
+          "valid": true
+        },
+        "JWT_SECRET": {
+          "set": true,
+          "masked": "dev-ΓÇªtion (37 chars)",
+          "productionReady": false
+        },
+        "CORS_ORIGIN": {
+          "set": true,
+          "masked": "httpΓÇª3000 (43 chars)"
+        },
+        "SUPABASE_URL": {
+          "set": true,
+          "masked": "httpΓÇªe.co (40 chars)"
+        },
+        "SUPABASE_SERVICE_ROLE_KEY": {
+          "set": true,
+          "masked": "eyJhΓÇªBXpg (219 chars)"
+        },
+        "NOTIFICATION_MOCK_SEND": {
+          "set": true,
+          "value": "true"
+        },
+        "NOTIFICATION_BATCH_LIMIT": {
+          "set": true,
+          "value": "50"
+        },
+        "WHATSAPP_BATCH_LIMIT": {
+          "set": true,
+          "value": "30"
+        },
+        "WHATSAPP_SEND_INTERVAL_MS": {
+          "set": true,
+          "value": "1000"
+        },
+        "WORKER_MODE": {
+          "set": true,
+          "value": "all"
+        }
+      }
+    },
+    "database": {
+      "status": "ok",
+      "tables": {
+        "video_sessions": {
+          "ok": true,
+          "rowCount": 0
+        },
+        "consultation_events": {
+          "ok": true,
+          "rowCount": 0
+        },
+        "whatsapp_connections": {
+          "ok": true,
+          "rowCount": 0
+        },
+        "notification_jobs": {
+          "ok": true,
+          "rowCount": 0
+        },
+        "patient_access_tokens": {
+          "ok": true,
+          "rowCount": 0
+        },
+        "appointments": {
+          "ok": true,
+          "rowCount": 2
+        },
+        "consultations": {
+          "ok": true,
+          "rowCount": 25
+        }
+      },
+      "migrationColumns": {
+        "recording_consent_at": true,
+        "recording_consent_ip": true,
+        "missed_at": true,
+        "no_show_notified_at": true,
+        "room_url": true,
+        "patient_waiting_since": true,
+        "ended_reason": true
+      },
+      "claimNotificationJobsRpc": {
+        "ok": true,
+        "error": null
+      },
+      "queue": {
+        "deadLetter": 0,
+        "queued": 0
+      },
+      "whatsappConnections": []
+    },
+    "daily": {
+      "status": "fail",
+      "error": "DAILY_API_KEY or DAILY_DOMAIN missing"
+    },
+    "api": {
+      "status": "fail",
+      "baseUrl": "http://localhost:4000",
+      "error": "API not reachable ΓÇö start with npm run dev:api",
+      "/health": {
+        "ok": false,
+        "error": "fetch failed"
+      },
+      "/health/deep": {
+        "ok": false,
+        "error": "fetch failed"
+      }
+    },
+    "whatsapp": {
+      "status": "partial",
+      "mockSendEnabled": true,
+      "realDeliveryExpected": false,
+      "doctorConnections": [],
+      "twilioConfigured": false,
+      "metaOAuthReady": false,
+      "embeddedSignupConfigId": false,
+      "note": "NOTIFICATION_MOCK_SEND=true ΓÇö queue jobs will log mock sends, not deliver to patients"
+    }
+  },
+  "summary": {
+    "working": [
+      "Database tables accessible"
+    ],
+    "warnings": [
+      "NOTIFICATION_MOCK_SEND=true ΓÇö no real WhatsApp/email delivery",
+      "JWT_SECRET is dev placeholder ΓÇö not production-ready",
+      "API health/deep not reachable ΓÇö is API running?",
+      "No doctor WhatsApp connections ΓÇö telemedicine WA uses mock/Twilio fallback only",
+      "META_EMBEDDED_SIGNUP_CONFIG_ID empty ΓÇö doctor OAuth connect may not work in Settings"
+    ],
+    "blockers": [
+      "Missing env: DAILY_API_KEY, DAILY_DOMAIN, DAILY_WEBHOOK_SECRET, META_APP_ID, META_APP_SECRET, META_WEBHOOK_VERIFY_TOKEN, WHATSAPP_TOKEN_ENCRYPTION_KEY",
+      "Daily.co not configured or API failed"
+    ],
+    "verdict": "not deployment ready"
+  }
+}

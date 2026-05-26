@@ -1,11 +1,11 @@
-import { ShieldCheck, Sparkles, Stethoscope, Users } from "lucide-react";
+import { CalendarCheck, ShieldCheck, Stethoscope, Users } from "lucide-react";
 
 type Marker = { Icon: typeof ShieldCheck; label: string };
 
 const MARKERS: Marker[] = [
   { Icon: Stethoscope, label: "Built with practising homeopaths" },
   { Icon: Users, label: "Solo, clinic & multi-doctor ready" },
-  { Icon: Sparkles, label: "AI assistance you control" },
+  { Icon: CalendarCheck, label: "Scheduling, follow-ups & telemedicine" },
   { Icon: ShieldCheck, label: "Patient data stays in your clinic" }
 ];
 

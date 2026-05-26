@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuid } from "uuid";
-import { buildPrescriptionSlipHtml, toRxLines, type RxDocumentMeta } from "@homeoassist/print";
+import { buildPrescriptionSlipHtml, mapStoredPrescriptionItems, toRxLines, type RxDocumentMeta } from "@homeoassist/print";
+import { noteDraftBlock } from "../../lib/healthcareIds";
 import { createDownloadUrl, buildObjectKey, getPrivateBucketName, isS3Configured, putObjectBuffer } from "../../s3";
 import { logger } from "../../lib/logger";
 import { writeAuditV2Event } from "../../lib/auditV2";
 import { renderHtmlToPdf } from "./pdfRenderer";
-import { sendPrescriptionEmail, sendPrescriptionWhatsApp } from "./notificationProviders";
+import { sendPrescriptionWhatsApp } from "./notificationProviders";
 import { loadDoctorWhatsAppConnection, sendWhatsAppMessage } from "../whatsapp/sendMessage";
 import type {
   NotificationJobRow,
@@ -45,7 +46,7 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
 } | null> {
   const { data: row, error: loadErr } = await ctx.client
     .from("consultations")
-    .select("id,patient_id,consultation_mode,started_at,follow_up_recommended_at,advice")
+    .select("id,patient_id,consultation_mode,started_at,follow_up_recommended_at,follow_up_note,symptoms_to_monitor,advice,note_draft,visit_code")
     .eq("id", ctx.consultationId)
     .eq("clinic_id", ctx.clinicId)
     .maybeSingle();
@@ -53,7 +54,7 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
   if (loadErr || !row) return null;
 
   const [{ data: patient }, { data: clinic }, { data: profile }, { data: rxRows }] = await Promise.all([
-    ctx.client.from("patients").select("name,phone,email,age,gender").eq("id", ctx.patientId).maybeSingle(),
+    ctx.client.from("patients").select("name,phone,email,age,gender,patient_code").eq("id", ctx.patientId).maybeSingle(),
     ctx.client.from("clinics").select("name,location,address,phone,email,registration_number").eq("id", ctx.clinicId).maybeSingle(),
     ctx.client
       .from("profiles")
@@ -72,23 +73,17 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
     started_at: string;
     consultation_mode: string;
     follow_up_recommended_at: string | null;
+    follow_up_note: string | null;
+    symptoms_to_monitor: string[] | null;
     advice: { diet?: string; lifestyle?: string } | null;
+    note_draft: unknown;
+    visit_code: string | null;
   };
 
   const items = (rxRows?.[0] as { items?: unknown[] } | undefined)?.items ?? [];
-  const lines = Array.isArray(items)
-    ? items.map((it) => {
-        const o = it as Record<string, string>;
-        return {
-          remedyName: String(o.remedyName ?? o.name ?? "—"),
-          potency: String(o.potency ?? "—"),
-          dosage: String(o.dosage ?? o.doseCount ?? "—"),
-          frequency: String(o.frequency ?? "—"),
-          duration: String(o.duration ?? "—"),
-          instructions: String(o.instructions ?? "")
-        };
-      })
-    : [];
+  const mapped = mapStoredPrescriptionItems(items);
+  const lines = toRxLines(mapped);
+  const notes = noteDraftBlock(ext.note_draft);
 
   const pr = profile as {
     full_name?: string | null;
@@ -119,6 +114,7 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
     email?: string | null;
     age?: number | null;
     gender?: string | null;
+    patient_code?: string | null;
   } | null;
   const cl = clinic as {
     name?: string;
@@ -146,7 +142,10 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
     patientName: pat?.name ?? "Patient",
     patientAge: pat?.age ?? null,
     patientGender: pat?.gender ?? null,
-    patientCode: ctx.patientId,
+    patientCode: pat?.patient_code ?? null,
+    visitCode: ext.visit_code ?? null,
+    followUpNote: ext.follow_up_note ?? ctx.followUpNote ?? null,
+    symptomsToMonitor: ext.symptoms_to_monitor ?? null,
     followUpDateLabel: ext.follow_up_recommended_at
       ? new Date(ext.follow_up_recommended_at).toLocaleDateString("en-IN", {
           year: "numeric",
@@ -166,8 +165,9 @@ async function loadSlipContext(ctx: PipelineContext): Promise<{
 
   const html = buildPrescriptionSlipHtml({
     meta,
-    lines: toRxLines(lines),
-    advice: { diet: ext.advice?.diet ?? "", lifestyle: ext.advice?.lifestyle ?? "" }
+    lines,
+    advice: { diet: ext.advice?.diet ?? "", lifestyle: ext.advice?.lifestyle ?? "" },
+    notes
   });
 
   return {
@@ -254,6 +254,7 @@ async function enqueueJob(
     payload: Record<string, unknown>;
     idempotencyKey: string;
     scheduledFor?: string;
+    doctorId?: string;
   }
 ): Promise<string | null> {
   const id = uuid();
@@ -263,7 +264,7 @@ async function enqueueJob(
     patient_id: job.patientId,
     channel: job.channel,
     topic: job.topic,
-    payload: job.payload,
+    payload: job.doctorId ? { ...job.payload, doctorId: job.doctorId } : job.payload,
     idempotency_key: job.idempotencyKey,
     scheduled_for: job.scheduledFor ?? new Date().toISOString(),
     status: "QUEUED"
@@ -289,8 +290,13 @@ export async function processNotificationJob(
     "appointment_invite_email",
     "appointment_invite_whatsapp",
     "appointment_reminder_whatsapp",
+    "appointment_reminder_email",
     "consultation_summary_email",
-    "consultation_summary_whatsapp"
+    "consultation_summary_whatsapp",
+    "consultation_ready_whatsapp",
+    "consultation_missed_whatsapp",
+    "consultation_missed_email",
+    "follow_up_reminder_email"
   ]);
   if (telemedicineTopics.has(job.topic)) {
     const { processTelemedicineNotificationJob } = await import("../telemedicine/notificationDelivery");
@@ -310,21 +316,20 @@ export async function processNotificationJob(
   }
 
   if (job.topic === "prescription_delivery_email" && job.channel === "email") {
-    const to = String(payload.to ?? "");
-    if (!to) return false;
-    const result = await sendPrescriptionEmail({
-      to,
-      subject: String(payload.subject ?? "Your prescription"),
-      html: String(payload.html ?? ""),
-      text: String(payload.text ?? "")
-    });
+    const { deliverQueuedEmail, persistEmailProviderMessageId } = await import(
+      "../telemedicine/emailDelivery"
+    );
+    const result = await deliverQueuedEmail(job, payload);
+    if (result.ok) {
+      await persistEmailProviderMessageId(admin, job, result.messageId);
+    }
     if (!skipJobUpdate) {
       await admin
         .from("notification_jobs")
         .update({
           status: result.ok ? "SENT" : "FAILED",
           sent_at: result.ok ? new Date().toISOString() : null,
-          last_error: result.ok ? null : result.error,
+          last_error: result.ok ? null : result.error ?? "send_failed",
           attempts: job.attempts + 1
         })
         .eq("id", job.id);
@@ -562,6 +567,14 @@ export async function runPrescriptionDistributionPipeline(
       : "Your consultation is complete.";
 
   if (distribute.sendEmail && patientEmail) {
+    const { prescriptionDeliveryEmail } = await import("../telemedicine/messageTemplates");
+    const mail = prescriptionDeliveryEmail({
+      patientName: meta.patientName,
+      doctorName: meta.doctorName,
+      clinicName: meta.clinicName,
+      consultationSummary: summaryLine,
+      prescriptionLink: linkForMessage
+    });
     const jobId = await enqueueJob(ctx.client, {
       clinicId: ctx.clinicId,
       patientId: ctx.patientId,
@@ -570,11 +583,16 @@ export async function runPrescriptionDistributionPipeline(
       idempotencyKey: `consultation:${ctx.consultationId}:rx_email`,
       payload: {
         to: patientEmail,
-        subject: `Prescription from ${meta.clinicName}`,
-        html: `<p>Dear ${meta.patientName},</p>
-<p>Your prescription from <strong>${meta.doctorName}</strong> at ${meta.clinicName} is ready.</p>
-<p><a href="${linkForMessage}">View your prescription</a></p>`,
-        text: `Your prescription from ${meta.doctorName} at ${meta.clinicName}: ${linkForMessage}`
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        templateVars: {
+          patientName: meta.patientName,
+          doctorName: meta.doctorName,
+          clinicName: meta.clinicName,
+          consultationSummary: summaryLine,
+          prescriptionLink: linkForMessage
+        }
       }
     });
     if (jobId) {
@@ -646,27 +664,59 @@ export async function runPrescriptionDistributionPipeline(
       doctorId: ctx.doctorId,
       summaryLine,
       prescriptionLink: linkForMessage,
-      sendEmail: Boolean(distribute.sendEmail),
+      sendEmail: false,
       sendWhatsApp: Boolean(distribute.sendWhatsApp)
     });
   } catch {
     /* telemedicine module optional until migration applied */
   }
 
-  if (ctx.followUpRecommendedAt && patientPhone) {
-    await enqueueJob(ctx.client, {
-      clinicId: ctx.clinicId,
-      patientId: ctx.patientId,
-      channel: "whatsapp",
-      topic: "follow_up_reminder",
-      idempotencyKey: `consultation:${ctx.consultationId}:follow_up_reminder`,
-      scheduledFor: ctx.followUpRecommendedAt,
-      payload: {
-        phone: patientPhone,
-        reason: ctx.followUpNote ?? "Follow-up visit",
-        body: `Reminder: follow-up visit scheduled for ${meta.followUpDateLabel ?? "soon"}. — ${meta.clinicName}`
-      }
-    });
+  if (ctx.followUpRecommendedAt && (patientPhone || patientEmail)) {
+    const { followUpReminderEmail, formatFollowUpDate } = await import("../telemedicine/messageTemplates");
+    const followupDateLabel = formatFollowUpDate(ctx.followUpRecommendedAt);
+    const templateVars = {
+      patientName: meta.patientName,
+      doctorName: meta.doctorName,
+      clinicName: meta.clinicName,
+      followupDate: followupDateLabel
+    };
+
+    if (patientPhone) {
+      await enqueueJob(ctx.client, {
+        clinicId: ctx.clinicId,
+        patientId: ctx.patientId,
+        channel: "whatsapp",
+        topic: "follow_up_reminder",
+        idempotencyKey: `consultation:${ctx.consultationId}:follow_up_reminder_wa`,
+        scheduledFor: ctx.followUpRecommendedAt,
+        payload: {
+          phone: patientPhone,
+          doctorId: ctx.doctorId,
+          reason: ctx.followUpNote ?? "Follow-up visit",
+          body: `Reminder: follow-up visit scheduled for ${followupDateLabel}. — ${meta.clinicName}`
+        }
+      });
+    }
+
+    if (patientEmail) {
+      const mail = followUpReminderEmail(templateVars, ctx.followUpNote ?? undefined);
+      await enqueueJob(ctx.client, {
+        clinicId: ctx.clinicId,
+        patientId: ctx.patientId,
+        channel: "email",
+        topic: "follow_up_reminder_email",
+        idempotencyKey: `consultation:${ctx.consultationId}:follow_up_reminder_email`,
+        scheduledFor: ctx.followUpRecommendedAt,
+        doctorId: ctx.doctorId,
+        payload: {
+          to: patientEmail,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+          templateVars
+        }
+      });
+    }
   }
 
   void writeAuditV2Event(ctx.admin, {

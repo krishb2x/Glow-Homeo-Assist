@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { consultationStartHref, openConsultationTab } from "../../lib/consultation-navigation";
 import {
   Building2,
   Calendar,
@@ -137,7 +138,7 @@ export function GlobalCommandPalette(): JSX.Element | null {
       if (p) {
         setOpen(false);
         setQ("");
-        router.push(`/consultation?patientId=${encodeURIComponent(p.id)}`);
+        openConsultationTab(consultationStartHref({ patientId: p.id }));
       }
     },
     [filteredNav, filteredPatients, router]

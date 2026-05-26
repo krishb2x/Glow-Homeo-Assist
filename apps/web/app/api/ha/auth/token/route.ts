@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-/** Same-origin only: exposes the access token to the browser for WebSocket and rare client-only needs. */
+/** Same-origin only: exposes the access token to the browser for rare client-only needs. */
 export async function GET() {
   const t = (await cookies()).get("gh_session")?.value;
   if (!t) {

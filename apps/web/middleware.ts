@@ -11,7 +11,6 @@ export async function middleware(_request: NextRequest) {
 
 function addSecurityHeaders(response: NextResponse) {
   // API HTTP calls go through /api/ha-proxy (same-origin, no CORS needed).
-  // WebSockets connect directly to the API port (ws:// for AI notetaker live audio).
   response.headers.set(
     "Content-Security-Policy",
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: ws: wss:; frame-ancestors 'none';"

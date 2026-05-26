@@ -29,6 +29,8 @@ export type AppLayoutProps = {
   clinicId: string | null;
   doctorName: string;
   onLogout: () => void;
+  /** When true, main content fills remaining viewport below the top bar (live consultation). */
+  mainFullBleed?: boolean;
   mainMaxClass: string;
   /**
    * Kept for back-compat; the new top bar no longer renders the New patient
@@ -178,50 +180,40 @@ export function AppLayout({
   clinicContextLabel,
   clinicSelector,
   headerLeading,
-  showSidebarKeyboardHints = true
+  showSidebarKeyboardHints = true,
+  mainFullBleed = false
 }: AppLayoutProps): JSX.Element {
   if (mode === "session") {
     return (
       <div
-        className="flex min-w-[1024px] h-screen flex-col bg-hs-cream"
-        style={{ ["--header-h" as string]: "3.5rem" }}
+        className="flex h-screen min-w-0 flex-col bg-[#f8f8f6] md:min-w-[1024px]"
+        style={{ ["--header-h" as string]: "3rem" }}
       >
-        <header className="grid h-14 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-hs-border/60 bg-hs-paper px-ds-lg">
-          <Link href="/dashboard" className="text-body-sm font-medium text-hs-primary transition duration-200 hover:underline">
-            ← Home
+        <header className="grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-black/[0.06] bg-white/80 px-4 backdrop-blur-xl sm:px-5">
+          <Link
+            href="/dashboard"
+            className="text-[0.8125rem] font-medium text-neutral-500 transition duration-200 hover:text-neutral-900"
+          >
+            ← Dashboard
           </Link>
-          <div className="flex items-center justify-center gap-3">
-            <span className="text-caption-sm font-medium uppercase tracking-wider text-hs-text-tertiary">Live visit</span>
+          <div className="flex items-center justify-center gap-2.5">
             <ConnectionStatusBar />
             <button
               type="button"
               onClick={() => openCommandPalette()}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-hs-border/50 bg-hs-cream/80 px-3 text-body-sm font-medium text-hs-text-secondary transition duration-200 hover:border-hs-primary/30 hover:text-hs-ink"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[0.8125rem] font-medium text-neutral-500 transition duration-200 hover:bg-black/[0.04] hover:text-neutral-800"
             >
-              <Search className="h-4 w-4" />
-              <span>Search</span>
-              <kbd className="font-mono text-[0.65rem] text-hs-text-tertiary">⌘K</kbd>
+              <Search className="h-3.5 w-3.5" aria-hidden />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden font-mono text-[0.625rem] text-neutral-400 sm:inline">⌘K</kbd>
             </button>
           </div>
-          <div className="flex items-center justify-end gap-2">
-            <div className="mr-1 flex h-9 w-9 items-center justify-center rounded-full border border-hs-border/30 bg-hs-primary-very-light/80 text-caption-sm font-bold text-hs-primary">
-              {initials(doctorName)}
-            </div>
-            <span className="max-w-[160px] truncate text-body-sm font-medium text-hs-ink" title={doctorName}>
-              {doctorName}
-            </span>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-hs-border/80 px-2 text-body-sm font-medium text-hs-text-secondary transition duration-200 hover:border-hs-primary/40 hover:text-hs-ink"
-            >
-              <LogOut className="h-4 w-4" />
-              Log out
-            </button>
+          <div className="flex items-center justify-end">
+            <ProfileMenu doctorName={doctorName} onLogout={onLogout} />
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <main className="h-full w-full">{children}</main>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
         </div>
       </div>
     );
@@ -309,11 +301,17 @@ export function AppLayout({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-hs-cream/30">
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            mainFullBleed ? "flex flex-col overflow-hidden" : "overflow-y-auto bg-hs-cream/30"
+          )}
+        >
           <main
             className={cn(
-              "mx-auto w-full px-5 py-6 lg:px-8 lg:py-7",
-              mainMaxClass
+              mainFullBleed
+                ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+                : cn("mx-auto w-full px-5 py-6 lg:px-8 lg:py-7", mainMaxClass)
             )}
           >
             {children}

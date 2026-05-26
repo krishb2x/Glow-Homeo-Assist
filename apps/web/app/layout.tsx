@@ -18,7 +18,7 @@ function siteOrigin(): string {
 
 const site = siteOrigin();
 const defaultDescription =
-  "Structured homeopathy consultations (in-clinic or online), AI-assisted clinical notes you approve, professional prescriptions, patient follow-up app, and clinic operations in one system.";
+  "Structured homeopathy consultations (in-clinic or online), professional prescriptions, patient management, telemedicine, follow-ups, and clinic operations in one system.";
 
 const inter = Inter({
   subsets: ["latin"],

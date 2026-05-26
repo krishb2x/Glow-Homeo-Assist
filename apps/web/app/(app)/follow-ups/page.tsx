@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultationLink } from "../../../components/clinic/ConsultationLink";
+import { consultationStartHref } from "../../../lib/consultation-navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -117,13 +119,13 @@ function FollowRow({
               </button>
             </>
           ) : null}
-          <Link
-            href={`/consultation?patientId=${encodeURIComponent(it.patientId)}`}
+          <ConsultationLink
+            href={consultationStartHref({ patientId: it.patientId })}
             className={cn(DS_BTN_PRIMARY, "min-h-9 gap-1.5 px-4 py-2 text-caption-sm")}
           >
             <PlayCircle className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
             Start visit
-          </Link>
+          </ConsultationLink>
           <Link
             href={`/patients/${encodeURIComponent(it.patientId)}/timeline`}
             className={cn(DS_BTN_SECONDARY, "min-h-9 px-3 py-2 text-caption-sm font-semibold text-hs-primary")}

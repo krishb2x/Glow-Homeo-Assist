@@ -1,59 +1,12 @@
+import {
+  sendTransactionalEmail,
+  type ChannelSendResult,
+  type SendEmailInput
+} from "./emailLayout";
 import { logger } from "../../lib/logger";
 
-export type SendEmailInput = {
-  to: string;
-  subject: string;
-  html: string;
-  text?: string;
-};
-
-export type SendWhatsAppInput = {
-  toPhone: string;
-  body: string;
-};
-
-export type ChannelSendResult = { ok: true; provider: string; mock?: boolean } | { ok: false; error: string };
-
-function mockEnabled(): boolean {
-  return process.env.NOTIFICATION_MOCK_SEND === "true" || process.env.NODE_ENV !== "production";
-}
-
-export async function sendPrescriptionEmail(input: SendEmailInput): Promise<ChannelSendResult> {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.NOTIFICATION_FROM_EMAIL?.trim() || "GlowHomeo Assist <care@glowhomeo.in>";
-
-  if (!apiKey) {
-    if (mockEnabled()) {
-      logger.info("notification_email_mock", { to: input.to, subject: input.subject });
-      return { ok: true, provider: "mock", mock: true };
-    }
-    return { ok: false, error: "RESEND_API_KEY not configured" };
-  }
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from,
-        to: [input.to],
-        subject: input.subject,
-        html: input.html,
-        text: input.text
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      return { ok: false, error: `Resend ${res.status}: ${errText.slice(0, 200)}` };
-    }
-    return { ok: true, provider: "resend" };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
-}
+export type { SendEmailInput, ChannelSendResult };
+export { isValidEmailAddress, normalizeEmailAddress } from "./emailLayout";
 
 /** Normalize to E.164-ish for Twilio (India default +91). */
 export function normalizePhoneE164(raw: string): string | null {
@@ -65,6 +18,19 @@ export function normalizePhoneE164(raw: string): string | null {
   return `+${digits}`;
 }
 
+export async function sendPrescriptionEmail(input: SendEmailInput): Promise<ChannelSendResult> {
+  return sendTransactionalEmail(input);
+}
+
+export type SendWhatsAppInput = {
+  toPhone: string;
+  body: string;
+};
+
+function whatsAppMockEnabled(): boolean {
+  return process.env.NOTIFICATION_MOCK_SEND === "true" || process.env.NODE_ENV !== "production";
+}
+
 export async function sendPrescriptionWhatsApp(input: SendWhatsAppInput): Promise<ChannelSendResult> {
   const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const token = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -73,8 +39,13 @@ export async function sendPrescriptionWhatsApp(input: SendWhatsAppInput): Promis
   const to = normalizePhoneE164(input.toPhone);
   if (!to) return { ok: false, error: "Invalid patient phone number" };
 
+  if (process.env.NOTIFICATION_MOCK_SEND === "true") {
+    logger.info("notification_whatsapp_mock", { to, preview: input.body.slice(0, 120) });
+    return { ok: true, provider: "mock", mock: true };
+  }
+
   if (!sid || !token || !from) {
-    if (mockEnabled()) {
+    if (whatsAppMockEnabled()) {
       logger.info("notification_whatsapp_mock", { to, preview: input.body.slice(0, 120) });
       return { ok: true, provider: "mock", mock: true };
     }
