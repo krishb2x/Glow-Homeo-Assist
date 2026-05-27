@@ -1,4 +1,4 @@
-import type { Role } from "@homeoassist/domain/src";
+import type { Role } from "@homeoassist/domain";
 
 const PROFILE_TO_DOMAIN: Record<string, Role> = {
   super_admin: "SUPER_ADMIN",

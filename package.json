@@ -10,6 +10,7 @@
     "dev:api": "npm --workspace @homeoassist/api run dev",
     "dev:web": "npm --workspace @homeoassist/web run dev",
     "build": "npm --workspaces --if-present run build",
+    "build:api": "npm run build -w @homeoassist/domain && npm run build -w @homeoassist/print && npm run build -w @homeoassist/api",
     "build:web": "npm run build -w @homeoassist/web",
     "lint": "npm --workspaces --if-present run lint",
     "test": "npm run test:api && npm run test:web",
@@ -21,6 +22,7 @@
     "deploy:preflight": "node scripts/deploy-preflight.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.1"
+    "@playwright/test": "^1.49.1",
+    "typescript": "^5.7.2"
   }
 }

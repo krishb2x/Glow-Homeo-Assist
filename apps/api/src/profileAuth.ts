@@ -1,4 +1,4 @@
-import type { Role } from "@homeoassist/domain/src";
+import type { Role } from "@homeoassist/domain";
 import { createSupabaseUserClient, supabaseAdmin } from "./supabase";
 import { mapProfileRoleStringToDomain } from "./lib/roleMap";
 

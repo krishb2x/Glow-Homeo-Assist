@@ -1,4 +1,4 @@
-import { Role } from "@homeoassist/domain/src";
+import type { Role } from "@homeoassist/domain";
 
 export type UserRecord = {
   id: string;

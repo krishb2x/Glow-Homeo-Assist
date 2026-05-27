@@ -24,7 +24,7 @@ run("API lint", "npm", ["run", "lint", "-w", "@homeoassist/api"]);
 run("Web lint", "npm", ["run", "lint", "-w", "@homeoassist/web"]);
 run("API tests", "npm", ["run", "test:api"]);
 run("Web tests", "npm", ["run", "test:web"]);
-run("Build API", "npm", ["run", "build", "-w", "@homeoassist/api"]);
+run("Build API (domain + print + api)", "npm", ["run", "build:api"]);
 run("Build web", "npm", ["run", "build", "-w", "@homeoassist/web"]);
 run("Infrastructure validation", "node", ["scripts/infra-validation.mjs"]);
 

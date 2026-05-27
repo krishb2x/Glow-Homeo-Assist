@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { Role } from "@homeoassist/domain/src";
+import type { Role } from "@homeoassist/domain";
 import { getAuthClaimsForAccessToken } from "./profileAuth";
 import { logger } from "./lib/logger";
 import { jsonError } from "./lib/apiEnvelope";

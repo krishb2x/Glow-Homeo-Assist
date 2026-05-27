@@ -121,6 +121,25 @@ CORS_ORIGIN=https://app.glowhomeo.com
 
 Commit `package-lock.json` whenever `apps/web/package.json` changes.
 
+## Railway (API — root `Dockerfile`)
+
+
+
+`railway.toml` points at the repo-root `Dockerfile`. The image build must emit:
+
+- `apps/api/dist/server.js` (API entry)
+- `packages/domain/dist` and `packages/print/dist` (workspace runtime deps)
+
+Local compile (same order as Docker):
+
+```bash
+npm run build:api
+```
+
+**Common failure:** `COPY ... apps/api/dist` missing because `tsconfig.base.json` used a shared `outDir: "dist"`, so `tsc` wrote to repo-root `/dist` instead of `apps/api/dist`. Each package now sets its own `outDir`.
+
+Railway variables: see `docs/SUPABASE_MIGRATIONS.md` § Railway environment note. Do **not** rely on a committed `.env` in the container.
+
 ## Docker deploy
 
 
