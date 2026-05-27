@@ -14,9 +14,10 @@
   "dependencies": {
     "@daily-co/daily-js": "^0.90.0",
     "@daily-co/daily-react": "^0.25.2",
-    "@homeoassist/print": "0.1.0",
+    "@homeoassist/print": "file:../../packages/print",
     "@supabase/supabase-js": "^2.104.1",
     "@tanstack/react-virtual": "^3.13.25",
+    "dotenv": "^17.4.2",
     "framer-motion": "^11.18.2",
     "lucide-react": "^1.8.0",
     "next": "^15.0.3",
@@ -25,7 +26,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@homeoassist/testing": "0.1.0",
+    "@homeoassist/testing": "file:../../packages/testing",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.2",
@@ -33,7 +34,6 @@
     "@types/react-dom": "^18.3.1",
     "@vitest/coverage-v8": "^3.0.0",
     "autoprefixer": "^10.4.20",
-    "dotenv": "^17.4.2",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
