@@ -32,6 +32,7 @@ import { registerWhatsAppRoutes } from "./modules/whatsapp/whatsappRoutes";
 import { registerTelemedicineRoutes } from "./modules/telemedicine/telemedicineRoutes";
 import { registerOpsRoutes } from "./modules/ops/opsRoutes";
 import { registerMemoRoutes } from "./modules/memos/memoRoutes";
+import { registerPatientRoutes } from "./modules/patient/patientRoutes";
 import { provisionVideoSession } from "./modules/telemedicine/meetingService";
 import { listPatients } from "./modules/patients/patientListService";
 import { buildPatientTimeline } from "./modules/patients/timelineService";
@@ -1426,12 +1427,13 @@ registerHomeoSyncDoctorRoutes(app);
 registerMemoRoutes(app);
 registerWhatsAppRoutes(app);
 registerTelemedicineRoutes(app);
+registerPatientRoutes(app);
 registerOpsRoutes(app);
 
 const PATIENT_SELECT_COLUMNS_WITH_DOB =
-  "id,name,phone,language_preference,age,date_of_birth,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags";
+  "id,name,phone,language_preference,age,date_of_birth,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags,patient_code";
 const PATIENT_SELECT_COLUMNS_LEGACY =
-  "id,name,phone,language_preference,age,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags";
+  "id,name,phone,language_preference,age,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags,patient_code";
 
 function isMissingDateOfBirthColumn(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -1741,6 +1743,7 @@ app.patch("/doctor/patients/:id", authRequired, requireAppRoles(["DOCTOR", "SUPE
     bloodGroup: d.blood_group ?? undefined,
     ongoingConditions: d.ongoing_conditions ?? undefined,
     tags: Array.isArray(d.tags) ? (d.tags as string[]) : undefined,
+    patientCode: (d as { patient_code?: string | null }).patient_code ?? undefined,
     createdAt: d.created_at,
     lastVisitAt
   });

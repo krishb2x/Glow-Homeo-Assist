@@ -23,57 +23,60 @@
 
 ## 1. Auth
 
-### POST `/patient/auth/exchange-token`
+### POST `/patient/auth/login` (recommended — no OTP)
 
-First‑run flow. Patient opens a WhatsApp / SMS deep link containing a valid
-`patient_access_tokens.token`. The server:
-
-1. Validates the token (`resolvePatientAccessToken`).
-2. Creates or finds a Supabase Auth user keyed by the patient's phone.
-3. Links `patients.auth_user_id = auth_user.id` (if not already set).
-4. Returns a Supabase session.
+Patient enters the **patient code** printed on the prescription (e.g. `GH-CLN-00042`).
+The server looks up `patients.patient_code`, creates/links a Supabase auth user, and
+returns a session. Use `Authorization: Bearer <access_token>` on all other `/patient/*` routes.
 
 ```http
-POST /patient/auth/exchange-token
+POST /patient/auth/login
 Content-Type: application/json
 
-{ "token": "f5b29a16-..." }
+{ "patientCode": "GH-CLN-00042" }
 ```
 
 ```json
 {
   "success": true,
   "data": {
+    "token": "<access_token>",
     "session": {
       "access_token": "...",
       "refresh_token": "...",
-      "expires_at": 1740000000
+      "expires_at": 1740000000,
+      "expires_in": 3600
     },
-    "patient": { "id": "uuid", "name": "...", "phone": "+91..." },
-    "clinic": { "id": "uuid", "name": "..." }
+    "patient": {
+      "id": "uuid",
+      "name": "Asha Sharma",
+      "phone": "+91...",
+      "patientCode": "GH-CLN-00042"
+    },
+    "clinic": { "id": "uuid", "name": "Dr. Mehta's Homeopathy" }
   }
 }
 ```
 
-### POST `/patient/auth/request-otp`
+Errors: `INVALID_PATIENT_CODE` (401), `PATIENT_CODE_MISSING` (400), `RATE_LIMITED` (429).
 
-```json
-{ "phone": "+919876543210" }
-```
+> **Security:** Codes are clinic-scoped identifiers on a printed Rx — treat as a shared
+> secret, not a password. Add OTP or PIN later for production hardening if needed.
 
-Server delegates to `supabaseAdmin.auth.signInWithOtp({ phone, channel: 'sms' })`.
+### POST `/patient/auth/exchange-token` (optional)
 
-### POST `/patient/auth/verify-otp`
+WhatsApp / SMS deep link with `patient_access_tokens.token` — same session shape as login.
+*(Not required if using patient code login.)*
 
-```json
-{ "phone": "+91...", "otp": "123456" }
-```
+### OTP flows (optional, not enabled in API yet)
 
-Returns the same session shape as `/exchange-token`.
+`POST /patient/auth/request-otp` and `POST /patient/auth/verify-otp` — planned; use
+`/patient/auth/login` with `patientCode` for now.
 
 ### POST `/patient/auth/logout`
 
 Revokes the Supabase session and deletes the current device's `patient_push_tokens` row.
+*(Planned.)*
 
 ---
 
