@@ -4,27 +4,31 @@ If Railway (or local) logs show errors like:
 
 - `column appointments.consultation_mode does not exist`
 - `Could not find the table 'public.patient_access_tokens' in the schema cache`
+- `column consultations.symptoms_to_monitor does not exist`
+- `Could not find the 'symptoms_to_monitor' column of 'consultations' in the schema cache`
 
-your **hosted Supabase database is behind** the application code. The API expects migrations through at least **`20260524000000_online_consultation.sql`**.
+your **hosted Supabase database is behind** the application code. Apply **all pending** files under `supabase/migrations/` (see table below), not only the one matching the error.
 
 ---
 
 ## Quick fix (Supabase SQL Editor)
 
 1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor**.
-2. Paste and run the contents of:
+2. Run **every migration you have not applied yet**, in filename order (see full table below).
 
-   **`supabase/migrations/20260524000000_online_consultation.sql`**
+   **Minimum for `symptoms_to_monitor` errors** — run the full file (not just the `ALTER`; it also adds `visit_code`, counters, and backfill):
 
-3. If you use v2 workspace features (PDF jobs, media, notifications), also run (in order):
+   **`supabase/migrations/20260528000000_healthcare_references.sql`**
 
-   - `20260520000000_v2_consult_workspace.sql`
-   - `20260522000000_enterprise_scalability.sql`
-   - `20260521000000_whatsapp_business.sql` (if using WhatsApp)
-   - `20260523000000_whatsapp_template_sync.sql`
-   - `20260525000000_telemedicine_meta_templates.sql`
-   - `20260526000000_doctor_memos.sql`
-   - `20260527000000_patient_mobile.sql` (patient app — optional until mobile ships)
+   One-liner emergency patch (if you cannot run the full migration yet):
+
+   ```sql
+   ALTER TABLE public.consultations
+     ADD COLUMN IF NOT EXISTS visit_code text,
+     ADD COLUMN IF NOT EXISTS symptoms_to_monitor text[];
+   ```
+
+3. Recommended: apply everything through **`20260530000000_production_hardening.sql`** so production matches the API.
 
 4. **Reload PostgREST schema** (usually automatic within ~1 minute; or restart the API container after apply).
 
@@ -58,6 +62,9 @@ Run all files under `supabase/migrations/` in **filename sort order** (timestamp
 | `20260525000000_telemedicine_meta_templates.sql` | Meta templates |
 | `20260526000000_doctor_memos.sql` | Doctor memos |
 | `20260527000000_patient_mobile.sql` | Patient mobile tables |
+| **`20260528000000_healthcare_references.sql`** | **`consultations.symptoms_to_monitor`, `visit_code`, patient codes** |
+| `20260529000000_daily_video_sessions.sql` | Daily.co `video_sessions`, events |
+| `20260530000000_production_hardening.sql` | Recording consent columns |
 
 ---
 
@@ -89,6 +96,9 @@ SELECT consultation_mode FROM public.appointments LIMIT 1;
 
 -- Should return 0 rows (empty table is OK)
 SELECT id FROM public.patient_access_tokens LIMIT 1;
+
+-- Consult workflow (20260528000000)
+SELECT symptoms_to_monitor, visit_code FROM public.consultations LIMIT 1;
 ```
 
 Hit the API health check:
@@ -119,4 +129,4 @@ Do not rely on committing `.env` to the image.
 ## API behaviour after code update
 
 - Missing telemedicine schema returns **503** with `SCHEMA_NOT_READY` instead of crashing Node.
-- Production startup runs a schema probe for `patient_access_tokens` and `appointments.consultation_mode` and **fails fast** with a clear log if migrations are still missing.
+- Production startup probes `patient_access_tokens`, `appointments.consultation_mode`, Daily video tables, and **`consultations.symptoms_to_monitor` / `visit_code`**. If any are missing, the API **exits on boot** with a log pointing at `docs/SUPABASE_MIGRATIONS.md` (after you deploy the latest API image).

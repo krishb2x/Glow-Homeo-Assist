@@ -11,7 +11,7 @@
     "dev:web": "npm --workspace @homeoassist/web run dev",
     "build": "npm --workspaces --if-present run build",
     "build:api": "npm run build -w @homeoassist/domain && npm run build -w @homeoassist/print && npm run build -w @homeoassist/api",
-    "build:web": "npm run build -w @homeoassist/web",
+    "build:web": "npm run build -w @homeoassist/print && npm run build -w @homeoassist/web",
     "lint": "npm --workspaces --if-present run lint",
     "test": "npm run test:api && npm run test:web",
     "test:api": "npm --workspace @homeoassist/api run test",
@@ -23,6 +23,16 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
-    "typescript": "^5.7.2"
+    "typescript": "5.7.2"
+  },
+  "overrides": {
+    "@next/swc-darwin-arm64": "15.5.15",
+    "@next/swc-darwin-x64": "15.5.15",
+    "@next/swc-linux-arm64-gnu": "15.5.15",
+    "@next/swc-linux-arm64-musl": "15.5.15",
+    "@next/swc-linux-x64-gnu": "15.5.15",
+    "@next/swc-linux-x64-musl": "15.5.15",
+    "@next/swc-win32-arm64-msvc": "15.5.15",
+    "@next/swc-win32-x64-msvc": "15.5.15"
   }
 }

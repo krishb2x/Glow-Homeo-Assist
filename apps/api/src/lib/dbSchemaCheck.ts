@@ -16,6 +16,12 @@ const TELEMEDICINE_TABLES = ["patient_access_tokens", "appointments"] as const;
 
 const DAILY_VIDEO_TABLES = ["video_sessions", "consultation_events"] as const;
 
+/** Consult workflow columns from 20260528000000_healthcare_references.sql */
+const CONSULTATION_REFERENCE_COLUMNS = [
+  "symptoms_to_monitor",
+  "visit_code"
+] as const;
+
 /**
  * Service-role head query per table. Missing RLS/permission on service role is acceptable;
  * a missing *relation* fails startup in production.
@@ -94,5 +100,24 @@ export async function assertRequiredTablesExist(admin: SupabaseClient): Promise<
       }
       logger.warn("daily_video_schema_check_failed", payload);
     }
+  }
+
+  const { error: consultColErr } = await admin
+    .from("consultations")
+    .select(CONSULTATION_REFERENCE_COLUMNS.join(","))
+    .limit(0);
+  if (consultColErr) {
+    const payload = {
+      columns: CONSULTATION_REFERENCE_COLUMNS,
+      message: consultColErr.message,
+      hint: "Apply supabase/migrations/20260528000000_healthcare_references.sql — see docs/SUPABASE_MIGRATIONS.md"
+    };
+    if (isProd) {
+      logger.error("consultation_reference_schema_check_failed", payload);
+      throw new Error(
+        `Database schema not ready: consultations is missing reference/follow-up columns. ${consultColErr.message}`
+      );
+    }
+    logger.warn("consultation_reference_schema_check_failed", payload);
   }
 }

@@ -6,7 +6,7 @@
 
 
 
-1. Apply Supabase migrations through `20260530000000_production_hardening.sql`.
+1. Apply **all** Supabase migrations through `20260530000000_production_hardening.sql` (see `docs/SUPABASE_MIGRATIONS.md`). If you see `symptoms_to_monitor does not exist`, run `20260528000000_healthcare_references.sql` on the hosted project.
 
 2. Copy `.env.example` → `.env` at **monorepo root** and fill all values.
 
@@ -114,8 +114,9 @@ CORS_ORIGIN=https://app.glowhomeo.com
 
 `apps/web/vercel.json` overrides install/build:
 
-- **Install:** `cd ../.. && npm ci` (resolves workspace + hoisted deps like `zod`)
-- **Build:** `npm run build`
+- **Install:** `cd ../.. && npm ci --include=dev` (devDeps required for TypeScript packages; see `apps/web/vercel.json`)
+- **Build:** `cd ../.. && npm run build -w @homeoassist/print && npm run build -w @homeoassist/web`
+- **Config:** `apps/web/next.config.mjs` (not `.ts` — avoids Vercel needing `typescript` to load config)
 
 **Do not** set Root Directory to repo root without changing build paths. **Do not** use `npm install` only inside `apps/web` without the monorepo root — `zod` and `@homeoassist/print` will not resolve.
 
