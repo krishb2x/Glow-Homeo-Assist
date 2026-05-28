@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart2,
+  BookHeart,
   Building2,
   CalendarDays,
   Inbox,
@@ -29,6 +30,7 @@ export const NAV_DOCTOR: NavItem[] = [
   { href: "/patients", label: "Patients", Icon: Users },
   { href: "/appointments", label: "Schedule", Icon: CalendarDays },
   { href: "/follow-ups", label: "Follow-ups", Icon: Inbox },
+  { href: "/care-plan-library", label: "Care plans", Icon: BookHeart },
   { href: "/messages", label: "Messages", Icon: MessageSquare },
   { href: "/settings", label: "Settings", Icon: Settings }
 ];
@@ -43,6 +45,7 @@ export function isMainNavActive(href: string, path: string): boolean {
   if (href === "/appointments") return path.startsWith("/appointments");
   if (href === "/consultation") return path === "/consultation" || path.startsWith("/consultation");
   if (href === "/follow-ups") return path.startsWith("/follow-ups");
+  if (href === "/care-plan-library") return path.startsWith("/care-plan-library");
   if (href === "/messages") return path.startsWith("/messages");
   if (href === "/settings") return path === "/settings";
   return path === href;

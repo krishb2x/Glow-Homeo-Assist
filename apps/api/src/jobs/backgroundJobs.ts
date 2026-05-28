@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { processDueNotificationJobs } from "../modules/encounters/v2EncountersService";
 import { processAppointmentReminderJobs } from "../modules/telemedicine/appointmentReminders";
 import { processMissedConsultationJobs } from "../modules/telemedicine/missedConsultationJob";
+import {
+  processPatientPushJobs,
+  schedulePatientReminderJobs
+} from "../modules/patient/patientReminderJobs";
 import { logger } from "../lib/logger";
 import { recordWorkerRun } from "../lib/workerHeartbeat";
 
@@ -88,6 +92,37 @@ export function startBackgroundJobs(admin: SupabaseClient): void {
   };
   setTimeout(runMissedConsultations, 35_000);
   setInterval(runMissedConsultations, 15 * 60 * 1000);
+
+  const runPatientPush = (): void => {
+    void processPatientPushJobs(admin, batchLimit)
+      .then(() => recordWorkerRun("patient_push"))
+      .catch((e) => {
+        recordWorkerRun("patient_push", e instanceof Error ? e.message : String(e));
+        logger.warn("background_patient_push_error", {
+          message: e instanceof Error ? e.message : String(e)
+        });
+      });
+  };
+  setTimeout(runPatientPush, 40_000);
+  setInterval(runPatientPush, NOTIFICATION_POLL_MS);
+
+  const runPatientReminderSchedule = (): void => {
+    void schedulePatientReminderJobs(admin)
+      .then((n) => {
+        recordWorkerRun("patient_reminder_schedule");
+        if (n > 0) {
+          logger.info("patient_reminders_enqueued", { count: n });
+        }
+      })
+      .catch((e) => {
+        recordWorkerRun("patient_reminder_schedule", e instanceof Error ? e.message : String(e));
+        logger.warn("background_patient_reminder_schedule_error", {
+          message: e instanceof Error ? e.message : String(e)
+        });
+      });
+  };
+  setTimeout(runPatientReminderSchedule, 45_000);
+  setInterval(runPatientReminderSchedule, 15 * 60 * 1000);
 
   logger.info("background_jobs_started", {
     mode,

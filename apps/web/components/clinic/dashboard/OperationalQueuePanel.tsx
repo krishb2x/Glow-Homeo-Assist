@@ -34,31 +34,35 @@ function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
   return (
     <ConsultationLink
       href={liveConsultationHref(visit.id)}
-      className="flex items-center justify-between gap-3 rounded-xl border border-hs-border/30 bg-hs-paper px-3.5 py-2.5 text-body-sm transition hover:border-hs-primary/35 hover:bg-hs-primary-very-light/25"
+      className="flex items-center justify-between gap-3 rounded-2xl border border-hs-border/20 bg-hs-paper px-4 py-3 text-body-sm transition-all duration-300 hover:border-hs-primary/30 hover:bg-hs-primary-very-light/20 hover:shadow-ds-sm hover:translate-x-1"
     >
-      <span className="flex min-w-0 items-center gap-2">
+      <span className="flex min-w-0 items-center gap-3">
         {visit.mode === "ONLINE" ? (
-          <Video className="h-4 w-4 shrink-0 text-sky-600" aria-hidden />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-200/50">
+            <Video className="h-4 w-4" aria-hidden />
+          </span>
         ) : (
-          <Stethoscope className="h-4 w-4 shrink-0 text-hs-primary" aria-hidden />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-hs-primary-very-light text-hs-primary ring-1 ring-hs-primary/10">
+            <Stethoscope className="h-4 w-4" aria-hidden />
+          </span>
         )}
         <span className="min-w-0">
-          <span className="block truncate font-medium text-hs-ink">{visit.patientName}</span>
-          <span className="flex flex-wrap items-center gap-1.5 text-caption-sm text-hs-text-tertiary">
-            <Clock className="h-3 w-3" aria-hidden />
-            {formatVisitAge(visit.ageMinutes)}
+          <span className="block truncate font-bold text-hs-ink">{visit.patientName}</span>
+          <span className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-hs-text-secondary mt-0.5">
+            <Clock className="h-3 w-3 text-hs-text-tertiary" />
+            <span>{formatVisitAge(visit.ageMinutes)}</span>
             {visit.mode === "ONLINE" ? (
-              <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-800">
+              <span className="shrink-0 rounded-full bg-sky-50 px-2 py-0.2 border border-sky-200/30 text-[9px] font-bold uppercase tracking-wider text-sky-700">
                 Video
               </span>
             ) : null}
             {visit.mode === "ONLINE" && visit.patientWaitingSince ? (
-              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+              <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.2 border border-amber-200/30 text-[9px] font-bold uppercase tracking-wider text-amber-800">
                 Waiting
               </span>
             ) : null}
             {visit.stale ? (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+              <span className="rounded-full bg-rose-50 px-2 py-0.2 border border-rose-200/30 text-[9px] font-bold uppercase tracking-wider text-rose-800">
                 Stale
               </span>
             ) : null}
@@ -68,7 +72,7 @@ function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
           </span>
         </span>
       </span>
-      <span className="shrink-0 text-caption-sm font-semibold text-hs-primary">Resume →</span>
+      <span className="shrink-0 text-caption-sm font-bold text-hs-primary hover:text-hs-primary-light transition-colors">Resume →</span>
     </ConsultationLink>
   );
 }
@@ -127,23 +131,26 @@ export function OperationalQueuePanel({ myDay, className }: Props): JSX.Element 
     >
       {/* Pending actions — draft notes & outcomes */}
       {hasActions ? (
-        <div className="border-b border-hs-border/25 bg-amber-50/40 px-4 py-3">
-          <p className="text-caption-sm font-semibold text-amber-950">Needs attention</p>
-          <ul className="mt-2 space-y-1.5">
+        <div className="border-b border-hs-border/20 bg-amber-50/20 p-4 border-l-4 border-amber-500">
+          <p className="text-caption-sm font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            Needs attention
+          </p>
+          <ul className="mt-3 space-y-2">
             {draftNotes.slice(0, 3).map((n) => (
               <li key={n.consultationId}>
                 <ConsultationLink
                   href={liveConsultationHref(n.consultationId, "notes")}
-                  className="flex items-center justify-between gap-2 rounded-lg bg-hs-paper/80 px-3 py-2 text-caption-sm transition hover:bg-hs-paper"
+                  className="flex items-center justify-between gap-3 rounded-xl bg-hs-paper/90 px-3.5 py-2.5 text-caption-sm border border-amber-200/50 shadow-sm transition hover:border-hs-primary/20 hover:bg-hs-paper hover:translate-x-0.5"
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <FileText className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                    <FileText className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
                     <span className="truncate">
-                      <span className="font-medium text-hs-ink">{n.patientName}</span>
-                      <span className="text-hs-text-tertiary"> — finalize notes</span>
+                      <span className="font-bold text-hs-ink">{n.patientName}</span>
+                      <span className="text-hs-text-secondary ml-1">— finalize notes</span>
                     </span>
                   </span>
-                  <span className="shrink-0 font-semibold text-hs-primary">Open →</span>
+                  <span className="shrink-0 font-bold text-hs-primary text-[11px]">Open →</span>
                 </ConsultationLink>
               </li>
             ))}
@@ -151,16 +158,16 @@ export function OperationalQueuePanel({ myDay, className }: Props): JSX.Element 
               <li key={o.consultationId}>
                 <ConsultationLink
                   href={liveConsultationHref(o.consultationId, "finalize")}
-                  className="flex items-center justify-between gap-2 rounded-lg bg-hs-paper/80 px-3 py-2 text-caption-sm transition hover:bg-hs-paper"
+                  className="flex items-center justify-between gap-3 rounded-xl bg-hs-paper/90 px-3.5 py-2.5 text-caption-sm border border-amber-200/50 shadow-sm transition hover:border-hs-primary/20 hover:bg-hs-paper hover:translate-x-0.5"
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
                     <span className="truncate">
-                      <span className="font-medium text-hs-ink">{o.patientName}</span>
-                      <span className="text-hs-text-tertiary"> — record outcome</span>
+                      <span className="font-bold text-hs-ink">{o.patientName}</span>
+                      <span className="text-hs-text-secondary ml-1">— record outcome</span>
                     </span>
                   </span>
-                  <span className="shrink-0 font-semibold text-hs-primary">Open →</span>
+                  <span className="shrink-0 font-bold text-hs-primary text-[11px]">Open →</span>
                 </ConsultationLink>
               </li>
             ))}

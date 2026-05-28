@@ -55,12 +55,11 @@ import {
 } from "../../lib/finalize-delivery-status";
 import { useConsultationTabLock } from "../../lib/useConsultationTabLock";
 import {
-  createAdviceTemplate,
-  fetchAdviceTemplates,
-  fetchTreatmentPlans,
-  type AdviceTemplate,
-  type TreatmentPlan
+  mergeCarePlans,
+  recordCarePlanUsage,
+  type CarePlanTemplateSummary
 } from "../../lib/doctor-api";
+import type { Step07CarePlanProps } from "./workflow/steps";
 import { PrescriptionPreviewModal } from "../consultation/PrescriptionPreviewModal";
 import { ErrorState } from "../ui/LoadState";
 import { SkeletonCard } from "./SkeletonCard";
@@ -316,10 +315,11 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
 
   // Advice
   const [advice, setAdvice] = useState({ diet: "", lifestyle: "" });
-  const [adviceTemplates, setAdviceTemplates] = useState<AdviceTemplate[]>([]);
-  const [treatmentPlans, setTreatmentPlans] = useState<TreatmentPlan[]>([]);
-  const [templateSearch, setTemplateSearch] = useState("");
-  const [newTemplate, setNewTemplate] = useState<{ title: string; category: AdviceTemplate["category"]; content: string } | null>(null);
+  const [carePlans, setCarePlans] = useState<CarePlanTemplateSummary[]>([]);
+  const [recentCarePlanIds, setRecentCarePlanIds] = useState<string[]>([]);
+  const [carePlanSearch, setCarePlanSearch] = useState("");
+  const [selectedCarePlanIds, setSelectedCarePlanIds] = useState<string[]>([]);
+  const [applyingCarePlan, setApplyingCarePlan] = useState(false);
 
   // Follow-up
   const [followUpEnabled, setFollowUpEnabled] = useState(false);
@@ -408,8 +408,8 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     setPriorOutcomeSaved(!session.pendingPriorOutcome);
     setPriorOutcomeValue("");
     setPriorOutcomeAssessment("");
-    setAdviceTemplates(session.adviceTemplates);
-    setTreatmentPlans(session.treatmentPlans);
+    setCarePlans(session.carePlans);
+    setRecentCarePlanIds(session.recentCarePlanIds);
     if (session.myDay) setMyDay(session.myDay);
     if (session.consultationMode === "ONLINE") {
       setActiveDrawer("context");
@@ -799,47 +799,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     }
   });
 
-  const applyAdviceTemplate = useCallback((t: AdviceTemplate) => {
-    if (t.category === "diet" || t.category === "restriction") {
-      setAdvice((prev) => ({
-        ...prev,
-        diet: prev.diet ? `${prev.diet}\n\n${t.content}` : t.content
-      }));
-    } else {
-      setAdvice((prev) => ({
-        ...prev,
-        lifestyle: prev.lifestyle ? `${prev.lifestyle}\n\n${t.content}` : t.content
-      }));
-    }
-  }, []);
-
-  const applyTreatmentPlan = useCallback((plan: TreatmentPlan) => {
-    setAdvice((prev) => {
-      const parts: { diet: string; lifestyle: string } = { diet: prev.diet, lifestyle: prev.lifestyle };
-      if (plan.dietAdvice || plan.restrictionAdvice) {
-        const combined = [plan.dietAdvice, plan.restrictionAdvice].filter(Boolean).join("\n\n");
-        parts.diet = prev.diet ? `${prev.diet}\n\n${combined}` : combined;
-      }
-      if (plan.lifestyleAdvice) {
-        parts.lifestyle = prev.lifestyle ? `${prev.lifestyle}\n\n${plan.lifestyleAdvice}` : plan.lifestyleAdvice;
-      }
-      return parts;
-    });
-    setStatusMsg(`Treatment plan "${plan.title}" applied.`);
-  }, []);
-
-  const saveNewAdviceTemplate = useCallback(() => {
-    if (!newTemplate?.title.trim() || !newTemplate.content.trim()) return;
-    void createAdviceTemplate({
-      title: newTemplate.title.trim(),
-      category: newTemplate.category,
-      content: newTemplate.content.trim()
-    })
-      .then(() => fetchAdviceTemplates().then((t) => setAdviceTemplates(t)).catch(() => {}))
-      .catch(() => {});
-    setNewTemplate(null);
-  }, [newTemplate]);
-
   const adviceCards = useMemo((): AdviceCard[] => {
     if (clinicalRecord.adviceCards.length > 0) return clinicalRecord.adviceCards;
     const cards: AdviceCard[] = [];
@@ -865,6 +824,77 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         .join("\n\n")
     });
   }, []);
+
+  const applyCarePlan = useCallback(
+    async (planId: string, mode: "replace" | "append") => {
+      setApplyingCarePlan(true);
+      try {
+        const { adviceCards: merged } = await mergeCarePlans({ templateIds: [planId] });
+        const cards: AdviceCard[] = merged.map((c) => ({
+          id: crypto.randomUUID(),
+          category: c.category,
+          title: c.title,
+          detail: c.detail
+        }));
+        onAdviceCardsChange(mode === "append" ? [...adviceCards, ...cards] : cards);
+        void recordCarePlanUsage(planId);
+        setRecentCarePlanIds((prev) => [planId, ...prev.filter((id) => id !== planId)].slice(0, 12));
+        setStatusMsg(mode === "replace" ? "Care plan applied." : "Care plan added to advice.");
+      } catch {
+        setStatusMsg("Could not apply care plan.");
+      } finally {
+        setApplyingCarePlan(false);
+      }
+    },
+    [adviceCards, onAdviceCardsChange]
+  );
+
+  const applyMergedCarePlans = useCallback(async () => {
+    if (selectedCarePlanIds.length === 0) return;
+    const ids = [...selectedCarePlanIds];
+    setApplyingCarePlan(true);
+    try {
+      const { adviceCards: merged } = await mergeCarePlans({ templateIds: ids });
+      const cards: AdviceCard[] = merged.map((c) => ({
+        id: crypto.randomUUID(),
+        category: c.category,
+        title: c.title,
+        detail: c.detail
+      }));
+      onAdviceCardsChange([...adviceCards, ...cards]);
+      for (const pid of ids) void recordCarePlanUsage(pid);
+      setRecentCarePlanIds((prev) => [...ids, ...prev.filter((id) => !ids.includes(id))].slice(0, 12));
+      setSelectedCarePlanIds([]);
+      setStatusMsg(`Applied ${ids.length} care plan(s).`);
+    } catch {
+      setStatusMsg("Could not merge care plans.");
+    } finally {
+      setApplyingCarePlan(false);
+    }
+  }, [adviceCards, onAdviceCardsChange, selectedCarePlanIds]);
+
+  const adviceCarePlan = useMemo(
+    (): Step07CarePlanProps => ({
+      plans: carePlans,
+      recentPlanIds: recentCarePlanIds,
+      search: carePlanSearch,
+      onSearchChange: setCarePlanSearch,
+      selectedPlanIds: selectedCarePlanIds,
+      onSelectedPlanIdsChange: setSelectedCarePlanIds,
+      onApplyPlan: (id, mode) => void applyCarePlan(id, mode),
+      onMergeSelected: () => void applyMergedCarePlans(),
+      applyingPlan: applyingCarePlan
+    }),
+    [
+      carePlans,
+      recentCarePlanIds,
+      carePlanSearch,
+      selectedCarePlanIds,
+      applyingCarePlan,
+      applyCarePlan,
+      applyMergedCarePlans
+    ]
+  );
 
   const patientSnapshot = useMemo(
     () => ({
@@ -1003,17 +1033,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         setShowPrevRx,
         setRxEntries,
         setStatusMsg,
-        advice,
-        setAdvice,
-        adviceTemplates,
-        treatmentPlans,
-        templateSearch,
-        setTemplateSearch,
-        newTemplate,
-        setNewTemplate,
-        applyAdviceTemplate,
-        applyTreatmentPlan,
-        saveNewAdviceTemplate,
         followUpEnabled,
         createFollowUpTask,
         setCreateFollowUpTask,
@@ -1059,14 +1078,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       selectStep,
       prevRx,
       showPrevRx,
-      advice,
-      adviceTemplates,
-      treatmentPlans,
-      templateSearch,
-      newTemplate,
-      applyAdviceTemplate,
-      applyTreatmentPlan,
-      saveNewAdviceTemplate,
       followUpEnabled,
       createFollowUpTask,
       lockAfterFinalize,
@@ -1267,6 +1278,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         activeStep={activeStep}
         stepDone={stepDone}
         onSelectStep={selectStep}
+        stepValidations={stepValidations}
         patientLine={
           patientId ? (
             <>
@@ -1348,6 +1360,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             onPrescriptionChange={setRxEntries}
             adviceCards={adviceCards}
             onAdviceChange={onAdviceCardsChange}
+            adviceCarePlan={formDisabled ? undefined : adviceCarePlan}
             followUpStep={followUpStepValue}
             onFollowUpChange={onFollowUpStepChange}
             finalizeItems={finalizeItems}

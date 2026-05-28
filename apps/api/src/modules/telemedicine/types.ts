@@ -10,4 +10,9 @@ export type NotificationTemplateVars = {
   consultationSummary?: string;
 };
 
-export type PatientAccessPurpose = "join_consultation" | "view_prescription" | "view_report";
+export type PatientAccessPurpose =
+  | "join_consultation"
+  | "view_prescription"
+  | "view_report"
+  | "family_view"
+  | "patient_login";

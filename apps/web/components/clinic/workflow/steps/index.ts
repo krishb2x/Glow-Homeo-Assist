@@ -27,7 +27,7 @@ export type {
 } from "./Step06Prescription";
 
 export { Step07Advice } from "./Step07Advice";
-export type { AdviceCard, AdviceCategory } from "./Step07Advice";
+export type { AdviceCard, AdviceCategory, Step07CarePlanProps } from "./Step07Advice";
 
 export { Step08FollowUp } from "./Step08FollowUp";
 export type { FollowUpStepValue } from "./Step08FollowUp";

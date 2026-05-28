@@ -657,6 +657,21 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
           .eq("id", parsed.data.inReplyToMessageId)
           .eq("clinic_id", clinicId);
       }
+
+      try {
+        const { enqueuePatientPushJob } = await import("./modules/patient/patientNotificationEnqueue");
+        const { PATIENT_NOTIFICATION_TOPICS } = await import("./modules/patient/types");
+        await enqueuePatientPushJob(supabaseAdmin, {
+          clinicId,
+          patientId: parsed.data.patientId,
+          topic: PATIENT_NOTIFICATION_TOPICS.messageFromClinic,
+          idempotencyKey: `inbox:${(data as { id: string }).id}:push`,
+          payload: { messageId: (data as { id: string }).id }
+        });
+      } catch {
+        /* push optional */
+      }
+
       jsonSuccess(res, 201, data);
     }
   );

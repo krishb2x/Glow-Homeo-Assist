@@ -101,54 +101,72 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
               <li
                 key={a.id}
                 className={cn(
-                  "relative pb-4 last:pb-0",
-                  status === "past" && "opacity-55"
+                  "relative pb-5 last:pb-0 transition-opacity duration-300",
+                  status === "past" && "opacity-50"
                 )}
               >
-                <span
+                {/* Bullet indicator with inner dots */}
+                <div
                   className={cn(
-                    "absolute -left-[calc(1rem+0.3125rem)] top-3 h-2.5 w-2.5 rounded-full ring-2 ring-hs-paper sm:-left-[calc(1.25rem+0.3125rem)]",
-                    status === "current" && "bg-hs-primary animate-pulse",
-                    status === "next" && "bg-hs-warning",
-                    status === "upcoming" && "bg-hs-border-dark",
-                    status === "past" && "bg-hs-text-tertiary"
+                    "absolute -left-[calc(1rem+0.42rem)] top-3.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-hs-paper ring-2 ring-hs-paper sm:-left-[calc(1.25rem+0.42rem)]",
+                    status === "current" && "ring-hs-primary/30",
+                    status === "next" && "ring-hs-warning/30",
+                    status === "upcoming" && "ring-hs-border",
+                    status === "past" && "ring-hs-border/60"
                   )}
                   aria-hidden
-                />
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      status === "current" && "bg-hs-primary scale-125 animate-pulse",
+                      status === "next" && "bg-hs-warning",
+                      status === "upcoming" && "bg-hs-text-tertiary",
+                      status === "past" && "bg-hs-border-dark"
+                    )}
+                  />
+                </div>
+
                 <article
                   className={cn(
-                    "rounded-xl border px-3.5 py-3 transition",
-                    status === "current" && "border-hs-primary/40 bg-hs-primary-very-light/50 shadow-ds-sm ring-1 ring-hs-primary/15",
-                    status === "next" && "border-hs-warning/40 bg-amber-50/50",
-                    status === "upcoming" && "border-hs-border/30 bg-hs-cream/40",
-                    status === "past" && "border-hs-border/25 bg-hs-paper/80"
+                    "rounded-2xl border px-4 py-3.5 transition-all duration-300 hover:translate-x-1",
+                    status === "current" && "border-hs-primary/30 bg-hs-primary-very-light/40 shadow-ds-sm ring-1 ring-hs-primary/10",
+                    status === "next" && "border-hs-warning/30 bg-amber-50/40 shadow-sm",
+                    status === "upcoming" && "border-hs-border/20 bg-hs-paper hover:border-hs-primary/20 hover:shadow-ds-sm",
+                    status === "past" && "border-hs-border/10 bg-hs-paper/40"
                   )}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-body-sm font-semibold text-hs-ink">{a.patientName}</p>
+                        <p className="text-body-sm font-bold text-hs-ink">{a.patientName}</p>
                         {a.consultationMode === "ONLINE" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-800">
-                            <Video className="h-3 w-3" aria-hidden />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-sky-700 border border-sky-200/50">
+                            <Video className="h-2.5 w-2.5" aria-hidden />
                             Video
                           </span>
                         ) : null}
                         <PatientTagBadges tags={[appointmentDisplayTag(a, rosterById.get(a.patientId))]} />
                         {status === "current" ? (
-                          <span className="rounded-full bg-hs-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                          <span className="rounded-full bg-hs-primary px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
                             In progress
                           </span>
                         ) : null}
                         {status === "next" ? (
-                          <span className="rounded-full border border-amber-300/70 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950">
+                          <span className="rounded-full border border-amber-300/50 bg-amber-100/70 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-900">
                             Up next
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-0.5 text-caption-sm text-hs-text-secondary">
-                        {formatTimeLabel(a.scheduledFor)} · {a.durationMinutes} min
-                        {a.chiefComplaint ? ` · ${a.chiefComplaint}` : ""}
+                      <p className="mt-1 text-[11px] font-medium text-hs-text-secondary flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-hs-text-tertiary" />
+                        <span>{formatTimeLabel(a.scheduledFor)} · {a.durationMinutes} min</span>
+                        {a.chiefComplaint ? (
+                          <>
+                            <span className="text-hs-border-dark">•</span>
+                            <span className="text-hs-text-tertiary truncate">{a.chiefComplaint}</span>
+                          </>
+                        ) : ""}
                       </p>
                     </div>
                     <ConsultationLink
@@ -158,10 +176,10 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
                         consultationMode: a.consultationMode
                       })}
                       className={cn(
-                        "shrink-0 rounded-lg px-3 py-1.5 text-caption-sm font-semibold transition",
+                        "shrink-0 rounded-lg px-3.5 py-1.5 text-caption-sm font-bold transition-all duration-200 active:scale-[0.97]",
                         status === "past"
-                          ? "border border-hs-border/50 text-hs-text-secondary hover:border-hs-primary/30"
-                          : "bg-hs-primary text-white hover:bg-hs-primary-light"
+                          ? "border border-hs-border/40 bg-hs-cream/30 text-hs-text-secondary hover:border-hs-primary/30 hover:bg-hs-primary-very-light/20"
+                          : "bg-hs-primary text-white hover:bg-hs-primary-light shadow-sm"
                       )}
                     >
                       {status === "past" ? "Open" : "Start"}

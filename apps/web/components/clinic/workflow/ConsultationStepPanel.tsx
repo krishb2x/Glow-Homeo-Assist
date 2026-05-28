@@ -15,6 +15,7 @@ import {
   Step08FollowUp,
   Step09Finalize,
   type AdviceCard,
+  type Step07CarePlanProps,
   type FinalizeSummaryItem,
   type FollowUpStepValue,
   type HistoryStepValue,
@@ -52,6 +53,7 @@ export type ConsultationStepPanelProps = {
 
   adviceCards: AdviceCard[];
   onAdviceChange: (v: AdviceCard[]) => void;
+  adviceCarePlan?: Step07CarePlanProps;
 
   followUpStep: FollowUpStepValue;
   onFollowUpChange: (v: FollowUpStepValue) => void;
@@ -86,6 +88,7 @@ export function ConsultationStepPanel(props: ConsultationStepPanelProps): JSX.El
     onPrescriptionChange,
     adviceCards,
     onAdviceChange,
+    adviceCarePlan,
     followUpStep,
     onFollowUpChange,
     finalizeItems,
@@ -150,7 +153,13 @@ export function ConsultationStepPanel(props: ConsultationStepPanelProps): JSX.El
       break;
     case "advice":
       body = (
-        <Step07Advice stepNumber={stepNumber} cards={adviceCards} onChange={onAdviceChange} readOnly={readOnly} />
+        <Step07Advice
+          stepNumber={stepNumber}
+          cards={adviceCards}
+          onChange={onAdviceChange}
+          readOnly={readOnly}
+          carePlan={adviceCarePlan}
+        />
       );
       break;
     case "followup":

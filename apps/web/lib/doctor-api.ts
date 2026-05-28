@@ -9,6 +9,16 @@ import {
   DEMO_WORKSPACE,
   type AppointmentListItem
 } from "./demo-data";
+import type {
+  CarePlanAdviceCard,
+  CarePlanBlock,
+  CarePlanMedia,
+  CarePlanPrimaryCategory,
+  CarePlanTemplateDetail,
+  CarePlanTemplateSummary
+} from "./care-plan-types";
+
+export type { CarePlanTemplateSummary, CarePlanTemplateDetail, CarePlanBlock, CarePlanMedia, CarePlanAdviceCard };
 
 /**
  * Direct calls to the Express API (CORS on :4000, browser sends `Authorization: Bearer` from localStorage).
@@ -92,10 +102,14 @@ function redirectSessionExpired(): void {
   window.location.assign("/login?reason=session_expired");
 }
 
-/**
- * Authed API JSON fetch with 401/403 → clear session and redirect; network errors → friendly message.
- */
-export async function apiFetchJson<T>(url: string, init: RequestInit = {}): Promise<T> {
+const getCache = new Map<string, { promise: Promise<any>; timestamp: number; data?: any; resolved: boolean }>();
+const CACHE_TTL_MS = 15000; // 15 seconds
+
+export function invalidateCache(): void {
+  getCache.clear();
+}
+
+async function executeFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
   let data: unknown = {};
   try {
     const r = await fetch(url, jsonRequest(init));
@@ -115,6 +129,57 @@ export async function apiFetchJson<T>(url: string, init: RequestInit = {}): Prom
     }
     throw e;
   }
+}
+
+/**
+ * Authed API JSON fetch with 401/403 → clear session and redirect; network errors → friendly message.
+ */
+export async function apiFetchJson<T>(url: string, init: RequestInit = {}): Promise<T> {
+  const isServer = typeof window === "undefined";
+  const method = (init.method || "GET").toUpperCase();
+
+  if (isServer || method !== "GET") {
+    if (!isServer) {
+      invalidateCache();
+    }
+    return executeFetch<T>(url, init);
+  }
+
+  const now = Date.now();
+  const cached = getCache.get(url);
+
+  if (cached) {
+    const age = now - cached.timestamp;
+    if (age < CACHE_TTL_MS) {
+      if (cached.resolved) {
+        return Promise.resolve(cached.data);
+      }
+      return cached.promise;
+    } else {
+      getCache.delete(url);
+    }
+  }
+
+  const promise = executeFetch<T>(url, init);
+  const entry = {
+    promise,
+    timestamp: now,
+    resolved: false,
+    data: undefined as any
+  };
+  getCache.set(url, entry);
+
+  promise.then(
+    (data) => {
+      entry.data = data;
+      entry.resolved = true;
+    },
+    () => {
+      getCache.delete(url);
+    }
+  );
+
+  return promise;
 }
 
 export function authJsonHeaders(): HeadersInit {
@@ -599,6 +664,10 @@ export type PatientListItem = {
   status?: "stable" | "critical";
   /** Clinical / workflow flags for triage and list display. */
   tags?: PatientTag[];
+  patientCode?: string | null;
+  gender?: string;
+  address?: string;
+  allergies?: string;
 };
 
 export type CaseOutcomeValue = "CURE" | "IMPROVEMENT" | "PALLIATION" | "NO_CHANGE" | "WORSE";
@@ -887,6 +956,179 @@ export async function updateTreatmentPlan(id: string, body: Partial<Parameters<t
 export async function deleteTreatmentPlan(id: string): Promise<{ ok: boolean }> {
   if (isDemoMode()) return { ok: true };
   return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/treatment-plans/${id}`), { method: "DELETE" });
+}
+
+// ── Patient Care Plan Library ────────────────────────────────────────────────
+
+export async function fetchCarePlans(params?: {
+  q?: string;
+  category?: string;
+  diseaseTag?: string;
+  status?: string;
+  favoritesOnly?: boolean;
+}): Promise<CarePlanTemplateSummary[]> {
+  if (isDemoMode()) return [];
+  const q = new URLSearchParams();
+  if (params?.q) q.set("q", params.q);
+  if (params?.category) q.set("category", params.category);
+  if (params?.diseaseTag) q.set("diseaseTag", params.diseaseTag);
+  if (params?.status) q.set("status", params.status);
+  if (params?.favoritesOnly) q.set("favoritesOnly", "true");
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  const res = await apiFetchJson<{ items: CarePlanTemplateSummary[] }>(
+    haProxyPath(`doctor/care-plans${suffix}`),
+    { method: "GET" }
+  );
+  return res.items;
+}
+
+export async function fetchRecentCarePlans(): Promise<CarePlanTemplateSummary[]> {
+  if (isDemoMode()) return [];
+  const res = await apiFetchJson<{ items: CarePlanTemplateSummary[] }>(
+    haProxyPath("doctor/care-plans/recent"),
+    { method: "GET" }
+  );
+  return res.items;
+}
+
+export async function fetchCarePlan(id: string): Promise<CarePlanTemplateDetail> {
+  if (isDemoMode()) throw new Error("Demo mode");
+  return apiFetchJson<CarePlanTemplateDetail>(haProxyPath(`doctor/care-plans/${id}`), { method: "GET" });
+}
+
+export async function createCarePlan(body: {
+  title: string;
+  slug?: string;
+  summary?: string | null;
+  primaryCategory?: CarePlanPrimaryCategory;
+  diseaseTags?: string[];
+  symptomTags?: string[];
+  patientTypes?: string[];
+  ageGroups?: string[];
+  severity?: string;
+  visibility?: string;
+  status?: string;
+  isShared?: boolean;
+  blocks?: Array<{
+    id?: string;
+    blockType: CarePlanBlock["blockType"];
+    title?: string;
+    sortOrder?: number;
+    payload?: CarePlanBlock["payload"];
+  }>;
+  mediaLinks?: Array<{
+    mediaId: string;
+    blockId?: string | null;
+    sortOrder?: number;
+    caption?: string;
+  }>;
+}): Promise<{ id: string }> {
+  if (isDemoMode()) return { id: crypto.randomUUID() };
+  return apiFetchJson<{ id: string }>(haProxyPath("doctor/care-plans"), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function updateCarePlan(
+  id: string,
+  body: Partial<Parameters<typeof createCarePlan>[0]>
+): Promise<{ ok: boolean }> {
+  if (isDemoMode()) return { ok: true };
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/care-plans/${id}`), {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function deleteCarePlan(id: string): Promise<{ ok: boolean }> {
+  if (isDemoMode()) return { ok: true };
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/care-plans/${id}`), { method: "DELETE" });
+}
+
+export async function cloneCarePlan(id: string, title?: string): Promise<{ id: string }> {
+  if (isDemoMode()) return { id: crypto.randomUUID() };
+  return apiFetchJson<{ id: string }>(haProxyPath(`doctor/care-plans/${id}/clone`), {
+    method: "POST",
+    body: JSON.stringify(title ? { title } : {})
+  });
+}
+
+export async function toggleCarePlanFavorite(id: string, favorite: boolean): Promise<{ ok: boolean }> {
+  if (isDemoMode()) return { ok: true };
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/care-plans/${id}/favorite`), {
+    method: "POST",
+    body: JSON.stringify({ favorite })
+  });
+}
+
+export async function recordCarePlanUsage(id: string): Promise<{ ok: boolean }> {
+  if (isDemoMode()) return { ok: true };
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/care-plans/${id}/usage`), { method: "POST" });
+}
+
+export async function mergeCarePlans(body: {
+  templateIds: string[];
+  blockTypes?: CarePlanBlock["blockType"][];
+}): Promise<{ adviceCards: CarePlanAdviceCard[]; mergedBlocks: unknown[] }> {
+  if (isDemoMode()) return { adviceCards: [], mergedBlocks: [] };
+  return apiFetchJson(haProxyPath("doctor/care-plans/merge"), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function fetchCarePlanMedia(): Promise<CarePlanMedia[]> {
+  if (isDemoMode()) return [];
+  const res = await apiFetchJson<{ items: CarePlanMedia[] }>(haProxyPath("doctor/care-plan-media"), {
+    method: "GET"
+  });
+  return res.items;
+}
+
+export async function createCarePlanMedia(body: {
+  mediaType: string;
+  sourceUrl: string;
+  title?: string;
+  description?: string;
+  isShared?: boolean;
+}): Promise<CarePlanMedia> {
+  if (isDemoMode()) {
+    return {
+      id: crypto.randomUUID(),
+      mediaType: body.mediaType,
+      sourceUrl: body.sourceUrl,
+      title: body.title ?? "Demo",
+      description: null,
+      thumbnailUrl: null,
+      durationSeconds: null,
+      channelName: null,
+      metadata: {},
+      isShared: false,
+      isOwn: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  }
+  return apiFetchJson<CarePlanMedia>(haProxyPath("doctor/care-plan-media"), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function resolveYouTubeMetadata(url: string): Promise<{
+  title: string;
+  thumbnailUrl: string;
+  channelName: string;
+  descriptionPreview: string;
+}> {
+  if (isDemoMode()) {
+    return { title: "Demo video", thumbnailUrl: "", channelName: "Demo", descriptionPreview: "" };
+  }
+  return apiFetchJson(haProxyPath("doctor/care-plan-media/youtube-resolve"), {
+    method: "POST",
+    body: JSON.stringify({ url })
+  });
 }
 
 export async function presignStorageUpload(payload: {

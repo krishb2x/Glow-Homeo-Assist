@@ -6,15 +6,10 @@
  * templates, prior-outcome, prescription tools, and export.
  */
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Loader2, Plus } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ConsultationStep } from "../../../lib/clinical-workflow-config";
-import type {
-  AdviceTemplate,
-  CaseOutcomeValue,
-  PendingPriorOutcome,
-  TreatmentPlan
-} from "../../../lib/doctor-api";
+import type { CaseOutcomeValue, PendingPriorOutcome } from "../../../lib/doctor-api";
 import { CaseOutcomePanel } from "../CaseOutcomePanel";
 import { cn } from "../../../lib/cn";
 import type { PrescriptionEntry } from "./steps";
@@ -65,19 +60,6 @@ export type StepExtrasContext = {
   setShowPrevRx: (v: boolean | ((p: boolean) => boolean)) => void;
   setRxEntries: React.Dispatch<React.SetStateAction<PrescriptionEntry[]>>;
   setStatusMsg: (v: string) => void;
-  advice: { diet: string; lifestyle: string };
-  setAdvice: React.Dispatch<React.SetStateAction<{ diet: string; lifestyle: string }>>;
-  adviceTemplates: AdviceTemplate[];
-  treatmentPlans: TreatmentPlan[];
-  templateSearch: string;
-  setTemplateSearch: (v: string) => void;
-  newTemplate: { title: string; category: AdviceTemplate["category"]; content: string } | null;
-  setNewTemplate: React.Dispatch<
-    React.SetStateAction<{ title: string; category: AdviceTemplate["category"]; content: string } | null>
-  >;
-  applyAdviceTemplate: (t: AdviceTemplate) => void;
-  applyTreatmentPlan: (plan: TreatmentPlan) => void;
-  saveNewAdviceTemplate: () => void;
   followUpEnabled: boolean;
   createFollowUpTask: boolean;
   setCreateFollowUpTask: (v: boolean) => void;
@@ -99,12 +81,6 @@ export type StepExtrasContext = {
   rxOutPrefs: { showSymptoms: boolean; showNotes: boolean; showInstructions: boolean };
   setRxOutPrefs: (prefs: { showSymptoms?: boolean; showNotes?: boolean; showInstructions?: boolean }) => void;
   openPreview: (mode: "doctor" | "patient") => void;
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  diet: "border-emerald-200/80 bg-emerald-50/80 text-emerald-900",
-  lifestyle: "border-sky-200/80 bg-sky-50/80 text-sky-900",
-  restriction: "border-amber-200/80 bg-amber-50/80 text-amber-900"
 };
 
 function SectionCard({ children, className }: { children: ReactNode; className?: string }) {
@@ -164,13 +140,6 @@ function InputField({
 }
 
 export function buildConsultationStepExtras(c: StepExtrasContext): Partial<Record<ConsultationStep, ReactNode>> {
-  const filteredTemplates = c.adviceTemplates.filter(
-    (t) =>
-      t.title.toLowerCase().includes(c.templateSearch.toLowerCase()) ||
-      t.content.toLowerCase().includes(c.templateSearch.toLowerCase()) ||
-      t.category.toLowerCase().includes(c.templateSearch.toLowerCase())
-  );
-
   return {
     patient: (
       <>
@@ -331,87 +300,6 @@ export function buildConsultationStepExtras(c: StepExtrasContext): Partial<Recor
         <p className="text-caption-sm text-hs-text-tertiary">
           Saved automatically when you finalize. Use Preview Rx in Step 9 to inspect the patient copy.
         </p>
-      </>
-    ),
-
-    advice: (
-      <>
-        {c.treatmentPlans.length > 0 ? (
-          <SectionCard>
-            <p className="text-body-sm font-semibold text-hs-ink">Treatment plans</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {c.treatmentPlans.map((plan) => (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => c.applyTreatmentPlan(plan)}
-                  disabled={c.formDisabled}
-                  className="rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/60 px-3 py-2 text-caption-sm font-semibold text-hs-primary disabled:opacity-40"
-                >
-                  {plan.title}
-                </button>
-              ))}
-            </div>
-          </SectionCard>
-        ) : null}
-        <SectionCard>
-          <p className="text-body-sm font-semibold text-hs-ink">Quick templates</p>
-          <input
-            value={c.templateSearch}
-            onChange={(e) => c.setTemplateSearch(e.target.value)}
-            placeholder="Search templates…"
-            className="mt-2 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 px-3 py-2 text-body-sm"
-          />
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {filteredTemplates.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => c.applyAdviceTemplate(t)}
-                disabled={c.formDisabled}
-                className={cn(
-                  "rounded-lg border px-2.5 py-1.5 text-caption-sm font-semibold disabled:opacity-40",
-                  CATEGORY_COLORS[t.category] ?? "border-hs-border/50 bg-hs-cream"
-                )}
-              >
-                {t.title}
-              </button>
-            ))}
-          </div>
-          {c.newTemplate ? (
-            <div className="mt-3 space-y-2 rounded-xl border border-hs-border/50 bg-hs-cream/50 p-3">
-              <InputField value={c.newTemplate.title} onChange={(v) => c.setNewTemplate((t) => (t ? { ...t, title: v } : t))} placeholder="Title" />
-              <TaField value={c.newTemplate.content} onChange={(v) => c.setNewTemplate((t) => (t ? { ...t, content: v } : t))} rows={3} placeholder="Content" />
-              <div className="flex gap-2">
-                <button type="button" onClick={c.saveNewAdviceTemplate} className="rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-semibold text-white">
-                  Save template
-                </button>
-                <button type="button" onClick={() => c.setNewTemplate(null)} className="text-caption-sm text-hs-text-secondary">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => c.setNewTemplate({ title: "", category: "lifestyle", content: "" })}
-              className="mt-2 inline-flex items-center gap-1 text-caption-sm font-semibold text-hs-primary hover:underline"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              Create template
-            </button>
-          )}
-        </SectionCard>
-        <SectionCard>
-          <label className="block">
-            <p className="text-body-sm font-semibold text-hs-ink">Diet &amp; restrictions (printed on Rx)</p>
-            <TaField value={c.advice.diet} onChange={(v) => c.setAdvice((p) => ({ ...p, diet: v }))} rows={4} disabled={c.formDisabled} />
-          </label>
-          <label className="mt-4 block">
-            <p className="text-body-sm font-semibold text-hs-ink">Lifestyle (printed on Rx)</p>
-            <TaField value={c.advice.lifestyle} onChange={(v) => c.setAdvice((p) => ({ ...p, lifestyle: v }))} rows={4} disabled={c.formDisabled} />
-          </label>
-        </SectionCard>
       </>
     ),
 

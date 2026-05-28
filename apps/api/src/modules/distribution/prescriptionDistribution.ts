@@ -298,6 +298,23 @@ export async function processNotificationJob(
     "consultation_missed_email",
     "follow_up_reminder_email"
   ]);
+  if (job.topic.startsWith("patient.") && job.channel === "push") {
+    const { processPatientPushJob } = await import("../patient/patientPushDelivery");
+    const ok = await processPatientPushJob(admin, job);
+    if (!skipJobUpdate) {
+      await admin
+        .from("notification_jobs")
+        .update({
+          status: ok ? "SENT" : "FAILED",
+          sent_at: ok ? new Date().toISOString() : null,
+          last_error: ok ? null : "send_failed",
+          attempts: job.attempts + 1
+        })
+        .eq("id", job.id);
+    }
+    return ok;
+  }
+
   if (telemedicineTopics.has(job.topic)) {
     const { processTelemedicineNotificationJob } = await import("../telemedicine/notificationDelivery");
     const ok = await processTelemedicineNotificationJob(admin, job);
@@ -559,6 +576,21 @@ export async function runPrescriptionDistributionPipeline(
   } catch {
     /* fallback legacy URL */
   }
+
+  try {
+    const { enqueuePatientPushJob } = await import("../patient/patientNotificationEnqueue");
+    const { PATIENT_NOTIFICATION_TOPICS } = await import("../patient/types");
+    await enqueuePatientPushJob(ctx.admin, {
+      clinicId: ctx.clinicId,
+      patientId: ctx.patientId,
+      topic: PATIENT_NOTIFICATION_TOPICS.prescriptionReady,
+      idempotencyKey: `consultation:${ctx.consultationId}:rx_push`,
+      payload: { consultationId: ctx.consultationId }
+    });
+  } catch {
+    /* push optional */
+  }
+
   const linkForMessage = result.downloadUrl ?? portalLink;
   const distribute = ctx.distribute ?? {};
   const summaryLine =

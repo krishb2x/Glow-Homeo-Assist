@@ -1,47 +1,35 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  BookHeart,
   Building2,
   Check,
   ChevronDown,
   ChevronUp,
-  Edit2,
   ImagePlus,
   Loader2,
   MessageCircle,
   Monitor,
-  Plus,
-  Salad,
   Save,
   Trash2,
-  User,
-  Utensils
+  User
 } from "lucide-react";
 import { PageHeader } from "../../../components/platform/PageHeader";
 import {
-  createAdviceTemplate,
-  createTreatmentPlan,
-  deleteAdviceTemplate,
-  deleteTreatmentPlan,
-  fetchAdviceTemplates,
-  fetchTreatmentPlans,
   fetchWorkspaceContext,
   getToken,
   patchClinicDetails,
   patchDoctorProfile,
   patchPrescriptionBranding,
   presignStorageUpload,
-  updateAdviceTemplate,
-  updateTreatmentPlan,
-  type AdviceTemplate,
-  type TreatmentPlan,
   type WorkspaceContext
 } from "../../../lib/doctor-api";
 import { ThemeSettingsSection } from "../../../components/clinic/settings/ThemeSettingsSection";
 import { WhatsAppBusinessSection } from "../../../components/clinic/settings/WhatsAppBusinessSection";
-import { DS_FIELD } from "../../../lib/ds-classes";
+import { DS_BTN_PRIMARY, DS_FIELD } from "../../../lib/ds-classes";
 import { cn } from "../../../lib/cn";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -91,20 +79,6 @@ function SaveStatus({ state }: { state: "idle" | "saving" | "saved" | "error" })
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="mb-1 block text-caption-sm font-medium text-hs-text-tertiary">{children}</label>;
-}
-
-function CategoryBadge({ cat }: { cat: AdviceTemplate["category"] }) {
-  const map: Record<AdviceTemplate["category"], { label: string; cls: string }> = {
-    diet: { label: "Diet", cls: "bg-emerald-50 text-emerald-800 border-emerald-200" },
-    lifestyle: { label: "Lifestyle", cls: "bg-sky-50 text-sky-800 border-sky-200" },
-    restriction: { label: "Restriction", cls: "bg-amber-50 text-amber-800 border-amber-200" }
-  };
-  const m = map[cat];
-  return (
-    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-caption-sm font-medium", m.cls)}>
-      {m.label}
-    </span>
-  );
 }
 
 // ─── Doctor Profile Section ──────────────────────────────────────────────────
@@ -374,434 +348,17 @@ function ClinicDetailsSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRef
   );
 }
 
-// ─── Advice Template Editor ──────────────────────────────────────────────────
+// ─── Care Plan Library (single advice surface) ─────────────────────────────
 
-function AdviceTemplateForm({
-  initial,
-  onSave,
-  onCancel
-}: {
-  initial?: AdviceTemplate;
-  onSave: (t: Pick<AdviceTemplate, "title" | "category" | "content" | "isShared">) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [title, setTitle] = useState(initial?.title ?? "");
-  const [category, setCategory] = useState<AdviceTemplate["category"]>(initial?.category ?? "diet");
-  const [content, setContent] = useState(initial?.content ?? "");
-  const [isShared, setIsShared] = useState(initial?.isShared ?? false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !content.trim()) { setError("Title and content are required."); return; }
-    setSaving(true);
-    setError(null);
-    try {
-      await onSave({ title: title.trim(), category, content: content.trim(), isShared });
-    } catch {
-      setError("Failed to save. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
+function CarePlanLibrarySection(): JSX.Element {
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <FieldLabel>Title</FieldLabel>
-          <input className={DS_FIELD} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Low-sugar diet plan" autoFocus />
-        </div>
-        <div>
-          <FieldLabel>Category</FieldLabel>
-          <select className={DS_FIELD} value={category} onChange={(e) => setCategory(e.target.value as AdviceTemplate["category"])}>
-            <option value="diet">Diet</option>
-            <option value="lifestyle">Lifestyle</option>
-            <option value="restriction">Restriction</option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <FieldLabel>Advice content</FieldLabel>
-        <textarea
-          className={cn(DS_FIELD, "min-h-[6rem] resize-y")}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Write the advice text here. This will be applied directly to the consultation."
-        />
-      </div>
-      <label className="flex cursor-pointer items-center gap-2 text-body-sm text-hs-text-secondary">
-        <input type="checkbox" checked={isShared} onChange={(e) => setIsShared(e.target.checked)} className="accent-hs-primary" />
-        Share with all doctors in this clinic
-      </label>
-      {error ? <p className="text-caption-sm text-red-600">{error}</p> : null}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-hs-primary px-4 text-caption-sm font-semibold text-white disabled:opacity-60"
-        >
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-          {initial ? "Update" : "Create"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex min-h-9 items-center rounded-xl border border-hs-border/50 px-4 text-caption-sm font-medium text-hs-ink"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function AdviceTemplatesSection() {
-  const [templates, setTemplates] = useState<AdviceTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | AdviceTemplate["category"]>("all");
-
-  const load = useCallback(async () => {
-    try {
-      setTemplates(await fetchAdviceTemplates());
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const handleCreate = async (body: Pick<AdviceTemplate, "title" | "category" | "content" | "isShared">) => {
-    await createAdviceTemplate(body);
-    await load();
-    setCreating(false);
-  };
-
-  const handleUpdate = async (id: string, body: Pick<AdviceTemplate, "title" | "category" | "content" | "isShared">) => {
-    await updateAdviceTemplate(id, body);
-    await load();
-    setEditingId(null);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this template?")) return;
-    await deleteAdviceTemplate(id);
-    setTemplates((t) => t.filter((x) => x.id !== id));
-  };
-
-  const visible = filter === "all" ? templates : templates.filter((t) => t.category === filter);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {(["all", "diet", "lifestyle", "restriction"] as const).map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setFilter(cat)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-caption-sm font-medium transition",
-              filter === cat
-                ? "border-hs-primary bg-hs-primary-very-light text-hs-primary"
-                : "border-hs-border/40 bg-hs-cream text-hs-text-secondary hover:border-hs-primary/30"
-            )}
-          >
-            {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => { setCreating(true); setEditingId(null); }}
-          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-hs-primary px-4 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          New template
-        </button>
-      </div>
-
-      {creating ? (
-        <div className="rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/40 p-4">
-          <p className="mb-3 text-body-sm font-semibold text-hs-ink">New advice template</p>
-          <AdviceTemplateForm
-            onSave={handleCreate}
-            onCancel={() => setCreating(false)}
-          />
-        </div>
-      ) : null}
-
-      {loading ? (
-        <p className="text-body-sm text-hs-text-tertiary">Loading…</p>
-      ) : visible.length === 0 && !creating ? (
-        <div className="rounded-xl border border-dashed border-hs-border/50 bg-hs-cream/40 px-4 py-8 text-center">
-          <p className="text-body-sm font-medium text-hs-ink">No templates yet</p>
-          <p className="mt-1 text-caption-sm text-hs-text-secondary">Create reusable diet, lifestyle, or restriction advice.</p>
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {visible.map((t) => (
-            <li key={t.id} className="rounded-xl border border-hs-border/25 bg-hs-cream/30">
-              {editingId === t.id ? (
-                <div className="p-4">
-                  <AdviceTemplateForm
-                    initial={t}
-                    onSave={(body) => handleUpdate(t.id, body)}
-                    onCancel={() => setEditingId(null)}
-                  />
-                </div>
-              ) : (
-                <div className="flex items-start gap-3 p-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-body-sm font-semibold text-hs-ink">{t.title}</p>
-                      <CategoryBadge cat={t.category} />
-                      {t.isShared ? (
-                        <span className="text-caption-sm text-hs-text-tertiary">Shared</span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-caption-sm text-hs-text-secondary">{t.content}</p>
-                  </div>
-                  {t.isOwn ? (
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => { setEditingId(t.id); setCreating(false); }}
-                        className="rounded-lg border border-hs-border/40 p-1.5 text-hs-text-tertiary transition hover:border-hs-primary/30 hover:text-hs-primary"
-                        aria-label="Edit"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(t.id)}
-                        className="rounded-lg border border-hs-border/40 p-1.5 text-hs-text-tertiary transition hover:border-red-300 hover:text-red-600"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-// ─── Treatment Plan Editor ───────────────────────────────────────────────────
-
-function TreatmentPlanForm({
-  initial,
-  onSave,
-  onCancel
-}: {
-  initial?: TreatmentPlan;
-  onSave: (body: Omit<TreatmentPlan, "id" | "isOwn" | "createdAt" | "updatedAt">) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [title, setTitle] = useState(initial?.title ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [dietAdvice, setDietAdvice] = useState(initial?.dietAdvice ?? "");
-  const [lifestyleAdvice, setLifestyleAdvice] = useState(initial?.lifestyleAdvice ?? "");
-  const [restrictionAdvice, setRestrictionAdvice] = useState(initial?.restrictionAdvice ?? "");
-  const [remedyGuidelines, setRemedyGuidelines] = useState(initial?.remedyGuidelines ?? "");
-  const [isShared, setIsShared] = useState(initial?.isShared ?? false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) { setError("Title is required."); return; }
-    setSaving(true);
-    setError(null);
-    try {
-      await onSave({
-        title: title.trim(),
-        description: description.trim() || null,
-        dietAdvice: dietAdvice.trim() || null,
-        lifestyleAdvice: lifestyleAdvice.trim() || null,
-        restrictionAdvice: restrictionAdvice.trim() || null,
-        remedyGuidelines: remedyGuidelines.trim() || null,
-        linkedTemplateIds: initial?.linkedTemplateIds ?? [],
-        isShared
-      });
-    } catch {
-      setError("Failed to save. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const taClass = cn(DS_FIELD, "min-h-[5rem] resize-y");
-
-  return (
-    <form onSubmit={submit} className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <FieldLabel>Plan title</FieldLabel>
-          <input className={DS_FIELD} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Chronic Allergy Management Plan" autoFocus />
-        </div>
-        <div className="sm:col-span-2">
-          <FieldLabel>Description (optional)</FieldLabel>
-          <textarea className={cn(DS_FIELD, "min-h-[3rem] resize-y")} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief note on when to use this plan" />
-        </div>
-        <div>
-          <FieldLabel>Diet advice</FieldLabel>
-          <textarea className={taClass} value={dietAdvice} onChange={(e) => setDietAdvice(e.target.value)} placeholder="Dietary recommendations…" />
-        </div>
-        <div>
-          <FieldLabel>Lifestyle advice</FieldLabel>
-          <textarea className={taClass} value={lifestyleAdvice} onChange={(e) => setLifestyleAdvice(e.target.value)} placeholder="Daily routines, sleep, exercise…" />
-        </div>
-        <div>
-          <FieldLabel>Restrictions</FieldLabel>
-          <textarea className={taClass} value={restrictionAdvice} onChange={(e) => setRestrictionAdvice(e.target.value)} placeholder="Foods to avoid, activities to limit…" />
-        </div>
-        <div>
-          <FieldLabel>Remedy guidelines (optional)</FieldLabel>
-          <textarea className={taClass} value={remedyGuidelines} onChange={(e) => setRemedyGuidelines(e.target.value)} placeholder="Potency notes, dosing philosophy, notes for clinical use…" />
-        </div>
-      </div>
-      <label className="flex cursor-pointer items-center gap-2 text-body-sm text-hs-text-secondary">
-        <input type="checkbox" checked={isShared} onChange={(e) => setIsShared(e.target.checked)} className="accent-hs-primary" />
-        Share with all doctors in this clinic
-      </label>
-      {error ? <p className="text-caption-sm text-red-600">{error}</p> : null}
-      <div className="flex gap-2">
-        <button type="submit" disabled={saving} className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-hs-primary px-4 text-caption-sm font-semibold text-white disabled:opacity-60">
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-          {initial ? "Update plan" : "Create plan"}
-        </button>
-        <button type="button" onClick={onCancel} className="inline-flex min-h-9 items-center rounded-xl border border-hs-border/50 px-4 text-caption-sm font-medium text-hs-ink">Cancel</button>
-      </div>
-    </form>
-  );
-}
-
-function TreatmentPlansSection() {
-  const [plans, setPlans] = useState<TreatmentPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setPlans(await fetchTreatmentPlans());
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const handleCreate = async (body: Omit<TreatmentPlan, "id" | "isOwn" | "createdAt" | "updatedAt">) => {
-    await createTreatmentPlan(body);
-    await load();
-    setCreating(false);
-  };
-
-  const handleUpdate = async (id: string, body: Omit<TreatmentPlan, "id" | "isOwn" | "createdAt" | "updatedAt">) => {
-    await updateTreatmentPlan(id, body);
-    await load();
-    setEditingId(null);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this treatment plan?")) return;
-    await deleteTreatmentPlan(id);
-    setPlans((p) => p.filter((x) => x.id !== id));
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => { setCreating(true); setEditingId(null); }}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-hs-primary px-4 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          New plan
-        </button>
-      </div>
-
-      {creating ? (
-        <div className="rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/40 p-4">
-          <p className="mb-3 text-body-sm font-semibold text-hs-ink">New treatment plan</p>
-          <TreatmentPlanForm onSave={handleCreate} onCancel={() => setCreating(false)} />
-        </div>
-      ) : null}
-
-      {loading ? (
-        <p className="text-body-sm text-hs-text-tertiary">Loading…</p>
-      ) : plans.length === 0 && !creating ? (
-        <div className="rounded-xl border border-dashed border-hs-border/50 bg-hs-cream/40 px-4 py-8 text-center">
-          <p className="text-body-sm font-medium text-hs-ink">No plans yet</p>
-          <p className="mt-1 text-caption-sm text-hs-text-secondary">Build structured plans combining diet, lifestyle, and remedy notes.</p>
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {plans.map((plan) => (
-            <li key={plan.id} className="rounded-xl border border-hs-border/25 bg-hs-cream/30">
-              {editingId === plan.id ? (
-                <div className="p-4">
-                  <TreatmentPlanForm
-                    initial={plan}
-                    onSave={(body) => handleUpdate(plan.id, body)}
-                    onCancel={() => setEditingId(null)}
-                  />
-                </div>
-              ) : (
-                <div className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-body-sm font-semibold text-hs-ink">{plan.title}</p>
-                        {plan.isShared ? (
-                          <span className="text-caption-sm text-hs-text-tertiary">Shared</span>
-                        ) : null}
-                      </div>
-                      {plan.description ? (
-                        <p className="mt-0.5 text-caption-sm text-hs-text-secondary">{plan.description}</p>
-                      ) : null}
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {plan.dietAdvice ? <CategoryBadge cat="diet" /> : null}
-                        {plan.lifestyleAdvice ? <CategoryBadge cat="lifestyle" /> : null}
-                        {plan.restrictionAdvice ? <CategoryBadge cat="restriction" /> : null}
-                      </div>
-                    </div>
-                    {plan.isOwn ? (
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => { setEditingId(plan.id); setCreating(false); }}
-                          className="rounded-lg border border-hs-border/40 p-1.5 text-hs-text-tertiary transition hover:border-hs-primary/30 hover:text-hs-primary"
-                          aria-label="Edit plan"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" aria-hidden />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(plan.id)}
-                          className="rounded-lg border border-hs-border/40 p-1.5 text-hs-text-tertiary transition hover:border-red-300 hover:text-red-600"
-                          aria-label="Delete plan"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="space-y-3">
+      <p className="text-body-sm text-hs-text-secondary leading-relaxed">
+        Structured diet, lifestyle, and recovery plans live in the Care Plan Library — reusable in every consultation and ready for the patient app.
+      </p>
+      <Link href="/care-plan-library" className={DS_BTN_PRIMARY}>
+        Open Care Plan Library
+      </Link>
     </div>
   );
 }
@@ -876,14 +433,8 @@ export default function SettingsPage(): JSX.Element {
         )}
       </SectionCard>
 
-      {/* Advice templates */}
-      <SectionCard title="Advice templates" icon={Utensils} defaultOpen={false}>
-        <AdviceTemplatesSection />
-      </SectionCard>
-
-      {/* Treatment plans */}
-      <SectionCard title="Treatment plans" icon={Salad} defaultOpen={false}>
-        <TreatmentPlansSection />
+      <SectionCard title="Patient care plans" icon={BookHeart} defaultOpen={false}>
+        <CarePlanLibrarySection />
       </SectionCard>
 
       <SectionCard title="WhatsApp Business" icon={MessageCircle} defaultOpen={false}>

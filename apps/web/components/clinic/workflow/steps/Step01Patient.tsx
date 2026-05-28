@@ -3,6 +3,7 @@
 import { AlertTriangle, User } from "lucide-react";
 import type { ReactNode } from "react";
 import { StepShell, FieldRow, STEP_TEXTAREA_CLS } from "./StepShell";
+import { cn } from "../../../../lib/cn";
 
 export type PatientSnapshot = {
   name: string;
@@ -47,33 +48,35 @@ export function Step01Patient({
       stepNumber={stepNumber}
       icon={User}
       title="Patient overview"
-      description="Review the patient summary above, then capture today's presenting complaint."
+      description="Document today's presenting complaint and confirm details."
       status={status}
     >
-      {hasAllergies ? (
-        <div className="mb-5 flex items-start gap-2 rounded-lg bg-amber-50/90 px-3.5 py-2.5 text-[0.8125rem] text-amber-950 ring-1 ring-amber-200/50">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+      {hasAllergies && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl bg-amber-50/90 px-4 py-3 text-caption-sm text-amber-950 ring-1 ring-amber-200/50">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
           <span>
-            <span className="font-semibold">Allergy on file:</span> {patient.allergies}
+            <span className="font-extrabold">Allergies on file:</span> {patient.allergies}
           </span>
         </div>
-      ) : null}
+      )}
 
-      <FieldRow
-        label="Chief complaint for this visit"
-        hint="Short and specific — you'll elaborate in History (Step 2)."
-      >
-        <textarea
-          rows={3}
-          value={value.chiefComplaint}
-          onChange={(e) => onChange({ chiefComplaint: e.target.value })}
-          disabled={readOnly}
-          placeholder={patient.chiefComplaint ?? "e.g. recurrent migraines, worse mornings…"}
-          className={STEP_TEXTAREA_CLS}
-        />
-      </FieldRow>
+      <div className="rounded-2xl border border-hs-border/20 bg-hs-paper p-5 shadow-sm space-y-4 hover:border-hs-primary/10 transition-all duration-200">
+        <FieldRow
+          label="Chief complaint for this visit"
+          hint="Briefly describe the presenting symptoms — you'll elaborate on chronology, modalities, and constitutional history in subsequent steps."
+        >
+          <textarea
+            rows={4}
+            value={value.chiefComplaint}
+            onChange={(e) => onChange({ chiefComplaint: e.target.value })}
+            disabled={readOnly}
+            placeholder={patient.chiefComplaint ?? "e.g. recurrent migraines, worse mornings, throbbing pain…"}
+            className={cn(STEP_TEXTAREA_CLS, "min-h-[8rem] text-sm leading-relaxed")}
+          />
+        </FieldRow>
+      </div>
 
-      {after ? <div className="mt-4 space-y-3 border-t border-hs-border/25 pt-4">{after}</div> : null}
+      {after ? <div className="mt-5 space-y-3 border-t border-hs-border/25 pt-5">{after}</div> : null}
     </StepShell>
   );
 }

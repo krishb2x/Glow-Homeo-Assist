@@ -39,24 +39,24 @@ export function Step08FollowUp({
       description="When should the patient come back, and what should you monitor?"
       actions={
         readOnly ? null : (
-          <label className="inline-flex items-center gap-2 text-caption-sm font-semibold text-hs-ink">
+          <label className="inline-flex items-center gap-2 text-caption-sm font-bold text-hs-text-secondary cursor-pointer bg-hs-cream/60 border border-hs-border/40 px-3 py-1.5 rounded-xl hover:text-hs-ink hover:border-hs-primary/20 transition-all select-none">
             <input
               type="checkbox"
               checked={value.enabled}
               onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
               className="h-4 w-4 rounded border-hs-border accent-hs-primary"
             />
-            Schedule a follow-up
+            Schedule follow-up
           </label>
         )
       }
     >
       {!value.enabled ? (
-        <p className="rounded-xl border border-dashed border-hs-border/40 bg-hs-cream/30 px-3 py-4 text-body-sm text-hs-text-secondary">
-          No follow-up will be created for this consultation. Toggle "Schedule a follow-up" above to plan one.
+        <p className="rounded-2xl border border-dashed border-hs-border/40 bg-hs-cream/20 px-4 py-6 text-center text-body-sm text-hs-text-secondary">
+          No follow-up will be created for this consultation. Check "Schedule follow-up" above to plan one.
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 rounded-2xl border border-hs-border/20 bg-hs-paper p-5 shadow-sm transition-all duration-200">
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
             <FieldRow label="Recommended date & time" htmlFor="fu-when">
               <input
@@ -68,7 +68,7 @@ export function Step08FollowUp({
                 className={STEP_INPUT_CLS}
               />
             </FieldRow>
-            <div className="flex flex-wrap items-end gap-1.5">
+            <div className="flex flex-wrap items-end gap-1.5 py-0.5">
               {[
                 { label: "+1 wk", d: 7 },
                 { label: "+2 wks", d: 14 },
@@ -81,7 +81,7 @@ export function Step08FollowUp({
                   onClick={() => onChange({ ...value, recommendedAt: presetDate(p.d) })}
                   disabled={readOnly}
                   className={cn(
-                    "rounded-full border border-hs-border/50 bg-hs-paper px-2.5 py-1 text-caption-sm font-semibold text-hs-ink transition hover:border-hs-primary/30",
+                    "rounded-lg border border-hs-border/55 bg-hs-paper px-3 py-2 text-caption-sm font-bold text-hs-text-secondary transition hover:border-hs-primary/30 hover:bg-hs-primary-very-light/20 hover:text-hs-primary hover:scale-[1.02] active:scale-[0.98]",
                     readOnly && "opacity-60"
                   )}
                 >

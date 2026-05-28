@@ -5,6 +5,7 @@ import { ClinicalWorkflowSidebar } from "./ClinicalWorkflowSidebar";
 import { ConsultationPastVisitsPanel } from "./ConsultationPastVisitsPanel";
 import { DailyConsultationVideo as ConsultationVideoTile } from "../video/DailyConsultationVideo";
 import type { ConsultationStep } from "../../../lib/clinical-workflow-config";
+import type { StepValidation } from "../../../lib/consultation-validation";
 import { cn } from "../../../lib/cn";
 
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
   onToggleCollapse: () => void;
   onSelectStep: (step: ConsultationStep) => void;
   className?: string;
+  stepValidations?: Record<ConsultationStep, StepValidation>;
 };
 
 export function ConsultationLeftColumn({
@@ -28,7 +30,8 @@ export function ConsultationLeftColumn({
   collapsed,
   onToggleCollapse,
   onSelectStep,
-  className
+  className,
+  stepValidations
 }: Props): JSX.Element {
   return (
     <aside
@@ -62,6 +65,7 @@ export function ConsultationLeftColumn({
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}
         onSelectStep={onSelectStep}
+        stepValidations={stepValidations}
       />
     </aside>
   );

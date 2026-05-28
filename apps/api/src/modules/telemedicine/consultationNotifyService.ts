@@ -248,6 +248,26 @@ export async function scheduleAppointmentReminders(args: {
         }
       });
     }
+
+    try {
+      const { supabaseAdmin } = await import("../../supabase");
+      const { enqueuePatientPushJob } = await import("../patient/patientNotificationEnqueue");
+      const { PATIENT_NOTIFICATION_TOPICS } = await import("../patient/types");
+      const pushTopic =
+        window === "24h"
+          ? PATIENT_NOTIFICATION_TOPICS.appointmentReminder24h
+          : PATIENT_NOTIFICATION_TOPICS.appointmentReminder1h;
+      await enqueuePatientPushJob(supabaseAdmin, {
+        clinicId: args.clinicId,
+        patientId: args.patientId,
+        topic: pushTopic,
+        idempotencyKey: `appointment:${args.appointmentId}:reminder_${idempotencySuffix}_push`,
+        scheduledFor,
+        payload: { appointmentId: args.appointmentId, window }
+      });
+    } catch {
+      /* push optional */
+    }
   };
 
   await enqueueReminder("24h", reminder24, "24h");

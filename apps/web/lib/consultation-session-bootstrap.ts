@@ -1,14 +1,13 @@
 import {
-  fetchAdviceTemplates,
+  fetchCarePlans,
   fetchConsultation,
   fetchMyDay,
   fetchPatientTimeline,
-  fetchTreatmentPlans,
+  fetchRecentCarePlans,
   fetchWorkspaceContext,
-  type AdviceTemplate,
+  type CarePlanTemplateSummary,
   type ConsultationDetail,
   type MyDayResponse,
-  type TreatmentPlan,
   type WorkspaceContext
 } from "./doctor-api";
 import { loadLocalNoteDraft } from "./note-draft-local";
@@ -109,8 +108,8 @@ export type ConsultationSessionPayload = {
   prevRx: SessionPrescriptionEntry[] | null;
   pendingPriorOutcome: ConsultationDetail["pendingPriorOutcome"];
   lastCaseOutcome: ConsultationDetail["lastCaseOutcome"];
-  adviceTemplates: AdviceTemplate[];
-  treatmentPlans: TreatmentPlan[];
+  carePlans: CarePlanTemplateSummary[];
+  recentCarePlanIds: string[];
   myDay: MyDayResponse | null;
 };
 
@@ -315,11 +314,11 @@ async function loadPreviousPrescription(patientId: string): Promise<SessionPresc
  * chart data, workspace context, templates, queue, and prior prescription.
  */
 export async function bootstrapConsultationSession(consultationId: string): Promise<ConsultationSessionPayload> {
-  const [consultation, workspace, adviceTemplates, treatmentPlans, myDay] = await Promise.all([
+  const [consultation, workspace, carePlans, recentCarePlans, myDay] = await Promise.all([
     fetchConsultation(consultationId),
     fetchWorkspaceContext().catch(() => null),
-    fetchAdviceTemplates().catch(() => [] as AdviceTemplate[]),
-    fetchTreatmentPlans().catch(() => [] as TreatmentPlan[]),
+    fetchCarePlans().catch(() => [] as CarePlanTemplateSummary[]),
+    fetchRecentCarePlans().catch(() => [] as CarePlanTemplateSummary[]),
     fetchMyDay(1).catch(() => null)
   ]);
 
@@ -385,8 +384,8 @@ export async function bootstrapConsultationSession(consultationId: string): Prom
     prevRx,
     pendingPriorOutcome: cd.pendingPriorOutcome ?? null,
     lastCaseOutcome: cd.lastCaseOutcome ?? null,
-    adviceTemplates,
-    treatmentPlans,
+    carePlans,
+    recentCarePlanIds: recentCarePlans.map((p) => p.id),
     myDay
   };
 }

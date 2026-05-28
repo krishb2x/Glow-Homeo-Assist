@@ -1,7 +1,9 @@
 import crypto from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { supabaseAdmin, supabaseAnon } from "../../supabase";
+import { isMissingDbObjectError, SCHEMA_MIGRATION_HINT } from "../../lib/dbErrors";
 import { logger } from "../../lib/logger";
+import { AppError } from "../../lib/errors";
 
 export type PatientRowForAuth = {
   id: string;
@@ -48,11 +50,28 @@ export async function findPatientByCode(
   const normalized = normalizePatientCode(patientCode);
   if (!normalized) return null;
 
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from("patients")
     .select("id,clinic_id,name,phone,patient_code,auth_user_id")
     .eq("patient_code", normalized)
     .limit(2);
+
+  if (error && isMissingDbObjectError(error)) {
+    throw new AppError(
+      `patients.patient_code is missing. Apply 20260528000000_healthcare_references.sql. ${SCHEMA_MIGRATION_HINT}`,
+      { code: "SCHEMA_NOT_READY", statusCode: 503, kind: "operational" }
+    );
+  }
+
+  if (!error && (!data || data.length === 0)) {
+    const ilike = await admin
+      .from("patients")
+      .select("id,clinic_id,name,phone,patient_code,auth_user_id")
+      .ilike("patient_code", normalized)
+      .limit(2);
+    data = ilike.data;
+    error = ilike.error;
+  }
 
   if (error) {
     logger.warn("patient_code_lookup_failed", { message: error.message });
@@ -74,7 +93,6 @@ async function ensureAuthUser(patient: PatientRowForAuth): Promise<User> {
   if (patient.auth_user_id) {
     const { data: existing, error } = await supabaseAdmin.auth.admin.getUserById(patient.auth_user_id);
     if (!error && existing.user) {
-      await supabaseAdmin.auth.admin.updateUserById(existing.user.id, { password });
       return existing.user;
     }
     logger.warn("patient_auth_user_stale", { patientId: patient.id, authUserId: patient.auth_user_id });
@@ -118,6 +136,12 @@ async function ensureAuthUser(patient: PatientRowForAuth): Promise<User> {
 
   if (linkErr) {
     logger.error("patient_auth_link_failed", { patientId: patient.id, message: linkErr.message });
+    if (isMissingDbObjectError(linkErr)) {
+      throw new AppError(
+        `patients.auth_user_id is missing. Apply 20260527000000_patient_mobile.sql. ${SCHEMA_MIGRATION_HINT}`,
+        { code: "SCHEMA_NOT_READY", statusCode: 503, kind: "operational" }
+      );
+    }
     throw linkErr;
   }
 

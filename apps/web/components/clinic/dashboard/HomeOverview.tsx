@@ -56,7 +56,7 @@ function DoctorAvatar({ name }: { name: string }): JSX.Element {
   const i = initialsFromName(name);
   return (
     <div
-      className="font-heading flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/25 bg-white/12 text-lg font-semibold text-white shadow-lg ring-2 ring-white/10 backdrop-blur sm:h-[4.5rem] sm:w-[4.5rem] sm:text-xl"
+      className="font-heading flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-lg font-semibold text-white shadow-xl ring-1 ring-white/10 backdrop-blur-md sm:h-[4.5rem] sm:w-[4.5rem] sm:text-xl transition-all duration-300 hover:scale-105"
       aria-hidden
     >
       {i}
@@ -66,15 +66,15 @@ function DoctorAvatar({ name }: { name: string }): JSX.Element {
 
 function MetricPill({ label, value, href }: { label: string; value: number; href?: string }) {
   const inner = (
-    <span className="inline-flex items-baseline gap-2">
-      <span className="text-white/55">{label}</span>
+    <span className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 backdrop-blur-sm transition duration-200 hover:bg-white/10 hover:border-white/20 shadow-sm">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">{label}</span>
       <span className="font-heading text-2xl font-semibold tabular-nums text-white">{value}</span>
     </span>
   );
   if (href) {
     const TabLink = shouldOpenConsultationInNewTab(href) ? ConsultationLink : Link;
     return (
-      <TabLink href={href} className="transition hover:opacity-80">
+      <TabLink href={href} className="transition-all hover:scale-[1.02] active:scale-[0.98]">
         {inner}
       </TabLink>
     );
@@ -97,6 +97,18 @@ export function HomeOverview(): JSX.Element {
   const [inbox, setInbox] = useState<InboxMessageItem[]>([]);
   const [searchResults, setSearchResults] = useState<PatientListItem[]>([]);
   const [searching, setSearching] = useState(false);
+
+  // Global Ctrl+K / / shortcut to focus patient search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const reload = useCallback(() => {
     void (async () => {
@@ -259,34 +271,34 @@ export function HomeOverview(): JSX.Element {
 
       {/* ── HERO ───────────────────────────────────────────────────── */}
       <section
-        className="relative mb-5 overflow-hidden rounded-2xl border border-white/10 shadow-ds-md"
+        className="relative mb-6 overflow-hidden rounded-3xl border border-white/10 shadow-ds-md"
         aria-label="Welcome"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#152521] via-hs-primary-dark to-[#0c1815]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0c221c] via-[#094d3f] to-[#041a15]" />
         <div
-          className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_85%_0%,rgba(14,124,102,0.45),transparent_55%)]"
+          className="absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_85%_0%,rgba(14,160,133,0.3),transparent_60%)]"
           aria-hidden
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/[0.04]" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/[0.03]" aria-hidden />
 
-        <div className="relative mx-auto max-w-6xl px-5 py-7 sm:px-7 sm:py-9">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex gap-4 sm:gap-5">
+        <div className="relative mx-auto max-w-6xl px-6 py-8 sm:px-8 sm:py-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4 sm:gap-6">
               {doctor === null ? (
                 <div
-                  className="flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-2xl bg-white/12 ring-2 ring-white/10 sm:h-[4.5rem] sm:w-[4.5rem]"
+                  className="flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10 sm:h-[4.5rem] sm:w-[4.5rem]"
                   aria-hidden
                 />
               ) : (
                 <DoctorAvatar name={doctor.fullName || doctor.firstName || "Doctor"} />
               )}
               <div className="min-w-0">
-                <p className="text-[0.7rem] font-medium uppercase leading-none tracking-[0.2em] text-white/70">
+                <p className="text-[0.6875rem] font-bold uppercase leading-none tracking-[0.2em] text-white/50">
                   {dateShort}
                 </p>
-                <h1 className="font-heading mt-2.5 text-2xl font-semibold leading-[1.12] tracking-[-0.02em] text-white sm:text-[2rem]">
+                <h1 className="font-heading mt-2.5 text-2xl font-semibold leading-[1.12] tracking-[-0.02em] text-white sm:text-[2.25rem]">
                   {doctor === null ? (
-                    <span className="inline-block h-8 w-56 animate-pulse rounded-lg bg-white/15 align-middle" aria-busy="true" />
+                    <span className="inline-block h-8 w-56 animate-pulse rounded-lg bg-white/10 align-middle" aria-busy="true" />
                   ) : (
                     <>
                       {greetingForDate(now)},{" "}
@@ -295,9 +307,9 @@ export function HomeOverview(): JSX.Element {
                   )}
                 </h1>
                 {doctor?.clinicName ? (
-                  <p className="mt-1.5 text-body-sm font-medium text-white/70">{doctor.clinicName}</p>
+                  <p className="mt-1 text-body-sm font-medium text-white/60">{doctor.clinicName}</p>
                 ) : null}
-                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-white/10 pt-4 text-sm text-white/90">
+                <div className="mt-6 flex flex-wrap gap-3 border-t border-white/10 pt-5 text-sm text-white/90">
                   <MetricPill label="Today's visits" value={uniquePatientsToday} href="/appointments" />
                   <MetricPill label="Follow-ups" value={pendingFollowUps} href="/follow-ups" />
                   {draftNotes > 0 ? (
@@ -315,32 +327,34 @@ export function HomeOverview(): JSX.Element {
                     <MetricPill label="Unread" value={unreadMessages} href="/messages" />
                   ) : null}
                 </div>
-                <Link
-                  href="/appointments"
-                  className="mt-3 inline-flex items-center gap-1.5 text-caption-sm font-medium text-white/75 transition hover:text-white"
-                >
-                  <Calendar className="h-3.5 w-3.5" aria-hidden />
-                  View full schedule
-                </Link>
+                <div className="mt-4 flex items-center gap-1.5">
+                  <Link
+                    href="/appointments"
+                    className="inline-flex items-center gap-1.5 text-caption-sm font-semibold text-white/70 transition hover:text-white"
+                  >
+                    <Calendar className="h-3.5 w-3.5 text-hs-primary-light" aria-hidden />
+                    View full schedule
+                  </Link>
+                </div>
               </div>
             </div>
 
             {/* Primary CTA */}
-            <div className="flex shrink-0 lg:min-w-[220px]">
+            <div className="flex shrink-0 lg:min-w-[240px]">
               {primaryCta ? (
                 <ConsultationLink
                   href={primaryCta.href}
-                  className="font-heading inline-flex min-h-11 w-full flex-col items-center justify-center rounded-xl bg-white px-5 text-center shadow-md transition hover:bg-white/95"
+                  className="font-heading flex min-h-12 w-full flex-col items-center justify-center rounded-xl bg-white px-6 text-center shadow-lg transition duration-200 hover:scale-[1.02] active:scale-[0.98] hover:bg-neutral-50"
                 >
                   <span className="text-body-sm font-semibold text-hs-ink">{primaryCta.label}</span>
-                  <span className="text-caption-sm font-normal text-hs-text-secondary">{primaryCta.hint}</span>
+                  <span className="text-[11px] font-normal text-hs-text-secondary">{primaryCta.hint}</span>
                 </ConsultationLink>
               ) : (
                 <Link
                   href="/consultation"
-                  className="font-heading inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-5 text-body-sm font-semibold text-hs-ink shadow-md transition hover:bg-white/95"
+                  className="font-heading inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-6 text-body-sm font-semibold text-hs-ink shadow-lg transition duration-200 hover:scale-[1.02] active:scale-[0.98] hover:bg-neutral-50"
                 >
-                  <Mic className="h-4 w-4 text-hs-primary" aria-hidden />
+                  <Mic className="h-4.5 w-4.5 text-hs-primary" aria-hidden />
                   Start visit
                 </Link>
               )}
@@ -366,9 +380,14 @@ export function HomeOverview(): JSX.Element {
             <OperationalQueuePanel myDay={myDay} />
 
             {/* Patient search + start visit */}
-            <section className="ds-card ds-card-pad">
+            <section className="ds-card ds-card-pad hover:shadow-ds-md transition-shadow duration-300">
               <div>
-                <h2 className="font-heading text-body-md font-semibold text-hs-ink">Find a patient</h2>
+                <h2 className="font-heading text-body-md font-semibold text-hs-ink flex items-center justify-between">
+                  <span>Find a patient</span>
+                  <span className="text-[10px] font-semibold text-hs-text-tertiary bg-hs-cream/60 px-2 py-0.5 rounded-md border border-hs-border/30">
+                    Search roster
+                  </span>
+                </h2>
                 <p className="mt-0.5 text-caption-sm text-hs-text-secondary">
                   Search to open a visit.{" "}
                   <Link href="/consultation" className="font-semibold text-hs-primary hover:underline">
@@ -381,7 +400,7 @@ export function HomeOverview(): JSX.Element {
                 </p>
               </div>
 
-              <div className="relative mt-3">
+              <div className="relative mt-4">
                 <Search
                   className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-hs-text-tertiary"
                   strokeWidth={2.25}
@@ -394,9 +413,14 @@ export function HomeOverview(): JSX.Element {
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={onKeySearch}
                   autoComplete="off"
-                  className="h-11 w-full rounded-xl border border-hs-border/40 bg-hs-cream/40 pl-10 pr-3 text-body-sm shadow-input placeholder:text-hs-text-tertiary/80 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/15"
+                  className="h-11 w-full rounded-xl border border-hs-border/30 bg-hs-cream/20 pl-10 pr-20 text-body-sm shadow-input placeholder:text-hs-text-tertiary/70 focus:border-hs-primary/45 focus:outline-none focus:ring-2 focus:ring-hs-primary/10 transition-all duration-200"
                   placeholder="Name, phone, or complaint · Enter to start"
                 />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 pointer-events-none">
+                  <kbd className="h-5 select-none items-center gap-1 rounded border border-hs-border/40 bg-hs-cream px-1.5 font-mono text-[9px] font-bold text-hs-text-secondary/80 shadow-sm flex">
+                    <span>CTRL</span><span>K</span>
+                  </kbd>
+                </div>
                 {searching ? (
                   <p className="mt-1 text-caption-sm text-hs-text-tertiary">Searching…</p>
                 ) : null}
@@ -413,25 +437,25 @@ export function HomeOverview(): JSX.Element {
               ) : null}
 
               {filteredRoster.length > 0 ? (
-                <ul className="mt-2 max-h-52 divide-y divide-hs-border/15 overflow-y-auto rounded-xl border border-hs-border/25 bg-hs-paper/95 shadow-ds-sm">
+                <ul className="mt-3 max-h-52 divide-y divide-hs-border/10 overflow-y-auto rounded-xl border border-hs-border/20 bg-hs-paper shadow-ds-md transition-all duration-200">
                   {filteredRoster.map((p) => (
-                    <li key={p.id} className="flex items-stretch">
+                    <li key={p.id} className="flex items-stretch transition-colors hover:bg-hs-primary-very-light/30">
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedPatientId(p.id);
                           setSearch("");
                         }}
-                        className="min-w-0 flex-1 px-3.5 py-2.5 text-left text-body-sm text-hs-ink hover:bg-hs-cream/60"
+                        className="min-w-0 flex-1 px-3.5 py-2.5 text-left text-body-sm text-hs-ink"
                       >
-                        <span className="font-medium">{p.name}</span>
+                        <span className="font-semibold text-hs-ink">{p.name}</span>
                         {p.phone ? (
-                          <span className="ml-2 text-hs-text-tertiary">{p.phone}</span>
+                          <span className="ml-2 text-hs-text-secondary text-[11px] font-medium bg-hs-cream px-1.5 py-0.5 rounded border border-hs-border/30">{p.phone}</span>
                         ) : null}
                       </button>
                       <ConsultationLink
                         href={consultationStartHref({ patientId: p.id })}
-                        className="flex items-center px-3 text-caption-sm font-semibold text-hs-primary hover:bg-hs-cream/60"
+                        className="flex items-center px-4 text-caption-sm font-bold text-hs-primary hover:text-hs-primary-dark border-l border-hs-border/10 transition-colors"
                       >
                         Start →
                       </ConsultationLink>
@@ -441,7 +465,7 @@ export function HomeOverview(): JSX.Element {
               ) : null}
 
               {selectedPatient ? (
-                <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-hs-primary/25 bg-hs-primary-very-light/60 px-3.5 py-3">
+                <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-hs-primary/20 bg-hs-primary-very-light/40 px-3.5 py-3 transition-all duration-250">
                   <div>
                     <p className="text-body-sm font-semibold text-hs-ink">{selectedPatient.name}</p>
                     <PatientTagBadges tags={selectedPatient.tags} className="mt-0.5" />
@@ -449,14 +473,14 @@ export function HomeOverview(): JSX.Element {
                   <div className="flex items-center gap-2">
                     <ConsultationLink
                       href={consultationStartHref({ patientId: selectedPatient.id })}
-                      className="rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-semibold text-white transition hover:bg-hs-primary-light"
+                      className="rounded-lg bg-hs-primary px-3 py-1.5 text-caption-sm font-bold text-white transition hover:bg-hs-primary-light active:scale-[0.98]"
                     >
                       Start visit
                     </ConsultationLink>
                     <button
                       type="button"
                       onClick={() => setSelectedPatientId(null)}
-                      className="rounded p-1 text-hs-text-tertiary hover:text-hs-ink"
+                      className="rounded-md p-1.5 text-hs-text-tertiary hover:bg-hs-cream hover:text-hs-ink transition"
                       aria-label="Clear"
                     >
                       <X className="h-4 w-4" aria-hidden />

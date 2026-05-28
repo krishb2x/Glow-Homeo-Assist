@@ -33,6 +33,7 @@ import { registerTelemedicineRoutes } from "./modules/telemedicine/telemedicineR
 import { registerOpsRoutes } from "./modules/ops/opsRoutes";
 import { registerMemoRoutes } from "./modules/memos/memoRoutes";
 import { registerPatientRoutes } from "./modules/patient/patientRoutes";
+import { registerCarePlanRoutes } from "./modules/carePlans/carePlanRoutes";
 import { provisionVideoSession } from "./modules/telemedicine/meetingService";
 import { listPatients } from "./modules/patients/patientListService";
 import { buildPatientTimeline } from "./modules/patients/timelineService";
@@ -1428,6 +1429,7 @@ registerMemoRoutes(app);
 registerWhatsAppRoutes(app);
 registerTelemedicineRoutes(app);
 registerPatientRoutes(app);
+registerCarePlanRoutes(app);
 registerOpsRoutes(app);
 
 const PATIENT_SELECT_COLUMNS_WITH_DOB =
