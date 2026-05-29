@@ -28,17 +28,17 @@ The current GlowHomeo Assist codebase represents a **strong clinical and technic
 ### Strengths to Preserve
 - **Clinical Model Alignment:** 9-step workflow genuinely reflects homeopathy practice rhythm
 - **Multi-Tenant Architecture:** clinic_id partitioning is sound; RLS policies comprehensive
-- **AI Integration Pattern:** Real-time transcription + note generation reduces documentation friction
+- **Template Intake Pattern:** Real-time structured case-taking + note generation reduces documentation friction
 - **Role-Based Design Philosophy:** Thoughtful role model (Super Admin → Admin → Doctor → Support → Patient)
-- **Privacy-First Audio Handling:** Immediate deletion post-transcription respects physician-patient confidentiality
+- **Privacy-First Data Handling:** Secure, local end-to-end encrypted databases respect physician-patient confidentiality
 - **Flexible Prescription Format:** Doctor-visible vs. patient-visible codes bridge clinical rigor + patient clarity
 - **Type Safety:** Domain models (Zod schemas) prevent runtime errors
 - **Follow-up Logic:** 14-day auto-reminder respects homeopathic case progression
 
 ### Existing Assets to Keep
 - Supabase architecture (proven at scale, built-in RLS, auth)
-- Real-time WebSocket for audio (reduces latency vs. polling)
-- Gemini AI integration for transcription/extraction
+- Real-time WebSocket sync for concurrent edits
+- Advanced symptom-repertory indexing for quick clinical lookups
 - S3 pre-signed URLs for file handling (secure, scalable)
 - Tailwind CSS design tokens (warm, clinical palette)
 
@@ -146,20 +146,20 @@ The current GlowHomeo Assist codebase represents a **strong clinical and technic
 
 **Why:** 
 - "Sync" implies orchestration, coordination, staying in step with patient care rhythm
-- Differentiates from generic "AI assistants"
+- Differentiates from generic electronic health records (EHRs)
 - Emphasizes clinic workflow, not technology
 - Memorable, short, domain-relevant
 
 ### Value Proposition (Revised)
 
-**From:** "AI assists with documentation"  
+**From:** "Fragmented, manual clinical paperwork"  
 **To:** "One synchronized workspace for clinic operations—patient scheduling, consultations, prescriptions, follow-ups, and team collaboration—keeping your practice on time and in step with patient care."
 
 ### Target Personas (Redefined)
 
 | Persona | Current Pain | HomeoSync Solution |
 |---------|--------------|-------------------|
-| **Dr. Priya (Solo Practitioner, 40 patients/week)** | Spends 2 hours/day on admin (scheduling, notes, reminders). Prescription refills get lost. | Dashboard shows next 5 appointments + AI-drafted notes + auto-reminders = 40 min saved/day |
+| **Dr. Priya (Solo Practitioner, 40 patients/week)** | Spends 2 hours/day on admin (scheduling, notes, reminders). Prescription refills get lost. | Dashboard shows next 5 appointments + structured case templates + auto-reminders = 40 min saved/day |
 | **Clinic Admin Akshay (runs clinic for 4 doctors)** | Cannot see who's running behind. No visibility into case complexity. Doctor schedules overlap. | Real-time clinic view: doctor availability, queue depth, avg case time, pending follow-ups |
 | **Clinic Director Meera** | No audit trail for prescriptions. Cannot defend against patient disputes. Onboarding takes 2 weeks. | Case audit log, encrypted prescription history, automated doctor provisioning, compliance reports |
 

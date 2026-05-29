@@ -34,6 +34,8 @@ import { registerOpsRoutes } from "./modules/ops/opsRoutes";
 import { registerMemoRoutes } from "./modules/memos/memoRoutes";
 import { registerPatientRoutes } from "./modules/patient/patientRoutes";
 import { registerCarePlanRoutes } from "./modules/carePlans/carePlanRoutes";
+import { registerOfficialTemplateRoutes } from "./modules/carePlans/officialTemplateRoutes";
+import { registerContentRoutes } from "./modules/contentLibrary/contentRoutes";
 import { provisionVideoSession } from "./modules/telemedicine/meetingService";
 import { listPatients } from "./modules/patients/patientListService";
 import { buildPatientTimeline } from "./modules/patients/timelineService";
@@ -1430,7 +1432,13 @@ registerWhatsAppRoutes(app);
 registerTelemedicineRoutes(app);
 registerPatientRoutes(app);
 registerCarePlanRoutes(app);
+registerContentRoutes(app);
 registerOpsRoutes(app);
+registerOfficialTemplateRoutes(app);
+
+app.get("/api/health", (req, res) => {
+  res.send("OK");
+});
 
 const PATIENT_SELECT_COLUMNS_WITH_DOB =
   "id,name,phone,language_preference,age,date_of_birth,gender,address,patient_notes,initial_chief_complaint,created_at,allergies,emergency_contact_name,emergency_contact_phone,blood_group,ongoing_conditions,tags,patient_code";

@@ -10,12 +10,15 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["lib/**/*.test.ts", "components/**/*.test.tsx"],
+    include: ["lib/**/*.test.ts", "components/**/*.test.tsx", "app/**/*.test.tsx"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
       include: ["lib/**/*.ts", "components/**/*.tsx"],
       exclude: ["**/*.test.ts", "**/*.test.tsx"]
     }
+  },
+  esbuild: {
+    jsxInject: `import React from 'react'`
   }
 });

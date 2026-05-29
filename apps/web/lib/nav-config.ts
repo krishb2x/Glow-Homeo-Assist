@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Inbox,
   LayoutGrid,
+  Library,
   MessageSquare,
   Settings,
   Sparkles,
@@ -17,6 +18,7 @@ export type NavItem = { href: string; label: string; Icon: LucideIcon };
 
 export const NAV_SUPER_ADMIN: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutGrid },
+  { href: "/admin-content", label: "Content", Icon: BookHeart },
   { href: "/clinics", label: "Clinics", Icon: Building2 },
   { href: "/doctors", label: "Doctors", Icon: Users },
   { href: "/marketing-leads", label: "Leads", Icon: Sparkles },
@@ -31,12 +33,14 @@ export const NAV_DOCTOR: NavItem[] = [
   { href: "/appointments", label: "Schedule", Icon: CalendarDays },
   { href: "/follow-ups", label: "Follow-ups", Icon: Inbox },
   { href: "/care-plan-library", label: "Care plans", Icon: BookHeart },
+  { href: "/content-library", label: "Content Library", Icon: Library },
   { href: "/messages", label: "Messages", Icon: MessageSquare },
   { href: "/settings", label: "Settings", Icon: Settings }
 ];
 
 export function isMainNavActive(href: string, path: string): boolean {
   if (href === "/dashboard") return path === "/dashboard" || path === "/";
+  if (href === "/admin-content") return path.startsWith("/admin-content");
   if (href === "/clinics") return path === "/clinics" || path.startsWith("/clinics/");
   if (href === "/doctors") return path === "/doctors" || path.startsWith("/doctors/");
   if (href === "/analytics") return path.startsWith("/analytics");
@@ -46,6 +50,7 @@ export function isMainNavActive(href: string, path: string): boolean {
   if (href === "/consultation") return path === "/consultation" || path.startsWith("/consultation");
   if (href === "/follow-ups") return path.startsWith("/follow-ups");
   if (href === "/care-plan-library") return path.startsWith("/care-plan-library");
+  if (href === "/content-library") return path.startsWith("/content-library");
   if (href === "/messages") return path.startsWith("/messages");
   if (href === "/settings") return path === "/settings";
   return path === href;

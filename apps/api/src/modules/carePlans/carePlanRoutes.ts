@@ -53,6 +53,10 @@ export function registerCarePlanRoutes(app: express.Express): void {
           category: typeof req.query.category === "string" ? req.query.category : undefined,
           diseaseTag: typeof req.query.diseaseTag === "string" ? req.query.diseaseTag : undefined,
           status: typeof req.query.status === "string" ? req.query.status : undefined,
+          templateType:
+            req.query.templateType === "official" || req.query.templateType === "custom" || req.query.templateType === "all"
+              ? req.query.templateType
+              : undefined,
           favoritesOnly: req.query.favoritesOnly === "true",
           limit: Number(req.query.limit) || 100
         });

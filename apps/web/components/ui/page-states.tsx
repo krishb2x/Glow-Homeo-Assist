@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { Alert } from "./alert";
 import { PageSkeleton } from "./skeleton";
 import { friendlyLoadError } from "../../lib/friendly-error";

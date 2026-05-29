@@ -10,7 +10,9 @@ import {
   Plus,
   Search,
   Star,
-  Tags
+  Tags,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { PageHeader } from "../../../components/platform/PageHeader";
 import {
@@ -26,10 +28,12 @@ import { CARE_PLAN_CATEGORY_LABELS, type CarePlanPrimaryCategory } from "../../.
 import { cn } from "../../../lib/cn";
 import { DS_BTN_PRIMARY, DS_BTN_SECONDARY, DS_FIELD_SEARCH, DS_SURFACE_PANEL } from "../../../lib/ds-classes";
 import { EmptyState, ErrorState } from "../../../components/ui/LoadState";
+import { OfficialTemplateBadge } from "../../../components/care-plans/OfficialTemplateBadge";
 
 export default function CarePlanLibraryPage(): JSX.Element {
   const router = useRouter();
-  const [items, setItems] = useState<CarePlanTemplateSummary[]>([]);
+  const [officialItems, setOfficialItems] = useState<CarePlanTemplateSummary[]>([]);
+  const [customItems, setCustomItems] = useState<CarePlanTemplateSummary[]>([]);
   const [recent, setRecent] = useState<CarePlanTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,16 +41,19 @@ export default function CarePlanLibraryPage(): JSX.Element {
   const [category, setCategory] = useState<string>("all");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showOfficial, setShowOfficial] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [list, rec] = await Promise.all([
-        fetchCarePlans({ q: q || undefined, category: category === "all" ? undefined : category, favoritesOnly }),
+      const [offList, cList, rec] = await Promise.all([
+        fetchCarePlans({ q: q || undefined, category: category === "all" ? undefined : category, templateType: "official" }),
+        fetchCarePlans({ q: q || undefined, category: category === "all" ? undefined : category, favoritesOnly, templateType: "custom" }),
         fetchRecentCarePlans().catch(() => [] as CarePlanTemplateSummary[])
       ]);
-      setItems(list);
+      setOfficialItems(offList);
+      setCustomItems(cList);
       setRecent(rec);
     } catch {
       setError("Could not load care plans. Run the latest database migration if this is a new install.");
@@ -60,15 +67,15 @@ export default function CarePlanLibraryPage(): JSX.Element {
     return () => clearTimeout(t);
   }, [load, q]);
 
-  const grouped = useMemo(() => {
+  const customGrouped = useMemo(() => {
     const map = new Map<string, CarePlanTemplateSummary[]>();
-    for (const it of items) {
+    for (const it of customItems) {
       const key = it.primaryCategory;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(it);
     }
     return map;
-  }, [items]);
+  }, [customItems]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -170,77 +177,133 @@ export default function CarePlanLibraryPage(): JSX.Element {
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-hs-primary" />
         </div>
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="No care plans yet"
-          description="Create structured templates once — reuse them in every consultation and future patient apps."
-          action={
-            <button type="button" onClick={() => void handleCreate()} className={DS_BTN_PRIMARY}>
-              Create your first plan
-            </button>
-          }
-        />
       ) : (
-        <div className="space-y-8">
-          {[...grouped.entries()].map(([cat, plans]) => (
-            <section key={cat}>
-              <h2 className="mb-3 text-body-sm font-semibold text-hs-ink">
-                {CARE_PLAN_CATEGORY_LABELS[cat as CarePlanPrimaryCategory] ?? cat}
-              </h2>
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {plans.map((p) => (
-                  <li key={p.id} className={cn(DS_SURFACE_PANEL, "flex flex-col p-4 transition hover:border-hs-primary/25")}>
-                    <div className="flex items-start justify-between gap-2">
-                      <Link href={`/care-plan-library/${p.id}`} className="min-w-0 flex-1 group">
-                        <p className="font-semibold text-hs-ink group-hover:text-hs-primary truncate">{p.title}</p>
+        <div className="space-y-10">
+          {/* Official Templates Section */}
+          {officialItems.length > 0 && !favoritesOnly && (
+            <section>
+              <button 
+                onClick={() => setShowOfficial(!showOfficial)}
+                className="flex w-full items-center justify-between group mb-4 border-b border-hs-border/40 pb-2"
+              >
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-hs-ink">Official GlowHomeo Templates</h2>
+                  <span className="rounded-full bg-hs-cream px-2 py-0.5 text-xs font-medium text-hs-text-secondary">
+                    {officialItems.length}
+                  </span>
+                </div>
+                <div className="text-hs-text-tertiary group-hover:text-hs-ink">
+                  {showOfficial ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                </div>
+              </button>
+              
+              {showOfficial && (
+                <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {officialItems.map((p) => (
+                    <li key={p.id} className={cn(DS_SURFACE_PANEL, "flex flex-col p-5 border-emerald-500/20 bg-gradient-to-br from-white to-emerald-50/30 transition hover:border-emerald-500/40")}>
+                      <div className="mb-3">
+                        <OfficialTemplateBadge />
+                      </div>
+                      <Link href={`/care-plan-library/${p.id}`} className="min-w-0 flex-1 group block mb-4">
+                        <p className="font-semibold text-hs-ink group-hover:text-emerald-700 leading-tight mb-1.5">{p.title}</p>
                         {p.summary ? (
-                          <p className="mt-1 text-caption-sm text-hs-text-secondary line-clamp-2">{p.summary}</p>
+                          <p className="text-caption-sm text-hs-text-secondary line-clamp-2">{p.summary}</p>
                         ) : null}
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => void handleFavorite(p.id, p.isFavorite)}
-                        className="shrink-0 p-1 text-hs-text-tertiary hover:text-amber-600"
-                        title={p.isFavorite ? "Remove favorite" : "Favorite"}
-                      >
-                        <Star className={cn("h-4 w-4", p.isFavorite && "fill-amber-500 text-amber-600")} />
-                      </button>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {p.diseaseTags.slice(0, 3).map((t) => (
-                        <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-hs-cream px-2 py-0.5 text-[10px] font-medium text-hs-text-secondary">
-                          <Tags className="h-2.5 w-2.5" />
-                          {t}
-                        </span>
-                      ))}
-                      <span className="rounded-full bg-hs-cream px-2 py-0.5 text-[10px] text-hs-text-tertiary">
-                        {p.blockCount} blocks
-                      </span>
-                      {p.status === "draft" ? (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-800">Draft</span>
-                      ) : null}
-                    </div>
-                    <div className="mt-auto pt-4 flex gap-2 border-t border-hs-border/20">
-                      <Link href={`/care-plan-library/${p.id}`} className="text-caption-sm font-semibold text-hs-primary hover:underline flex items-center gap-1">
-                        <BookOpen className="h-3.5 w-3.5" /> Edit
-                      </Link>
-                      <button type="button" onClick={() => void handleClone(p.id)} className="text-caption-sm text-hs-text-secondary hover:text-hs-ink flex items-center gap-1">
-                        <Copy className="h-3.5 w-3.5" /> Clone
-                      </button>
-                      {p.isOwn ? (
-                        <button type="button" onClick={() => void handleDelete(p.id, p.title)} className="ml-auto text-caption-sm text-rose-600 hover:underline">
-                          Delete
+                      <div className="mt-auto pt-4 flex gap-2 border-t border-hs-border/30 justify-between items-center">
+                        <Link href={`/care-plan-library/${p.id}`} className="text-caption-sm font-semibold text-hs-text-secondary hover:text-hs-ink flex items-center gap-1.5">
+                          <Search className="h-3.5 w-3.5" /> Preview
+                        </Link>
+                        <button type="button" onClick={() => void handleClone(p.id)} className="text-caption-sm font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors">
+                          <Copy className="h-3.5 w-3.5" /> Use Template
                         </button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
-          ))}
+          )}
+
+          {/* Custom Templates Section */}
+          <section>
+            <div className="mb-4 border-b border-hs-border/40 pb-2">
+              <h2 className="text-lg font-semibold text-hs-ink">My Templates</h2>
+            </div>
+            
+            {customItems.length === 0 ? (
+              <EmptyState
+                title="No custom care plans yet"
+                description="Create structured templates once — reuse them in every consultation and future patient apps."
+                action={
+                  <button type="button" onClick={() => void handleCreate()} className={DS_BTN_PRIMARY}>
+                    Create your first plan
+                  </button>
+                }
+              />
+            ) : (
+              <div className="space-y-8">
+                {[...customGrouped.entries()].map(([cat, plans]) => (
+                  <div key={cat}>
+                    <h3 className="mb-3 text-body-sm font-semibold text-hs-ink">
+                      {CARE_PLAN_CATEGORY_LABELS[cat as CarePlanPrimaryCategory] ?? cat}
+                    </h3>
+                    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {plans.map((p) => (
+                        <li key={p.id} className={cn(DS_SURFACE_PANEL, "flex flex-col p-4 transition hover:border-hs-primary/25")}>
+                          <div className="flex items-start justify-between gap-2">
+                            <Link href={`/care-plan-library/${p.id}`} className="min-w-0 flex-1 group">
+                              <p className="font-semibold text-hs-ink group-hover:text-hs-primary truncate">{p.title}</p>
+                              {p.summary ? (
+                                <p className="mt-1 text-caption-sm text-hs-text-secondary line-clamp-2">{p.summary}</p>
+                              ) : null}
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => void handleFavorite(p.id, p.isFavorite)}
+                              className="shrink-0 p-1 text-hs-text-tertiary hover:text-amber-600"
+                              title={p.isFavorite ? "Remove favorite" : "Favorite"}
+                            >
+                              <Star className={cn("h-4 w-4", p.isFavorite && "fill-amber-500 text-amber-600")} />
+                            </button>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {p.diseaseTags.slice(0, 3).map((t) => (
+                              <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-hs-cream px-2 py-0.5 text-[10px] font-medium text-hs-text-secondary">
+                                <Tags className="h-2.5 w-2.5" />
+                                {t}
+                              </span>
+                            ))}
+                            <span className="rounded-full bg-hs-cream px-2 py-0.5 text-[10px] text-hs-text-tertiary">
+                              {p.blockCount} blocks
+                            </span>
+                            {p.status === "draft" ? (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-800">Draft</span>
+                            ) : null}
+                          </div>
+                          <div className="mt-auto pt-4 flex gap-2 border-t border-hs-border/20">
+                            <Link href={`/care-plan-library/${p.id}`} className="text-caption-sm font-semibold text-hs-primary hover:underline flex items-center gap-1">
+                              <BookOpen className="h-3.5 w-3.5" /> Edit
+                            </Link>
+                            <button type="button" onClick={() => void handleClone(p.id)} className="text-caption-sm text-hs-text-secondary hover:text-hs-ink flex items-center gap-1">
+                              <Copy className="h-3.5 w-3.5" /> Clone
+                            </button>
+                            {p.isOwn ? (
+                              <button type="button" onClick={() => void handleDelete(p.id, p.title)} className="ml-auto text-caption-sm text-rose-600 hover:underline">
+                                Delete
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       )}
-
     </div>
   );
 }

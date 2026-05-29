@@ -965,6 +965,7 @@ export async function fetchCarePlans(params?: {
   category?: string;
   diseaseTag?: string;
   status?: string;
+  templateType?: "official" | "custom" | "all";
   favoritesOnly?: boolean;
 }): Promise<CarePlanTemplateSummary[]> {
   if (isDemoMode()) return [];
@@ -973,6 +974,7 @@ export async function fetchCarePlans(params?: {
   if (params?.category) q.set("category", params.category);
   if (params?.diseaseTag) q.set("diseaseTag", params.diseaseTag);
   if (params?.status) q.set("status", params.status);
+  if (params?.templateType) q.set("templateType", params.templateType);
   if (params?.favoritesOnly) q.set("favoritesOnly", "true");
   const suffix = q.toString() ? `?${q.toString()}` : "";
   const res = await apiFetchJson<{ items: CarePlanTemplateSummary[] }>(
@@ -980,6 +982,57 @@ export async function fetchCarePlans(params?: {
     { method: "GET" }
   );
   return res.items;
+}
+
+// ── Admin: Official Templates ───────────────────────────────────────────────
+export async function fetchOfficialTemplates(params?: {
+  q?: string;
+  status?: string;
+}): Promise<CarePlanTemplateSummary[]> {
+  const q = new URLSearchParams();
+  if (params?.q) q.set("q", params.q);
+  if (params?.status) q.set("status", params.status);
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  const res = await apiFetchJson<{ items: CarePlanTemplateSummary[] }>(
+    `/api/admin/official-templates${suffix}`,
+    { method: "GET" }
+  );
+  return res.items;
+}
+
+export async function fetchOfficialTemplate(id: string): Promise<CarePlanTemplateDetail> {
+  return apiFetchJson<CarePlanTemplateDetail>(`/api/admin/official-templates/${id}`, { method: "GET" });
+}
+
+export async function createOfficialTemplate(
+  body: Partial<Parameters<typeof createCarePlan>[0]>
+): Promise<{ id: string }> {
+  return apiFetchJson<{ id: string }>("/api/admin/official-templates", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function updateOfficialTemplate(
+  id: string,
+  body: Partial<Parameters<typeof createCarePlan>[0]>
+): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(`/api/admin/official-templates/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function publishOfficialTemplate(id: string): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(`/api/admin/official-templates/${id}/publish`, { method: "POST" });
+}
+
+export async function archiveOfficialTemplate(id: string): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(`/api/admin/official-templates/${id}/archive`, { method: "POST" });
+}
+
+export async function deleteOfficialTemplate(id: string): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(`/api/admin/official-templates/${id}`, { method: "DELETE" });
 }
 
 export async function fetchRecentCarePlans(): Promise<CarePlanTemplateSummary[]> {
@@ -1022,6 +1075,7 @@ export async function createCarePlan(body: {
     sortOrder?: number;
     caption?: string;
   }>;
+  courseIds?: string[];
 }): Promise<{ id: string }> {
   if (isDemoMode()) return { id: crypto.randomUUID() };
   return apiFetchJson<{ id: string }>(haProxyPath("doctor/care-plans"), {
@@ -2304,4 +2358,109 @@ export async function createWhatsAppBroadcast(body: {
     method: "POST",
     body: JSON.stringify(body)
   });
+}
+
+// ─── Content Library (LMS) ───────────────────────────────────────────────────
+
+export type ContentCourseSummary = {
+  id: string;
+  title: string;
+  description?: string | null;
+  thumbnailUrl?: string | null;
+  status: "draft" | "published" | "archived";
+  is_official?: boolean;
+  isOfficial?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ContentLesson = {
+  id: string;
+  title: string;
+  contentType: "video" | "pdf" | "quiz" | "audio" | "assignment" | "certification" | "text";
+  contentPayload: Record<string, any>;
+  sortOrder: number;
+  isPreview: boolean;
+};
+
+export type ContentModule = {
+  id: string;
+  title: string;
+  sortOrder: number;
+  lessons: ContentLesson[];
+};
+
+export type ContentCourseDetail = ContentCourseSummary & {
+  modules: ContentModule[];
+};
+
+export async function fetchCourses(): Promise<ContentCourseSummary[]> {
+  if (isDemoMode()) return [];
+  return apiFetchJson<ContentCourseSummary[]>(haProxyPath("doctor/content/courses"), { method: "GET" });
+}
+
+export async function fetchCourse(id: string): Promise<ContentCourseDetail> {
+  if (isDemoMode()) throw new Error("Not implemented");
+  return apiFetchJson<ContentCourseDetail>(haProxyPath(`doctor/content/courses/${id}`), { method: "GET" });
+}
+
+export async function createCourse(body: { title: string; description?: string; thumbnailUrl?: string; status?: string }): Promise<{ id: string }> {
+  return apiFetchJson<{ id: string }>(haProxyPath("doctor/content/courses"), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function cloneCourse(id: string, title?: string): Promise<{ id: string }> {
+  return apiFetchJson<{ id: string }>(haProxyPath(`doctor/content/courses/${id}/clone`), {
+    method: "POST",
+    body: JSON.stringify({ title })
+  });
+}
+
+export async function updateCourse(id: string, body: { title?: string; description?: string; thumbnailUrl?: string; status?: string }): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/content/courses/${id}`), {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function deleteCourse(id: string): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/content/courses/${id}`), { method: "DELETE" });
+}
+
+export async function createModule(courseId: string, body: { title: string; sortOrder?: number }): Promise<{ id: string }> {
+  return apiFetchJson<{ id: string }>(haProxyPath(`doctor/content/courses/${courseId}/modules`), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function updateModule(id: string, body: { title?: string; sortOrder?: number }): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/content/modules/${id}`), {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function deleteModule(id: string): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/content/modules/${id}`), { method: "DELETE" });
+}
+
+export async function createLesson(moduleId: string, body: any): Promise<{ id: string }> {
+  return apiFetchJson<{ id: string }>(haProxyPath(`doctor/content/modules/${moduleId}/lessons`), {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function updateLesson(id: string, body: any): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/content/lessons/${id}`), {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+}
+
+export async function deleteLesson(id: string): Promise<{ ok: boolean }> {
+  return apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/content/lessons/${id}`), { method: "DELETE" });
 }

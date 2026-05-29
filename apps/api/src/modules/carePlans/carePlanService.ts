@@ -26,16 +26,24 @@ export async function listCarePlanTemplates(
     category?: string;
     diseaseTag?: string;
     status?: string;
+    templateType?: "official" | "custom" | "all";
     favoritesOnly?: boolean;
     limit?: number;
   }
 ) {
   let req = db
     .from("care_plan_templates")
-    .select("*")
-    .eq("clinic_id", clinicId)
+    .select("id, clinic_id, doctor_id, title, slug, summary, primary_category, disease_tags, symptom_tags, patient_types, age_groups, severity, visibility, status, version, locale, is_shared, source_template_id, usage_count, created_at, updated_at")
     .order("updated_at", { ascending: false })
     .limit(query.limit ?? 100);
+
+  if (query.templateType === "official") {
+    req = req.eq("clinic_id", "00000000-0000-0000-0000-000000000000");
+  } else if (query.templateType === "custom") {
+    req = req.eq("clinic_id", clinicId);
+  } else {
+    req = req.or(`clinic_id.eq.${clinicId},clinic_id.eq.00000000-0000-0000-0000-000000000000`);
+  }
 
   if (query.status && query.status !== "all") {
     req = req.eq("status", query.status);
@@ -93,7 +101,7 @@ export async function getCarePlanTemplateDetail(
 ) {
   const { data: tpl, error } = await db
     .from("care_plan_templates")
-    .select("*")
+    .select("id, clinic_id, doctor_id, title, slug, summary, primary_category, disease_tags, symptom_tags, patient_types, age_groups, severity, visibility, status, version, locale, is_shared, source_template_id, usage_count, created_at, updated_at")
     .eq("id", templateId)
     .maybeSingle();
   if (error) throw error;
@@ -101,10 +109,10 @@ export async function getCarePlanTemplateDetail(
 
   const row = tpl as CarePlanTemplateRow;
 
-  const [{ data: blocks }, { data: links }, { data: fav }] = await Promise.all([
+  const [{ data: blocks }, { data: links }, { data: fav }, { data: courseRows }] = await Promise.all([
     db
       .from("care_plan_blocks")
-      .select("*")
+      .select("id, template_id, block_type, title, sort_order, payload, created_at, updated_at")
       .eq("template_id", templateId)
       .order("sort_order", { ascending: true }),
     db
@@ -117,13 +125,18 @@ export async function getCarePlanTemplateDetail(
       .select("template_id")
       .eq("doctor_id", doctorId)
       .eq("template_id", templateId)
-      .maybeSingle()
+      .maybeSingle(),
+    db
+      .from("care_plan_template_courses")
+      .select("course_id")
+      .eq("template_id", templateId)
+      .order("sort_order", { ascending: true })
   ]);
 
   const mediaIds = [...new Set((links ?? []).map((l) => (l as { media_id: string }).media_id))];
   let mediaRows: CarePlanMediaRow[] = [];
   if (mediaIds.length) {
-    const { data: media } = await db.from("care_plan_media").select("*").in("id", mediaIds);
+    const { data: media } = await db.from("care_plan_media").select("id, clinic_id, doctor_id, media_type, source_url, title, description, thumbnail_url, duration_seconds, channel_name, metadata, is_shared, created_at, updated_at").in("id", mediaIds);
     mediaRows = (media ?? []) as CarePlanMediaRow[];
   }
   const mediaById = new Map(mediaRows.map((m) => [m.id, mapMediaRow(m, doctorId)]));
@@ -148,7 +161,8 @@ export async function getCarePlanTemplateDetail(
         caption: link.caption,
         media: mediaById.get(link.media_id) ?? null
       };
-    })
+    }),
+    courseIds: (courseRows ?? []).map((c: any) => c.course_id)
   };
 }
 
@@ -194,6 +208,22 @@ async function syncMediaLinks(
   if (error) throw error;
 }
 
+async function syncCourseLinks(
+  db: Db,
+  templateId: string,
+  courseIds: string[]
+): Promise<void> {
+  await db.from("care_plan_template_courses").delete().eq("template_id", templateId);
+  if (!courseIds.length) return;
+  const rows = courseIds.map((cid, i) => ({
+    template_id: templateId,
+    course_id: cid,
+    sort_order: i
+  }));
+  const { error } = await db.from("care_plan_template_courses").insert(rows);
+  if (error) throw error;
+}
+
 export async function createCarePlanTemplate(
   db: Db,
   clinicId: string,
@@ -201,7 +231,26 @@ export async function createCarePlanTemplate(
   body: unknown
 ) {
   const parsed = CarePlanTemplateBodySchema.parse(body);
-  const slug = parsed.slug ?? slugifyTitle(parsed.title);
+  const baseSlug = parsed.slug ?? slugifyTitle(parsed.title);
+  
+  let slug = baseSlug;
+  let attempts = 0;
+  while (attempts < 10) {
+    const { data: exists, error: checkErr } = await db
+      .from("care_plan_templates")
+      .select("id")
+      .eq("clinic_id", clinicId)
+      .eq("slug", slug)
+      .maybeSingle();
+      
+    if (checkErr) throw checkErr;
+    if (!exists) break;
+    
+    attempts++;
+    const suffix = Math.random().toString(36).substring(2, 6);
+    slug = `${baseSlug}-${suffix}`;
+  }
+
   const insert = {
     clinic_id: clinicId,
     doctor_id: claims.userId,
@@ -218,6 +267,7 @@ export async function createCarePlanTemplate(
     status: parsed.status ?? "draft",
     locale: parsed.locale ?? "en",
     is_shared: parsed.isShared ?? false
+    // template_type: parsed.templateType ?? "custom" - removed pending migration
   };
 
   const { data, error } = await db
@@ -230,6 +280,7 @@ export async function createCarePlanTemplate(
 
   if (parsed.blocks?.length) await upsertBlocks(db, id, parsed.blocks);
   if (parsed.mediaLinks?.length) await syncMediaLinks(db, id, parsed.mediaLinks);
+  if (parsed.courseIds?.length) await syncCourseLinks(db, id, parsed.courseIds);
 
   return { id };
 }
@@ -268,6 +319,7 @@ export async function updateCarePlanTemplate(
 
   if (parsed.blocks) await upsertBlocks(db, templateId, parsed.blocks);
   if (parsed.mediaLinks) await syncMediaLinks(db, templateId, parsed.mediaLinks);
+  if (parsed.courseIds) await syncCourseLinks(db, templateId, parsed.courseIds);
 
   return { ok: true };
 }
@@ -307,7 +359,8 @@ export async function cloneCarePlanTemplate(
       blockId: undefined,
       sortOrder: l.sortOrder,
       caption: l.caption ?? undefined
-    }))
+    })),
+    courseIds: detail.courseIds
   });
 
   await db
@@ -469,7 +522,7 @@ export async function createCarePlanMedia(
       metadata,
       is_shared: body.isShared ?? false
     })
-    .select("*")
+    .select("id, clinic_id, doctor_id, media_type, source_url, title, description, thumbnail_url, duration_seconds, channel_name, metadata, is_shared, created_at, updated_at")
     .maybeSingle();
   if (error) throw error;
   return mapMediaRow(data as CarePlanMediaRow, claims.userId);
@@ -478,7 +531,7 @@ export async function createCarePlanMedia(
 export async function listCarePlanMedia(db: Db, clinicId: string, doctorId: string) {
   const { data, error } = await db
     .from("care_plan_media")
-    .select("*")
+    .select("id, clinic_id, doctor_id, media_type, source_url, title, description, thumbnail_url, duration_seconds, channel_name, metadata, is_shared, created_at, updated_at")
     .eq("clinic_id", clinicId)
     .order("created_at", { ascending: false })
     .limit(200);

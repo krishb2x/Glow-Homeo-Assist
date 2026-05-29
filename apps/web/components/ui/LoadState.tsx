@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { PageEmpty, PageError } from "./page-states";
 
 type ErrorStateProps = {

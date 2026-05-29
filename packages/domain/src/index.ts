@@ -4,6 +4,7 @@ import { z } from "zod";
 // See docs/architecture/03_SCHEMA.md §6.
 export * from "./schemas/clinicalRecord";
 export * from "./schemas/carePlan";
+export * from "./schemas/contentLibrary";
 
 /** MVP: staff roles SUPER_ADMIN + DOCTOR; PATIENT is backend-only (no web app). */
 export const RoleSchema = z.enum(["SUPER_ADMIN", "DOCTOR", "PATIENT"]);

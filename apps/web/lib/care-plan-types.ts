@@ -71,6 +71,9 @@ export type CarePlanTemplateSummary = {
   isShared: boolean;
   isOwn: boolean;
   isFavorite: boolean;
+  isOfficial?: boolean;
+  templateType?: "official" | "custom";
+  publishedAt?: string | null;
   blockCount: number;
   usageCount: number;
   sourceTemplateId: string | null;
@@ -87,6 +90,7 @@ export type CarePlanTemplateDetail = CarePlanTemplateSummary & {
     caption: string | null;
     media: CarePlanMedia | null;
   }>;
+  courseIds?: string[];
 };
 
 export type CarePlanMedia = {

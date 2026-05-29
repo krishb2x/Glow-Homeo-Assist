@@ -29,6 +29,8 @@ export type CarePlanTemplateRow = {
   version: number;
   locale: string;
   is_shared: boolean;
+  template_type: string;
+  published_at: string | null;
   source_template_id: string | null;
   usage_count: number;
   created_at: string;
@@ -96,6 +98,9 @@ export function mapTemplateSummary(
     locale: row.locale,
     isShared: row.is_shared,
     isOwn: row.doctor_id === doctorId,
+    isOfficial: (row.template_type ?? 'custom') === 'official',
+    templateType: (row.template_type ?? 'custom') as 'official' | 'custom',
+    publishedAt: row.published_at ?? null,
     isFavorite: opts?.isFavorite ?? false,
     blockCount: opts?.blockCount ?? 0,
     usageCount: row.usage_count,

@@ -213,6 +213,11 @@ If production logs mention missing columns or tables (e.g. `appointments.consult
 - **Messages** — Async patient ↔ clinic inbox.
 - **Doctor memos** — Operational notes on dashboard.
 
+### Knowledge Base & LMS
+
+- **Care Plan Library** — Pre-built Official GlowHomeo disease management plans and custom clinic-specific templates. Official templates are read-only and can be cloned.
+- **Content Library (LMS)** — Build scalable courses, modules, and lessons. Includes official read-only GlowHomeo courses that can be previewed and copied as templates.
+
 ### Telemedicine
 
 - **Online appointments** — Daily.co room provisioning, patient join links (`patient_access_tokens`), waiting room.

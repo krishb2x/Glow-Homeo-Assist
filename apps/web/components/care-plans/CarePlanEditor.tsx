@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { Loader2, Plus, Save, Video } from "lucide-react";
+import { useCallback, useState, useEffect } from "react";
+import { Loader2, Plus, Save, Video, BookOpen, Trash2 } from "lucide-react";
 import Link from "next/link";
 import {
   CARE_PLAN_BLOCK_GROUPS,
@@ -17,6 +17,9 @@ import {
   createCarePlanMedia,
   resolveYouTubeMetadata,
   updateCarePlan,
+  updateOfficialTemplate,
+  fetchCourses,
+  type ContentCourseSummary,
   type CarePlanMedia
 } from "../../lib/doctor-api";
 import { CarePlanBlockCard } from "./CarePlanBlockCard";
@@ -25,6 +28,7 @@ import { DS_BTN_PRIMARY, DS_BTN_SECONDARY, DS_FIELD, DS_SURFACE_PANEL } from "..
 
 type Props = {
   template: CarePlanTemplateDetail;
+  isAdminMode?: boolean;
   onSaved: (detail: CarePlanTemplateDetail) => void;
 };
 
@@ -36,7 +40,7 @@ function tagsFromInput(raw: string): string[] {
     .slice(0, 30);
 }
 
-export function CarePlanEditor({ template, onSaved }: Props): JSX.Element {
+export function CarePlanEditor({ template, isAdminMode, onSaved }: Props): JSX.Element {
   const [title, setTitle] = useState(template.title);
   const [summary, setSummary] = useState(template.summary ?? "");
   const [primaryCategory, setPrimaryCategory] = useState<CarePlanPrimaryCategory>(template.primaryCategory);
@@ -51,6 +55,27 @@ export function CarePlanEditor({ template, onSaved }: Props): JSX.Element {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [resolvingYt, setResolvingYt] = useState(false);
   const [addBlockOpen, setAddBlockOpen] = useState(false);
+  
+  const [courseIds, setCourseIds] = useState<string[]>(template.courseIds ?? []);
+  const [availableCourses, setAvailableCourses] = useState<ContentCourseSummary[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoadingCourses(true);
+      try {
+        const list = await fetchCourses();
+        if (active) setAvailableCourses(list);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (active) setLoadingCourses(false);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, []);
 
   const moveBlock = (index: number, dir: -1 | 1) => {
     const next = [...blocks];
@@ -70,7 +95,7 @@ export function CarePlanEditor({ template, onSaved }: Props): JSX.Element {
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await updateCarePlan(template.id, {
+      const payload = {
         title: title.trim(),
         summary: summary.trim() || null,
         primaryCategory,
@@ -85,8 +110,15 @@ export function CarePlanEditor({ template, onSaved }: Props): JSX.Element {
           sortOrder: i,
           payload: b.payload
         })),
-        mediaLinks: media.map((m, i) => ({ mediaId: m.id, sortOrder: i }))
-      });
+        mediaLinks: media.map((m, i) => ({ mediaId: m.id, sortOrder: i })),
+        courseIds
+      };
+      
+      if (isAdminMode) {
+        await updateOfficialTemplate(template.id, payload);
+      } else {
+        await updateCarePlan(template.id, payload);
+      }
       onSaved({
         ...template,
         title,
@@ -97,6 +129,7 @@ export function CarePlanEditor({ template, onSaved }: Props): JSX.Element {
         status,
         isShared,
         blocks,
+        courseIds,
         mediaLinks: media.map((m, i) => ({
           mediaId: m.id,
           blockId: null,
@@ -119,7 +152,9 @@ export function CarePlanEditor({ template, onSaved }: Props): JSX.Element {
     isShared,
     blocks,
     media,
-    onSaved
+    courseIds,
+    onSaved,
+    isAdminMode
   ]);
 
   const addYouTube = async () => {
@@ -244,6 +279,53 @@ export function CarePlanEditor({ template, onSaved }: Props): JSX.Element {
           <p className="text-[10px] text-hs-text-tertiary">
             v{template.version} · {template.blockCount} blocks · Used {template.usageCount}×
           </p>
+        </div>
+        <div className={cn(DS_SURFACE_PANEL, "p-4 space-y-3")}>
+          <p className="text-caption-sm font-semibold text-hs-ink flex items-center gap-1.5">
+            <BookOpen className="h-4 w-4 text-hs-primary" aria-hidden />
+            Assigned Courses
+          </p>
+          <div className="flex flex-col gap-2">
+            {loadingCourses ? (
+              <p className="text-[10px] text-hs-text-tertiary">Loading courses...</p>
+            ) : availableCourses.length === 0 ? (
+              <p className="text-[10px] text-hs-text-tertiary">No courses available.</p>
+            ) : (
+              <select
+                className={cn(DS_FIELD, "text-[11px] py-1.5")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val && !courseIds.includes(val)) {
+                    setCourseIds([...courseIds, val]);
+                  }
+                  e.target.value = "";
+                }}
+                defaultValue=""
+              >
+                <option value="" disabled>Add course...</option>
+                {availableCourses.map((c) => (
+                  <option key={c.id} value={c.id} disabled={courseIds.includes(c.id)}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {courseIds.length > 0 && (
+            <ul className="space-y-1.5 mt-2">
+              {courseIds.map((cid) => {
+                const c = availableCourses.find(x => x.id === cid);
+                return (
+                  <li key={cid} className="flex items-center justify-between gap-2 rounded-md border border-hs-border/30 px-2 py-1.5 bg-hs-cream/30">
+                    <span className="text-[11px] font-medium truncate">{c?.title ?? "Loading..."}</span>
+                    <button type="button" onClick={() => setCourseIds(courseIds.filter(id => id !== cid))} className="text-hs-text-tertiary hover:text-rose-600 shrink-0">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         <div className={cn(DS_SURFACE_PANEL, "p-4 space-y-3")}>

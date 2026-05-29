@@ -48,6 +48,9 @@ export const CarePlanMediaTypeSchema = z.enum([
   "illustration"
 ]);
 
+export const CarePlanTemplateTypeSchema = z.enum(["official", "custom"]);
+export type CarePlanTemplateType = z.infer<typeof CarePlanTemplateTypeSchema>;
+
 /** List item / bullet inside a block. */
 export const CarePlanListItemSchema = z.object({
   id: z.string().min(1).max(80),
@@ -119,6 +122,7 @@ export const CarePlanTemplateBodySchema = z.object({
   status: CarePlanStatusSchema.optional(),
   locale: z.string().min(2).max(12).optional(),
   isShared: z.boolean().optional(),
+  templateType: CarePlanTemplateTypeSchema.optional(),
   blocks: z.array(CarePlanBlockInputSchema).max(40).optional(),
   mediaLinks: z
     .array(
@@ -130,7 +134,8 @@ export const CarePlanTemplateBodySchema = z.object({
       })
     )
     .max(30)
-    .optional()
+    .optional(),
+  courseIds: z.array(z.string().uuid()).max(20).optional()
 });
 
 export const CarePlanMergeBodySchema = z.object({

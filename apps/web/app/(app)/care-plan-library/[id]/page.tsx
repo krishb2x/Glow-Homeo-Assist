@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { CarePlanEditor } from "../../../../components/care-plans/CarePlanEditor";
+import { OfficialTemplatePreview } from "../../../../components/care-plans/OfficialTemplatePreview";
 import { PageHeader } from "../../../../components/platform/PageHeader";
 import { fetchCarePlan, type CarePlanTemplateDetail } from "../../../../lib/doctor-api";
 import { ErrorState } from "../../../../components/ui/LoadState";
@@ -58,14 +59,18 @@ export default function CarePlanEditorPage(): JSX.Element {
       {savedMsg ? (
         <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-caption-sm text-emerald-800">{savedMsg}</p>
       ) : null}
-      <CarePlanEditor
-        template={detail}
-        onSaved={(d) => {
-          setDetail(d);
-          setSavedMsg("Care plan saved.");
-          setTimeout(() => setSavedMsg(null), 3000);
-        }}
-      />
+      {detail.templateType === "official" ? (
+        <OfficialTemplatePreview template={detail} />
+      ) : (
+        <CarePlanEditor
+          template={detail}
+          onSaved={(d) => {
+            setDetail(d);
+            setSavedMsg("Care plan saved.");
+            setTimeout(() => setSavedMsg(null), 3000);
+          }}
+        />
+      )}
     </div>
   );
 }
