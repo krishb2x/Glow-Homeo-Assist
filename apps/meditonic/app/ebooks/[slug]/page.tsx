@@ -5,7 +5,7 @@ import ScrollReveal from "@/components/ui/ScrollReveal";
 import { Card, CardContent } from "@/components/ui/Card";
 import { formatPrice } from "@/lib/utils";
 import CTABand from "@/components/sections/CTABand";
-import { createAdminClient } from "@/lib/supabase";
+import { createPublicClient } from "@/lib/supabase";
 import { BRAND } from "@/lib/constants";
 import CheckoutForm from "./CheckoutForm";
 import ReactMarkdown from "react-markdown";
@@ -18,7 +18,7 @@ export default async function EbookDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const resolvedParams = await params;
-  const supabase = createAdminClient();
+  const supabase = createPublicClient();
 
   const { data: ebook, error } = await supabase
     .from("mt_ebooks")

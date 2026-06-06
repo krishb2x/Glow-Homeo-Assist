@@ -5,13 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/Button";
 import { formatPrice } from "@/lib/utils";
 import CTABand from "@/components/sections/CTABand";
-import { createAdminClient } from "@/lib/supabase";
+import { createPublicClient } from "@/lib/supabase";
 import { BRAND } from "@/lib/constants";
 
 export const revalidate = 60; // Revalidate every minute
 
 export default async function EbooksPage() {
-  const supabase = createAdminClient();
+  const supabase = createPublicClient();
   
   // Fetch active ebooks & combos from Supabase
   const { data: ebooks, error } = await supabase
