@@ -10,13 +10,12 @@ import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 
 interface BookingFormProps {
-  initialType?: string;
   initialConcern?: string;
   onSuccess?: (orderId: string) => void;
   fees?: any[];
 }
 
-export default function BookingForm({ initialType = "initial_online", initialConcern = "", fees = [], onSuccess }: BookingFormProps) {
+export default function BookingForm({ initialConcern = "", fees = [], onSuccess }: BookingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,14 +27,14 @@ export default function BookingForm({ initialType = "initial_online", initialCon
   } = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      type: initialType as any,
+      type: "initial_online" as any,
       concernCategory: initialConcern,
       gender: "other",
     },
   });
 
-  const selectedType = watch("type");
-  const feeObj = fees.find((f) => f.type === selectedType);
+  // Find the single unified consultation fee
+  const feeObj = fees.find((f) => f.type === "initial_online") || fees[0];
   const price = feeObj ? feeObj.price : 499; // Fallback only if no DB result
 
   const onSubmit = async (data: BookingFormValues) => {
@@ -184,7 +183,7 @@ export default function BookingForm({ initialType = "initial_online", initialCon
         <Button 
           type="submit" 
           size="lg" 
-          className="w-full text-base h-14" 
+          className="w-full text-sm sm:text-base h-auto py-3 sm:h-14 sm:py-0 whitespace-normal" 
           disabled={isSubmitting}
         >
           {isSubmitting ? "Processing..." : `Pay ${formatPrice(price)} & Book / भुगतान करें और बुक करें`}

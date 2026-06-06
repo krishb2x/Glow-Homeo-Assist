@@ -39,10 +39,8 @@ export default async function ConsultationsPage() {
 
   const getFee = (type: string) => fees.find((f: any) => f.type === type);
   
+  // Use 'initial_online' as the unified single fee representation
   const onlineFee = getFee('initial_online');
-  const clinicFee = getFee('initial_clinic');
-  const followUpFee = getFee('follow_up_online');
-  const emergencyFee = getFee('emergency');
 
   return (
     <div className="flex flex-col">
@@ -64,7 +62,7 @@ export default async function ConsultationsPage() {
       {/* Consultation Types */}
       <section className="section-padding bg-white">
         <div className="section-container">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          <div className="max-w-2xl mx-auto">
             
             {/* Main Consultation */}
             {onlineFee && (
@@ -111,37 +109,13 @@ export default async function ConsultationsPage() {
                   </ul>
                   
                   <Button asChild size="lg" className="w-full">
-                    <Link href="/book-consultation?type=initial_online">Book Session</Link>
+                    <Link href="/book-consultation">Book Session</Link>
                   </Button>
                 </CardContent>
               </Card>
             </ScrollReveal>
             )}
 
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto mt-8">
-            
-            {emergencyFee && (
-            <ScrollReveal direction="up" delay={0.4}>
-              <Card className="h-full flex flex-col bg-red-50 border-red-200">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-red-700 flex items-center gap-2">
-                      <PhoneCall className="h-4 w-4" /> {emergencyFee.label}
-                    </h3>
-                    <p className="text-sm text-red-600/80 mt-1 max-w-[250px]">{emergencyFee.description}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-display text-xl font-bold text-red-700">{formatPrice(emergencyFee.price)}</div>
-                    <Button variant="ghost" asChild className="p-0 h-auto text-red-600 mt-1 hover:bg-transparent hover:text-red-700">
-                      <Link href="/book-consultation?type=emergency">Book Now</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </ScrollReveal>
-            )}
           </div>
         </div>
       </section>

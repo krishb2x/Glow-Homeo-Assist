@@ -64,7 +64,7 @@ export default async function BookConsultationPage() {
       {/* Razorpay script is required for the checkout modal */}
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
 
-      <section className="bg-mt-primary-bg pt-20 pb-20">
+      <section className="bg-mt-primary-bg pt-10 pb-12 sm:pt-20 sm:pb-20">
         <div className="section-container text-center">
           <ScrollReveal direction="up">
             <h1 className="font-display text-heading-xl sm:text-display-lg text-mt-text mb-4">
@@ -77,8 +77,8 @@ export default async function BookConsultationPage() {
         </div>
       </section>
 
-      <section className="section-padding -mt-16">
-        <div className="section-container max-w-5xl">
+      <section className="section-padding -mt-6 sm:-mt-16">
+        <div className="section-container max-w-5xl px-4 sm:px-6">
           <div className="max-w-3xl mx-auto">
             <ScrollReveal direction="up" delay={0.1}>
               <Card className="p-6 sm:p-8 shadow-xl border-0">

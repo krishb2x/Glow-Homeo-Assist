@@ -36,7 +36,7 @@ export default function Header() {
             <span className="font-display text-2xl font-bold tracking-tight text-mt-primary leading-none">
               {BRAND.name}
             </span>
-            <span className="hidden text-[11px] font-semibold uppercase tracking-wider text-mt-secondary sm:block mt-1">
+            <span className="block text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-mt-secondary mt-1">
               by {BRAND.doctor}
             </span>
           </Link>
