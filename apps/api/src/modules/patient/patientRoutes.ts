@@ -20,7 +20,7 @@ import {
   createCheckIn,
   listCheckIns
 } from "./patientAdherenceService";
-import { listPatientMessages, sendPatientMessage } from "./patientMessagesService";
+import { listPatientConversations, listConversationMessages, sendConversationMessage, createConversation } from "./patientMessagesService";
 import {
   listPatientAppointments,
   createPatientAppointmentRequest,
@@ -35,7 +35,6 @@ import {
 import { getPatientSettings, patchPatientSettings, createFamilyShareToken } from "./patientSettingsService";
 import { listPatientFollowUps, completePatientFollowUp } from "./patientFollowUpsService";
 import { listPatientContent, markContentViewed, markContentCompleted } from "./patientContentService";
-import { upsertPatientPushToken, deletePatientPushTokensForUser } from "./patientPushService";
 import { isS3Configured } from "../../s3";
 
 const patientTodayLimit = doctorRateLimit("patient_today", 60);
@@ -140,9 +139,6 @@ export function registerPatientRoutes(app: Express): void {
     "/patient/auth/logout",
     requirePatientAuth,
     patientHandler("patient_auth_logout", async (req, res) => {
-      const token =
-        typeof req.body?.token === "string" ? req.body.token : undefined;
-      await deletePatientPushTokensForUser(supabaseAdmin, req.patient.patientId, token);
       jsonSuccess(res, 200, { ok: true });
     })
   );
@@ -196,26 +192,7 @@ export function registerPatientRoutes(app: Express): void {
     })
   );
 
-  app.post(
-    "/patient/push-token",
-    requirePatientAuth,
-    patientHandler("patient_push_token", async (req, res) => {
-      const parsed = z
-        .object({
-          platform: z.enum(["ios", "android", "web"]),
-          token: z.string().min(8),
-          appVersion: z.string().optional(),
-          locale: z.string().optional()
-        })
-        .safeParse(req.body);
-      if (!parsed.success) {
-        jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
-        return;
-      }
-      await upsertPatientPushToken(supabaseAdmin, req.patient, parsed.data);
-      jsonSuccess(res, 200, { ok: true });
-    })
-  );
+
 
   app.get(
     "/patient/visits",
@@ -476,24 +453,44 @@ export function registerPatientRoutes(app: Express): void {
   );
 
   app.get(
-    "/patient/messages",
+    "/patient/conversations",
     requirePatientAuth,
-    patientHandler("patient_messages_list", async (req, res) => {
-      const since = typeof req.query.since === "string" ? req.query.since : undefined;
+    patientHandler("patient_conversations_list", async (req, res) => {
       const limit = parseInt(String(req.query.limit ?? "50"), 10);
-      const items = await listPatientMessages(supabaseAdmin, req.patient, { since, limit });
+      const items = await listPatientConversations(supabaseAdmin, req.patient, { limit });
       jsonSuccess(res, 200, { items });
     })
   );
 
   app.post(
-    "/patient/messages",
+    "/patient/conversations",
     requirePatientAuth,
     patientMessagePostLimit,
-    patientHandler("patient_messages_post", async (req, res) => {
+    patientHandler("patient_conversations_create", async (req, res) => {
+      const parsed = z.object({ contextType: z.string().optional() }).safeParse(req.body);
+      const conv = await createConversation(supabaseAdmin, req.patient, parsed.success ? parsed.data.contextType : "GENERAL");
+      jsonSuccess(res, 201, conv);
+    })
+  );
+
+  app.get(
+    "/patient/conversations/:id/messages",
+    requirePatientAuth,
+    patientHandler("patient_conversation_messages_list", async (req, res) => {
+      const limit = parseInt(String(req.query.limit ?? "50"), 10);
+      const items = await listConversationMessages(supabaseAdmin, req.patient, req.params.id as string, { limit });
+      jsonSuccess(res, 200, { items });
+    })
+  );
+
+  app.post(
+    "/patient/conversations/:id/messages",
+    requirePatientAuth,
+    patientMessagePostLimit,
+    patientHandler("patient_conversation_messages_post", async (req, res) => {
       const parsed = z
         .object({
-          body: z.string().min(1).max(4000),
+          body: z.string().max(4000).optional().default(""),
           attachmentMediaObjectIds: z.array(z.string().uuid()).optional()
         })
         .safeParse(req.body);
@@ -501,7 +498,7 @@ export function registerPatientRoutes(app: Express): void {
         jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR" });
         return;
       }
-      const msg = await sendPatientMessage(supabaseAdmin, req.patient, parsed.data);
+      const msg = await sendConversationMessage(supabaseAdmin, req.patient, req.params.id as string, parsed.data);
       jsonSuccess(res, 201, msg);
     })
   );

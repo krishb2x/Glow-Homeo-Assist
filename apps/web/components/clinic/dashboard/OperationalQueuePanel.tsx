@@ -31,12 +31,17 @@ type Props = {
 };
 
 function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
+  const ageDays = Math.floor(visit.ageMinutes / (60 * 24));
+  let staleColor = "bg-slate-50 border-slate-200/30 text-slate-700";
+  if (ageDays >= 30) staleColor = "bg-rose-50 border-rose-200/30 text-rose-800";
+  else if (ageDays >= 7) staleColor = "bg-amber-50 border-amber-200/30 text-amber-800";
+
   return (
-    <ConsultationLink
-      href={liveConsultationHref(visit.id)}
-      className="flex items-center justify-between gap-3 rounded-2xl border border-hs-border/20 bg-hs-paper px-4 py-3 text-body-sm transition-all duration-300 hover:border-hs-primary/30 hover:bg-hs-primary-very-light/20 hover:shadow-ds-sm hover:translate-x-1"
-    >
-      <span className="flex min-w-0 items-center gap-3">
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-hs-border/20 bg-hs-paper px-4 py-3 text-body-sm transition-all duration-300 hover:border-hs-primary/30 hover:bg-hs-primary-very-light/20 hover:shadow-ds-sm hover:translate-x-1">
+      <ConsultationLink
+        href={liveConsultationHref(visit.id)}
+        className="flex min-w-0 flex-1 items-center gap-3"
+      >
         {visit.mode === "ONLINE" ? (
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-200/50">
             <Video className="h-4 w-4" aria-hidden />
@@ -62,8 +67,8 @@ function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
               </span>
             ) : null}
             {visit.stale ? (
-              <span className="rounded-full bg-rose-50 px-2 py-0.2 border border-rose-200/30 text-[9px] font-bold uppercase tracking-wider text-rose-800">
-                Stale
+              <span className={`rounded-full px-2 py-0.2 border text-[9px] font-bold uppercase tracking-wider ${staleColor}`}>
+                Stale {ageDays > 0 ? `(${ageDays}d)` : ''}
               </span>
             ) : null}
             {visit.duplicateCount > 0 ? (
@@ -71,9 +76,29 @@ function VisitRow({ visit }: { visit: ActiveVisitRow }): JSX.Element {
             ) : null}
           </span>
         </span>
-      </span>
-      <span className="shrink-0 text-caption-sm font-bold text-hs-primary hover:text-hs-primary-light transition-colors">Resume →</span>
-    </ConsultationLink>
+      </ConsultationLink>
+      
+      <div className="flex shrink-0 items-center gap-2">
+        <ConsultationLink
+          href={liveConsultationHref(visit.id)}
+          className="text-caption-sm font-bold text-hs-primary hover:text-hs-primary-light transition-colors px-3 py-1.5 rounded-lg border border-hs-primary/20 hover:bg-hs-primary/5 bg-white shadow-sm"
+        >
+          Resume
+        </ConsultationLink>
+        {ageDays > 7 ? (
+          <button 
+            type="button" 
+            onClick={() => {
+              // Archive action goes here
+              console.log('Archive visit', visit.id);
+            }}
+            className="text-caption-sm font-bold text-rose-600 hover:text-rose-700 transition-colors px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 bg-white shadow-sm"
+          >
+            Archive
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -129,51 +154,7 @@ export function OperationalQueuePanel({ myDay, className }: Props): JSX.Element 
       className={cn("ds-card overflow-hidden border-hs-primary/20", className)}
       aria-label="Operational queue"
     >
-      {/* Pending actions — draft notes & outcomes */}
-      {hasActions ? (
-        <div className="border-b border-hs-border/20 bg-amber-50/20 p-4 border-l-4 border-amber-500">
-          <p className="text-caption-sm font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            Needs attention
-          </p>
-          <ul className="mt-3 space-y-2">
-            {draftNotes.slice(0, 3).map((n) => (
-              <li key={n.consultationId}>
-                <ConsultationLink
-                  href={liveConsultationHref(n.consultationId, "notes")}
-                  className="flex items-center justify-between gap-3 rounded-xl bg-hs-paper/90 px-3.5 py-2.5 text-caption-sm border border-amber-200/50 shadow-sm transition hover:border-hs-primary/20 hover:bg-hs-paper hover:translate-x-0.5"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <FileText className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-                    <span className="truncate">
-                      <span className="font-bold text-hs-ink">{n.patientName}</span>
-                      <span className="text-hs-text-secondary ml-1">— finalize notes</span>
-                    </span>
-                  </span>
-                  <span className="shrink-0 font-bold text-hs-primary text-[11px]">Open →</span>
-                </ConsultationLink>
-              </li>
-            ))}
-            {pendingOutcomes.slice(0, 2).map((o) => (
-              <li key={o.consultationId}>
-                <ConsultationLink
-                  href={liveConsultationHref(o.consultationId, "finalize")}
-                  className="flex items-center justify-between gap-3 rounded-xl bg-hs-paper/90 px-3.5 py-2.5 text-caption-sm border border-amber-200/50 shadow-sm transition hover:border-hs-primary/20 hover:bg-hs-paper hover:translate-x-0.5"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-                    <span className="truncate">
-                      <span className="font-bold text-hs-ink">{o.patientName}</span>
-                      <span className="text-hs-text-secondary ml-1">— record outcome</span>
-                    </span>
-                  </span>
-                  <span className="shrink-0 font-bold text-hs-primary text-[11px]">Open →</span>
-                </ConsultationLink>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      {/* Pending actions moved to Needs Attention Card in HomeOverview */}
 
       {hasVisits ? (
         <div className="p-4">

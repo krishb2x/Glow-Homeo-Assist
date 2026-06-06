@@ -113,6 +113,76 @@ export async function handleMetaWebhook(admin: SupabaseClient, body: MetaWebhook
         }
       }
 
+      // Handle inbound messages
+      if (change.field === "messages" && value.messages) {
+         for (const msg of value.messages as any[]) {
+            const fromPhone = msg.from;
+            const phoneNumberId = (value as any).metadata?.phone_number_id;
+            
+            if (fromPhone && phoneNumberId) {
+               const { data: conn } = await admin.from("whatsapp_connections")
+                 .select("clinic_id, channel_type, access_token_encrypted, access_token")
+                 .eq("phone_number_id", phoneNumberId)
+                 .maybeSingle();
+                 
+               if (conn) {
+                   if (conn.channel_type === 'AUTOMATED') {
+                       // Automated Channel: Auto-reply or process interactive payload
+                       import("./credentialVault").then(vault => {
+                           const token = vault.decryptAccessToken(conn.access_token_encrypted, conn.access_token ?? "");
+                           import("./metaCloudApi").then(api => {
+                              api.sendMetaTextMessage({
+                                 phoneNumberId,
+                                 accessToken: token ?? "",
+                                 toPhoneE164: fromPhone,
+                                 body: "This WhatsApp number is used for automated updates only. To speak with your doctor, please use their clinical WhatsApp number."
+                              }).catch(e => logger.warn("auto_reply_failed", { err: e.message }));
+                           });
+                       });
+                   } else if (conn.channel_type === 'CLINICAL') {
+                       // Clinical Channel: Route to Inbox
+                       if (msg.type === "text" || msg.text) {
+                           const bodyText = msg.text?.body ?? "Unsupported message";
+                           // 1. Find patient
+                           const { data: patient } = await admin.from("patients")
+                             .select("id")
+                             .eq("clinic_id", conn.clinic_id)
+                             .or(`phone.eq.${fromPhone},phone.eq.+${fromPhone}`)
+                             .maybeSingle();
+                             
+                           if (patient) {
+                               // 2. Find or create conversation
+                               let { data: conv } = await admin.from("conversations")
+                                 .select("id")
+                                 .eq("clinic_id", conn.clinic_id)
+                                 .eq("patient_id", patient.id)
+                                 .eq("context_type", "GENERAL")
+                                 .maybeSingle();
+                                 
+                               if (!conv) {
+                                   const { data: newConv } = await admin.from("conversations")
+                                     .insert({ clinic_id: conn.clinic_id, patient_id: patient.id, context_type: "GENERAL" })
+                                     .select("id")
+                                     .single();
+                                   conv = newConv;
+                               }
+                               
+                               // 3. Insert message
+                               if (conv) {
+                                   await admin.from("messages").insert({
+                                       conversation_id: conv.id,
+                                       sender_type: "PATIENT",
+                                       body: bodyText
+                                   });
+                               }
+                           }
+                       }
+                   }
+               }
+            }
+         }
+      }
+
       if (change.field === "message_template_status_update") {
         logger.info("whatsapp_template_status", {
           name: value.message_template_name,

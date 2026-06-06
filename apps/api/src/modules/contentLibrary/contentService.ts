@@ -6,7 +6,7 @@ type Db = SupabaseClient;
 export async function listCourses(db: Db, clinicId: string) {
   const { data, error } = await db
     .from("content_courses")
-    .select("id, title, description, thumbnail_url, status, created_at, updated_at, doctor_id")
+    .select("id, clinic_id, title, description, thumbnail_url, status, created_at, updated_at, doctor_id")
     .or(`clinic_id.eq.${clinicId},and(clinic_id.eq.00000000-0000-0000-0000-000000000000,status.eq.published)`)
     .neq("status", "archived")
     .order("updated_at", { ascending: false });

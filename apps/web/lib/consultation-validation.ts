@@ -62,6 +62,9 @@ export type ConsultationSnapshot = {
     lifestyle: string;
     cards: AdviceCardLite[];
   };
+  analysis: {
+    rubrics: any[];
+  };
   followUp: {
     enabled: boolean;
     recommendedAt: string | null;
@@ -197,11 +200,17 @@ export function validateFinalize(s: ConsultationSnapshot): StepValidation {
   return { done, missing: done ? [] : ["Review & finalize the consultation"], warnings: [] };
 }
 
+export function validateAnalysis(s: ConsultationSnapshot): StepValidation {
+  const done = s.analysis.rubrics.length > 0;
+  return { done, missing: [], warnings: [] };
+}
+
 const VALIDATORS: Record<ConsultationStep, (s: ConsultationSnapshot) => StepValidation> = {
   patient: validatePatient,
   history: validateHistory,
   examination: validateExamination,
   notes: validateNotes,
+  analysis: validateAnalysis,
   ai: validateAi,
   prescription: validatePrescription,
   advice: validateAdvice,
@@ -217,6 +226,7 @@ export function validateAllSteps(
     history: VALIDATORS.history(s),
     examination: VALIDATORS.examination(s),
     notes: VALIDATORS.notes(s),
+    analysis: VALIDATORS.analysis(s),
     ai: VALIDATORS.ai(s),
     prescription: VALIDATORS.prescription(s),
     advice: VALIDATORS.advice(s),

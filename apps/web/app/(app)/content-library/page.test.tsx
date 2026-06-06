@@ -33,7 +33,7 @@ describe("ContentLibraryPage", () => {
     
     // Expect loading spinner (Wait for it to disappear)
     await waitFor(() => {
-      expect(screen.getByText("No courses yet")).toBeInTheDocument();
+      expect(screen.getByText("No custom courses yet")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Create comprehensive courses with modules and lessons.")).toBeInTheDocument();
@@ -41,8 +41,8 @@ describe("ContentLibraryPage", () => {
 
   it("renders a list of courses from the API", async () => {
     vi.mocked(fetchCourses).mockResolvedValueOnce([
-      { id: "c1", title: "Yoga Course", status: "published", clinicId: "clinic1", doctorId: "doc1", createdAt: "", updatedAt: "" },
-      { id: "c2", title: "Diet Course", status: "draft", clinicId: "clinic1", doctorId: "doc1", createdAt: "", updatedAt: "" }
+      { id: "c1", title: "Yoga Course", status: "published", createdAt: "", updatedAt: "" },
+      { id: "c2", title: "Diet Course", status: "draft", createdAt: "", updatedAt: "" }
     ]);
 
     render(<ContentLibraryPage />);
@@ -57,7 +57,7 @@ describe("ContentLibraryPage", () => {
   });
 
   it("handles creating a new course", async () => {
-    vi.mocked(fetchCourses).mockResolvedValueOnce([{ id: "c1", title: "Existing", status: "published", clinicId: "c", doctorId: "d", createdAt: "", updatedAt: "" }]);
+    vi.mocked(fetchCourses).mockResolvedValueOnce([{ id: "c1", title: "Existing", status: "published", createdAt: "", updatedAt: "" }]);
     vi.mocked(createCourse).mockResolvedValueOnce({ id: "new-course-id" } as any);
 
     render(<ContentLibraryPage />);

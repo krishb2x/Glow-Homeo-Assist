@@ -8,6 +8,7 @@ import {
 } from "../modules/patient/patientReminderJobs";
 import { logger } from "../lib/logger";
 import { recordWorkerRun } from "../lib/workerHeartbeat";
+import { processDailyProgramUpdates } from "../modules/treatmentPrograms/tpCron";
 
 const NOTIFICATION_POLL_MS = 60 * 1000;
 const WHATSAPP_POLL_MS = 30 * 1000;
@@ -123,6 +124,20 @@ export function startBackgroundJobs(admin: SupabaseClient): void {
   };
   setTimeout(runPatientReminderSchedule, 45_000);
   setInterval(runPatientReminderSchedule, 15 * 60 * 1000);
+
+  const runTreatmentProgramsDailyCron = (): void => {
+    void processDailyProgramUpdates(admin)
+      .then(() => recordWorkerRun("tp_daily_cron"))
+      .catch((e) => {
+        recordWorkerRun("tp_daily_cron", e instanceof Error ? e.message : String(e));
+        logger.warn("background_tp_daily_cron_error", {
+          message: e instanceof Error ? e.message : String(e)
+        });
+      });
+  };
+  setTimeout(runTreatmentProgramsDailyCron, 50_000);
+  // Run every 24 hours (86,400,000 ms)
+  setInterval(runTreatmentProgramsDailyCron, 24 * 60 * 60 * 1000);
 
   logger.info("background_jobs_started", {
     mode,

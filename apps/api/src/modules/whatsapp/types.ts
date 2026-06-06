@@ -45,6 +45,7 @@ export type AudienceSpec = z.infer<typeof AudienceSpecSchema>;
 
 export const ConnectionUpsertSchema = z.object({
   provider: z.enum(["meta_cloud", "twilio"]).default("meta_cloud"),
+  channelType: z.enum(["AUTOMATED", "CLINICAL"]).default("CLINICAL"),
   wabaId: z.string().max(80).optional(),
   phoneNumberId: z.string().max(80).optional(),
   displayPhone: z.string().max(40).optional(),
@@ -72,6 +73,7 @@ export type WhatsAppConnectionRow = {
   clinic_id: string;
   doctor_id: string;
   provider: string;
+  channel_type: string;
   waba_id: string | null;
   phone_number_id: string | null;
   display_phone: string | null;

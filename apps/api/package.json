@@ -16,6 +16,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.924.0",
     "@aws-sdk/s3-request-presigner": "^3.924.0",
+    "@google/generative-ai": "^0.24.1",
     "@homeoassist/domain": "0.1.0",
     "@homeoassist/print": "0.1.0",
     "@supabase/supabase-js": "^2.49.8",
@@ -25,8 +26,8 @@
     "express": "^4.21.2",
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
-    "uuid": "^11.0.3",
     "puppeteer-core": "^24.8.2",
+    "uuid": "^11.0.3",
     "zod": "^3.24.1"
   },
   "devDependencies": {

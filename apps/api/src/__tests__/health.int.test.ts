@@ -18,7 +18,7 @@ describe.skipIf(!hasSupabaseEnv)("GET /health (integration)", () => {
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
         success: true,
-        data: { ok: true, service: "glowhomeo-assist-api" }
+        data: { ok: true, service: "homeosync-api" }
       });
     },
     20_000

@@ -133,7 +133,7 @@ export function DashboardRightRail({
           {overdueCount > 0 ? (
             <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-2 py-1 text-caption-sm font-medium text-rose-900">
               <Activity className="h-3.5 w-3.5" aria-hidden />
-              {overdueCount} overdue — prioritize these first
+              {overdueCount} overdue — act today
             </p>
           ) : null}
 

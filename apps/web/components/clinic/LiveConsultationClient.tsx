@@ -59,7 +59,19 @@ import {
   recordCarePlanUsage,
   type CarePlanTemplateSummary
 } from "../../lib/doctor-api";
-import type { Step07CarePlanProps } from "./workflow/steps";
+import {
+  triggerAiAnalyze,
+  acceptAiResult,
+  discardAiResult,
+  type ScribeAnalysisOutput,
+  type ScribeSection
+} from "../../lib/scribe-api";
+import { AiReviewPanel } from "./workflow/AiReviewPanel";
+import {
+  type AdviceCard,
+  type Step07CarePlanProps,
+  type RubricEntry
+} from "./workflow/steps";
 import { PrescriptionPreviewModal } from "../consultation/PrescriptionPreviewModal";
 import { ErrorState } from "../ui/LoadState";
 import { SkeletonCard } from "./SkeletonCard";
@@ -81,7 +93,6 @@ import { buildConsultationStepExtras } from "./workflow/LiveConsultationStepExtr
 import { useConsultationWorkspaceShortcuts } from "./workflow/useConsultationWorkspaceShortcuts";
 import { ScheduleFollowUpDrawer } from "./schedule/ScheduleFollowUpDrawer";
 import { DailyConsultationVideo } from "./video/DailyConsultationVideo";
-import type { AdviceCard } from "./workflow/steps";
 import { cn } from "../../lib/cn";
 import { consultationStepHref, stepFromQuery } from "../../lib/consultation-step-url";
 import { bootstrapConsultationSession } from "../../lib/consultation-session-bootstrap";
@@ -129,6 +140,7 @@ type ClinicalRecordState = {
     spO2: string;
   };
   adviceCards: AdviceCard[];
+  rubrics: RubricEntry[];
 };
 
 type WorkspaceBranding = {
@@ -218,7 +230,8 @@ function emptyClinical(): ClinicalRecordState {
     clinicalNotes: { observations: "", diagnosisThinking: "" },
     history: { pastDiseases: "", medications: "", familyHistory: "", drugAllergies: "" },
     vitals: { bp: "", pulse: "", temperature: "", spO2: "" },
-    adviceCards: []
+    adviceCards: [],
+    rubrics: []
   };
 }
 
@@ -333,6 +346,14 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   const [workspace, setWorkspace] = useState<WorkspaceBranding | null>(null);
   const [myDay, setMyDay] = useState<MyDayResponse | null>(null);
 
+  // AI Scribe
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<ScribeAnalysisOutput | null>(null);
+  const [aiJobId, setAiJobId] = useState<string | null>(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiLastAnalyzedAt, setAiLastAnalyzedAt] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   // Autosave guard — flip this immediately before performing an explicit save
   // so the debounced server autosave doesn't fire a redundant request.
   const suppressAutosave = useRef(false);
@@ -389,7 +410,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       visitStatus: session.sessionEnded ? "closed" : "in_progress"
     });
     setDraft(session.draft);
-    setClinicalRecord(session.clinicalRecord);
+    setClinicalRecord({ ...session.clinicalRecord, rubrics: session.clinicalRecord.rubrics ?? [] });
     setAdvice(session.advice);
     setFollowUpRecommendedAt(session.followUpRecommendedAt);
     setFollowUpNote(session.followUpNote);
@@ -548,6 +569,143 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     }
   }
 
+  // ── AI Scribe Handlers ─────────────────────────────────────────────────
+  async function handleTriggerAiAnalysis() {
+    if (!id) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      // Force autosave flush first to ensure the backend has latest notes
+      suppressAutosave.current = false;
+      
+      const res = await triggerAiAnalyze(id);
+      setAiJobId(res.id);
+      
+      if (res.draftRecord) {
+        setAiResult(res.draftRecord);
+        setAiPanelOpen(true);
+        setAiLastAnalyzedAt(new Date().toISOString());
+      } else {
+        setAiError("AI analysis returned without draft record.");
+      }
+    } catch (e) {
+      setAiError(friendlyLoadError(e));
+      setAiPanelOpen(true); // Open panel to show error
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function handleAcceptAiSection(section: ScribeSection, text: string) {
+    if (!id || !aiJobId) return;
+    try {
+      await acceptAiResult(id, aiJobId, [section]);
+      
+      // Update local state (append mode)
+      const AI_SEPARATOR = "\n\n--- AI Analysis ---\n";
+      const isNoteDraft = ["chiefComplaints", "emotionalState", "physicalSymptoms", "modalities", "timeline"].includes(section);
+      if (isNoteDraft) {
+        const k = section as keyof NoteDraft;
+        setDraft((prev) => ({
+          ...prev,
+          [k]: prev[k].trim() ? `${prev[k].trim()}${AI_SEPARATOR}${text}` : text
+        }));
+      } else {
+        const k = section as keyof ClinicalRecordState["clinicalNotes"];
+        setClinicalRecord((prev) => ({
+          ...prev,
+          clinicalNotes: {
+            ...prev.clinicalNotes,
+            [k]: prev.clinicalNotes[k].trim() ? `${prev.clinicalNotes[k].trim()}${AI_SEPARATOR}${text}` : text
+          }
+        }));
+      }
+    } catch (e) {
+      setStatusMsg(friendlyLoadError(e));
+    }
+  }
+
+  async function handleAcceptAiAll() {
+    if (!id || !aiJobId || !aiResult) return;
+    try {
+      const availableSections = Object.keys(aiResult).filter(
+        k => ["chiefComplaints", "emotionalState", "physicalSymptoms", "modalities", "timeline", "observations", "diagnosisThinking"].includes(k) && !!(aiResult as any)[k]
+      ) as ScribeSection[];
+      
+      if (availableSections.length > 0) {
+        await acceptAiResult(id, aiJobId, availableSections);
+        
+        // Update local state (append mode)
+        const AI_SEPARATOR = "\n\n--- AI Analysis ---\n";
+        
+        setDraft((prev) => {
+          const next = { ...prev };
+          ["chiefComplaints", "emotionalState", "physicalSymptoms", "modalities", "timeline"].forEach((sec) => {
+            const k = sec as keyof NoteDraft;
+            if (availableSections.includes(k as ScribeSection)) {
+              next[k] = prev[k].trim() ? `${prev[k].trim()}${AI_SEPARATOR}${aiResult[k]}` : aiResult[k];
+            }
+          });
+          return next;
+        });
+        
+        setClinicalRecord((prev) => {
+          const next = { ...prev };
+          ["observations", "diagnosisThinking"].forEach((sec) => {
+            const k = sec as keyof ClinicalRecordState["clinicalNotes"];
+            if (availableSections.includes(k as ScribeSection)) {
+              next.clinicalNotes[k] = prev.clinicalNotes[k].trim() ? `${prev.clinicalNotes[k].trim()}${AI_SEPARATOR}${aiResult[k]}` : aiResult[k];
+            }
+          });
+          return next;
+        });
+      }
+      setStatusMsg("Accepted AI suggestions.");
+      setAiPanelOpen(false);
+    } catch (e) {
+      setStatusMsg(friendlyLoadError(e));
+    }
+  }
+
+  async function handleDiscardAiAll() {
+    if (!id || !aiJobId) return;
+    try {
+      await discardAiResult(id, aiJobId);
+      setAiPanelOpen(false);
+      setStatusMsg("AI suggestions discarded.");
+    } catch (e) {
+      setStatusMsg(friendlyLoadError(e));
+    }
+  }
+
+  function handleAcceptRemedy(name: string) {
+    setRxEntries((prev) => {
+      // Create a new entry and prepend or append it. Let's append if the last is not empty, or overwrite if the only entry is empty.
+      const last = prev[prev.length - 1];
+      const isOnlyEmpty = prev.length === 1 && !last.name && !last.potency;
+      const newEntry = { ...emptyEntry(), name };
+      
+      if (isOnlyEmpty) {
+        return [newEntry];
+      }
+      return [...prev, newEntry];
+    });
+    setAiPanelOpen(false);
+    selectStep("prescription");
+    setStatusMsg(`Added ${name} to prescription.`);
+  }
+
+  function handleAcceptRubric(entry: { chapter: string; rubric: string; intensity: number }) {
+    setClinicalRecord((prev) => ({
+      ...prev,
+      rubrics: [
+        ...(prev.rubrics ?? []),
+        { id: crypto.randomUUID(), chapter: entry.chapter, rubric: entry.rubric, intensity: entry.intensity }
+      ]
+    }));
+    setStatusMsg(`Added rubric: ${entry.chapter} - ${entry.rubric}`);
+  }
+
   async function savePriorOutcome(): Promise<void> {
     if (!pendingPriorOutcome || !patientId || !priorOutcomeValue) return;
     await recordCaseOutcome({
@@ -681,6 +839,9 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         lifestyle: advice.lifestyle,
         cards: clinicalRecord.adviceCards
       },
+      analysis: {
+        rubrics: clinicalRecord.rubrics ?? []
+      },
       followUp: {
         enabled: followUpEnabled,
         recommendedAt: followUpRecommendedAt || null
@@ -729,6 +890,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
       history: stepValidations.history.done,
       examination: stepValidations.examination.done,
       notes: stepValidations.notes.done,
+      analysis: stepValidations.analysis.done,
       ai: stepValidations.ai.done,
       prescription: stepValidations.prescription.done,
       advice: stepValidations.advice.done,
@@ -974,6 +1136,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
           { id: "history", label: "History captured", step: "history" as ConsultationStep, required: false },
           { id: "examination", label: "Examination notes", step: "examination" as ConsultationStep, required: false },
           { id: "notes", label: "Clinical assessment", step: "notes" as ConsultationStep, required: true },
+          { id: "analysis", label: "Repertorization", step: "analysis" as ConsultationStep, required: false },
           {
             id: "prescription",
             label: skipPrescription ? "Prescription (skipped)" : "Prescription",
@@ -1055,9 +1218,6 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         setRxOutPrefs: (prefs) => setRxOutPrefs(setPrescriptionOutputPrefs(prefs)),
         openPreview
       }),
-    // We deliberately exclude function expressions (`savePatient`, `finalizeConsultation`,
-    // `openPreview`, `savePriorOutcome`) because they are re-created every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       formDisabled,
       busy,
@@ -1092,7 +1252,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   );
 
   const onHistoryStepChange = useCallback(
-    (v: typeof historyStepValue) => {
+    (v: any) => {
       setClinicalRecord((p) => ({
         ...p,
         history: {
@@ -1107,7 +1267,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
   );
 
   const onExaminationStepChange = useCallback(
-    (v: typeof examinationStepValue) => {
+    (v: any) => {
       setClinicalRecord((p) => ({
         ...p,
         labs: v.labs,
@@ -1118,25 +1278,21 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
     []
   );
 
-  const onNotesStepChange = useCallback(
-    (v: typeof notesStepValue) => {
-      setDraft({
-        chiefComplaints: v.chiefComplaints,
-        emotionalState: v.emotionalState,
-        physicalSymptoms: v.physicalSymptoms,
-        modalities: v.modalities,
-        timeline: v.timeline
-      });
-      setClinicalRecord((p) => ({
-        ...p,
-        clinicalNotes: { observations: v.observations, diagnosisThinking: v.diagnosisThinking }
-      }));
-    },
-    []
-  );
+  const onNotesStepChange = useCallback((v: any) => {
+    setDraft(v.draft);
+    setClinicalRecord((prev) => ({ ...prev, clinicalNotes: v.clinicalNotes }));
+  }, []);
+
+  const onAnalysisStepChange = useCallback((v: RubricEntry[]) => {
+    setClinicalRecord((prev) => ({ ...prev, rubrics: v }));
+  }, []);
+
+  const onPrescriptionChange = useCallback((v: PrescriptionEntry[]) => {
+    setRxEntries(v);
+  }, []);
 
   const onPatientStepChange = useCallback(
-    (v: typeof patientStepValue) => {
+    (v: any) => {
       setPatientForm((p) => ({ ...p, initialChiefComplaint: v.chiefComplaint }));
     },
     []
@@ -1343,6 +1499,7 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         onCloseDrawer={() => setActiveDrawer("none")}
         stepPanel={
           <ConsultationStepPanel
+            consultationId={id}
             activeStep={activeStep}
             readOnly={formDisabled}
             validation={stepValidations[normalizedStep]}
@@ -1356,6 +1513,12 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
             onExaminationStepChange={onExaminationStepChange}
             notesStep={notesStepValue}
             onNotesStepChange={onNotesStepChange}
+            analysisStep={clinicalRecord.rubrics ?? []}
+            onAnalysisStepChange={onAnalysisStepChange}
+            onAcceptRemedy={handleAcceptRemedy}
+            onAiAnalyze={handleTriggerAiAnalysis}
+            aiLoading={aiLoading}
+            aiLastAnalyzedAt={aiLastAnalyzedAt}
             prescriptionEntries={rxEntries}
             onPrescriptionChange={setRxEntries}
             adviceCards={adviceCards}
@@ -1416,6 +1579,19 @@ export function LiveConsultationClient({ id }: { id: string }): JSX.Element {
         html={previewHtml}
         onClose={() => setPreviewOpen(false)}
         onPrint={() => handlePrintPrescription(previewMode)}
+      />
+
+      <AiReviewPanel
+        isOpen={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+        loading={aiLoading}
+        error={aiError}
+        result={aiResult}
+        onAcceptSection={handleAcceptAiSection}
+        onAcceptAll={handleAcceptAiAll}
+        onDiscardAll={handleDiscardAiAll}
+        onAcceptRemedy={handleAcceptRemedy}
+        onAcceptRubric={handleAcceptRubric}
       />
 
       {statusMsg ? (

@@ -779,6 +779,8 @@ export type WorkspaceContext = {
   role?: "SUPER_ADMIN" | "DOCTOR" | "PATIENT";
   /** Effective feature flags for the clinic (plan + admin overrides). */
   features?: ClinicFeatures;
+  /** Phase 7: Doctor's custom AI scribe instructions. */
+  aiScribeInstructions?: string | null;
 };
 
 export type AdviceTemplate = {
@@ -809,13 +811,36 @@ export type TreatmentPlan = {
 
 export type InboxMessageItem = {
   id: string;
+  senderType?: string;
   patientId: string;
   patientName: string;
   body: string;
   readAt: string | null;
   createdAt: string;
-  /** When true, message is from the doctor (right-aligned in chat UI). */
-  fromDoctor?: boolean;
+  fromDoctor: boolean;
+};
+
+export type ConversationItem = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  contextType: string | null;
+  status: string;
+  updatedAt: string;
+};
+
+export type ConversationMessageItem = {
+  id: string;
+  senderType: string;
+  body: string;
+  createdAt: string;
+  fromDoctor: boolean;
+  attachments?: Array<{
+    id: string;
+    file_name: string;
+    mime_type: string;
+    file_objects?: { storage_object_key: string };
+  }>;
 };
 
 export type DashboardRecentItem = {
@@ -860,6 +885,7 @@ export async function patchDoctorProfile(body: {
   qualification?: string | null;
   registrationNumber?: string | null;
   specialty?: string | null;
+  aiScribeInstructions?: string | null;
 }): Promise<{ ok: boolean }> {
   if (isDemoMode()) return { ok: true };
   return apiFetchJson<{ ok: boolean }>(haProxyPath("doctor/profile"), {
@@ -1206,14 +1232,25 @@ export async function fetchPresignDownload(objectKey: string): Promise<{ downloa
 }
 
 export async function fetchDoctorInbox(limit = 20): Promise<InboxMessageItem[]> {
+  // Legacy fallback: this still powers the dashboard. We map recent messages.
   if (isDemoMode()) return DEMO_INBOX.slice(0, limit);
   try {
-    const data = await apiFetchJson<{ items: (InboxMessageItem & { from_doctor?: boolean })[] }>(
-      haProxyPath(`doctor/inbox?limit=${encodeURIComponent(String(limit))}`),
+    const data = await apiFetchJson<{ items: ConversationItem[] }>(
+      haProxyPath(`doctor/inbox/conversations?limit=${encodeURIComponent(String(limit))}`),
       { method: "GET" }
     );
+    // Since we need to return InboxMessageItem for the dashboard recent view, 
+    // we map conversations back into fake InboxMessageItems for backward compatibility.
     const raw = data.items ?? [];
-    return raw.map((m) => ({ ...m, fromDoctor: m.fromDoctor ?? m.from_doctor ?? false }));
+    return raw.map((c) => ({
+      id: c.id, // using conversation ID as message ID
+      patientId: c.patientId,
+      patientName: c.patientName,
+      body: "New conversation activity",
+      readAt: null, // Default unread
+      createdAt: c.updatedAt,
+      fromDoctor: false
+    }));
   } catch (e) {
     if (isDemoFallback()) return DEMO_INBOX.slice(0, limit);
     throw e;
@@ -1246,22 +1283,39 @@ export async function fetchDashboardRecent(): Promise<DashboardRecentItem[]> {
   }
 }
 
+export async function fetchDoctorConversations(limit = 40, patientId?: string): Promise<ConversationItem[]> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (patientId) query.set("patientId", patientId);
+  const data = await apiFetchJson<{ items: ConversationItem[] }>(
+    haProxyPath(`doctor/inbox/conversations?${query.toString()}`),
+    { method: "GET" }
+  );
+  return data.items ?? [];
+}
+
+export async function fetchConversationMessages(conversationId: string): Promise<ConversationMessageItem[]> {
+  const data = await apiFetchJson<{ items: ConversationMessageItem[] }>(
+    haProxyPath(`doctor/inbox/conversations/${encodeURIComponent(conversationId)}/messages`),
+    { method: "GET" }
+  );
+  return data.items ?? [];
+}
+
 export async function markDoctorInboxMessageRead(messageId: string): Promise<void> {
   if (isDemoMode()) return;
-  await apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/inbox/${encodeURIComponent(messageId)}/read`), {
+  await apiFetchJson<{ ok: boolean }>(haProxyPath(`doctor/inbox/messages/${encodeURIComponent(messageId)}/read`), {
     method: "POST"
   });
 }
 
 export async function postDoctorInboxReply(payload: {
-  patientId: string;
+  conversationId: string;
   body: string;
-  inReplyToMessageId?: string;
 }): Promise<{ id: string; created_at: string }> {
   if (isDemoMode()) {
     return { id: `demo-reply-${Date.now()}`, created_at: new Date().toISOString() };
   }
-  return apiFetchJson<{ id: string; created_at: string }>(haProxyPath("doctor/inbox/reply"), {
+  return apiFetchJson<{ id: string; created_at: string }>(haProxyPath(`doctor/inbox/conversations/${encodeURIComponent(payload.conversationId)}/reply`), {
     method: "POST",
     body: JSON.stringify(payload)
   });

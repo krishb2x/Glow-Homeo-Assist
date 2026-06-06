@@ -10,6 +10,7 @@ import { appointmentDisplayTag } from "../../../lib/appointment-display-tag";
 import { formatTimeLabel } from "./home-utils";
 import { PatientTagBadges } from "../PatientTagBadges";
 import { cn } from "../../../lib/cn";
+import { motion } from "framer-motion";
 
 type SlotStatus = "past" | "current" | "next" | "upcoming";
 
@@ -72,7 +73,15 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
         />
       </div>
 
-      <ul className="relative space-y-0 border-l-2 border-hs-border/40 pl-4 sm:pl-5">
+      <motion.ul 
+        className="relative space-y-0 border-l-2 border-hs-border/40 pl-4 sm:pl-5"
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: { opacity: 0 },
+          show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+        }}
+      >
         {sorted.map((a) => {
           const status = slotStatus(a.scheduledFor, a.durationMinutes, now, a.id === nextFutureId);
           const start = new Date(a.scheduledFor);
@@ -98,11 +107,15 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
                   </div>
                 </li>
               ) : null}
-              <li
+              <motion.li
+                variants={{
+                  hidden: { opacity: 0, x: -10 },
+                  show: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300 } }
+                }}
                 key={a.id}
                 className={cn(
-                  "relative pb-5 last:pb-0 transition-opacity duration-300",
-                  status === "past" && "opacity-50"
+                  "relative pb-5 last:pb-0 transition-all duration-300",
+                  status === "past" && "opacity-60 grayscale-[0.2]"
                 )}
               >
                 {/* Bullet indicator with inner dots */}
@@ -186,7 +199,7 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
                     </ConsultationLink>
                   </div>
                 </article>
-              </li>
+              </motion.li>
             </>
           );
 
@@ -194,14 +207,17 @@ export function TodayScheduleTimeline({ appointments, rosterById, now }: Props):
         })}
 
         {!insertedNowMarker && sorted.length > 0 && now.getTime() > new Date(sorted[sorted.length - 1]!.scheduledFor).getTime() ? (
-          <li className="relative -ml-[calc(1rem+1px)] pt-1 sm:-ml-[calc(1.25rem+1px)]">
+          <motion.li 
+            variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+            className="relative -ml-[calc(1rem+1px)] pt-1 sm:-ml-[calc(1.25rem+1px)]"
+          >
             <span className="inline-flex items-center gap-1.5 text-caption-sm text-hs-text-tertiary">
               <Clock className="h-3.5 w-3.5" aria-hidden />
               No more visits scheduled today
             </span>
-          </li>
+          </motion.li>
         ) : null}
-      </ul>
+      </motion.ul>
     </div>
   );
 }

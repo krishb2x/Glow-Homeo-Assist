@@ -13,6 +13,7 @@ export type WhatsAppSendInput = {
   metaTemplateName?: string | null;
   languageCode?: string;
   templateParameters?: string[];
+  channelType?: "AUTOMATED" | "CLINICAL";
 };
 
 export type WhatsAppSendOutput = {
@@ -76,18 +77,18 @@ export async function sendWhatsAppMessage(input: WhatsAppSendInput): Promise<Wha
   };
 }
 
-export async function loadDoctorWhatsAppConnection(
+export async function loadClinicWhatsAppConnection(
   client: SupabaseClient,
   clinicId: string,
-  doctorId: string
+  channelType: "AUTOMATED" | "CLINICAL" = "CLINICAL"
 ): Promise<WhatsAppConnectionRow | null> {
   const { data, error } = await client
     .from("whatsapp_connections")
     .select(
-      "id,clinic_id,doctor_id,provider,waba_id,phone_number_id,display_phone,access_token,access_token_encrypted,status,verified_at,quality_rating"
+      "id,clinic_id,doctor_id,provider,channel_type,waba_id,phone_number_id,display_phone,access_token,access_token_encrypted,status,verified_at,quality_rating"
     )
     .eq("clinic_id", clinicId)
-    .eq("doctor_id", doctorId)
+    .eq("channel_type", channelType)
     .maybeSingle();
   if (error || !data) return null;
   const row = data as WhatsAppConnectionRow & { access_token_encrypted?: string | null };

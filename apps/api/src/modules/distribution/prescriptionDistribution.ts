@@ -7,7 +7,7 @@ import { logger } from "../../lib/logger";
 import { writeAuditV2Event } from "../../lib/auditV2";
 import { renderHtmlToPdf } from "./pdfRenderer";
 import { sendPrescriptionWhatsApp } from "./notificationProviders";
-import { loadDoctorWhatsAppConnection, sendWhatsAppMessage } from "../whatsapp/sendMessage";
+import { loadClinicWhatsAppConnection, sendWhatsAppMessage } from "../whatsapp/sendMessage";
 import type {
   NotificationJobRow,
   PrescriptionDistributionOptions,
@@ -358,11 +358,7 @@ export async function processNotificationJob(
     const phone = String(payload.phone ?? "");
     if (!phone) return false;
 
-    const doctorId = typeof payload.doctorId === "string" ? payload.doctorId : null;
-    const connection =
-      doctorId != null
-        ? await loadDoctorWhatsAppConnection(admin, job.clinic_id, doctorId)
-        : null;
+    const connection = await loadClinicWhatsAppConnection(admin, job.clinic_id, "AUTOMATED");
 
     let result: { ok: boolean; error?: string; provider?: string; messageId?: string };
 
@@ -373,7 +369,8 @@ export async function processNotificationJob(
         body: String(payload.body ?? ""),
         metaTemplateName:
           typeof payload.metaTemplateName === "string" ? payload.metaTemplateName : null,
-        languageCode: typeof payload.languageCode === "string" ? payload.languageCode : "en"
+        languageCode: typeof payload.languageCode === "string" ? payload.languageCode : "en",
+        channelType: "AUTOMATED"
       });
 
       const deliveryId = typeof payload.deliveryId === "string" ? payload.deliveryId : null;
@@ -447,7 +444,7 @@ export async function processNotificationJob(
       const sendOpts = vars
         ? await resolveTelemedicineWhatsAppSend(admin, {
             clinicId: job.clinic_id,
-            doctorId,
+            doctorId: typeof payload.doctorId === "string" ? payload.doctorId : null,
             topic: job.topic,
             vars,
             fallbackBody: vars.prescriptionLink
@@ -461,7 +458,8 @@ export async function processNotificationJob(
         body: sendOpts.body,
         metaTemplateName: sendOpts.metaTemplateName,
         languageCode: sendOpts.languageCode,
-        templateParameters: sendOpts.templateParameters
+        templateParameters: sendOpts.templateParameters,
+        channelType: "AUTOMATED"
       });
     } else if (job.topic === "follow_up_reminder") {
       result = await sendWhatsAppMessage({

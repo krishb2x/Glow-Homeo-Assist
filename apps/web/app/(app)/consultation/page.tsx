@@ -8,6 +8,7 @@ import { PatientListSkeleton } from "../../../components/clinic/SkeletonCard";
 import { PatientVisitCard } from "../../../components/clinic/workflow/PatientVisitCard";
 import { OperationalQueuePanel } from "../../../components/clinic/dashboard/OperationalQueuePanel";
 import { PageHeader } from "../../../components/platform/PageHeader";
+import { motion } from "framer-motion";
 import {
   fetchMyDay,
   fetchPatientsPage,
@@ -241,37 +242,45 @@ export default function ConsultationStartPage(): JSX.Element {
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <PageHeader
-        className="mb-6 border-b border-hs-border/30 pb-6"
-        title="Start consultation"
-        description="Select a patient to open the clinical workflow. Every visit follows the same nine-step rhythm — from overview to finalize."
-      />
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-auto max-w-5xl"
+    >
+      <div className="mb-8 rounded-3xl bg-gradient-to-br from-emerald-900 to-hs-ink p-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-noise opacity-5 mix-blend-overlay" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl" />
+        
+        <h1 className="relative font-heading text-3xl sm:text-4xl font-bold text-white mb-2">Start consultation</h1>
+        <p className="relative text-emerald-100/70 max-w-2xl text-sm sm:text-base mb-6">
+          Select a patient to open the clinical workflow. Every visit follows the same nine-step rhythm — from overview to finalize.
+        </p>
 
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="relative min-w-0 flex-1 max-w-xl">
-          <label htmlFor="consult-search" className="sr-only">
-            Find patient
-          </label>
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-hs-text-tertiary" aria-hidden>
-            <Search className="h-5 w-5" strokeWidth={2} />
-          </span>
-          <input
-            id="consult-search"
-            type="search"
-            role="searchbox"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, phone, or complaint…"
-            className={DS_FIELD_SEARCH}
-            autoComplete="off"
-          />
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <Link href="/patients/new" className={cn(DS_BTN_SECONDARY, "gap-2")}>
-            <UserPlus className="h-4 w-4" aria-hidden />
-            New patient
-          </Link>
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+          <div className="relative min-w-0 flex-1">
+            <label htmlFor="consult-search" className="sr-only">
+              Find patient
+            </label>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/50" aria-hidden>
+              <Search className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <input
+              id="consult-search"
+              type="search"
+              role="searchbox"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, phone, or complaint…"
+              className="w-full rounded-xl bg-transparent py-3 pl-12 pr-4 text-white placeholder-white/40 focus:bg-white/5 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all border-none"
+              autoComplete="off"
+            />
+          </div>
+          <div className="flex shrink-0 px-2 sm:px-0 sm:pr-2 pb-2 sm:pb-0">
+            <Link href="/patients/new" className="flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white px-5 py-2.5 font-bold text-sm shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5">
+              <UserPlus className="h-4 w-4" aria-hidden />
+              New patient
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -398,6 +407,6 @@ export default function ConsultationStartPage(): JSX.Element {
           </section>
         </>
       )}
-    </div>
+    </motion.div>
   );
 }

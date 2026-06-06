@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuid } from "uuid";
 import { logger } from "../../lib/logger";
-import { loadDoctorWhatsAppConnection } from "../whatsapp/sendMessage";
-import { sendWhatsAppMessage } from "../whatsapp/sendMessage";
+import { loadClinicWhatsAppConnection, sendWhatsAppMessage } from "../whatsapp/sendMessage";
 import {
   appointmentInviteEmail,
   appointmentInviteWhatsApp,

@@ -5,6 +5,7 @@ import { getAuthClaimsForAccessToken } from "./profileAuth";
 import { logger } from "./lib/logger";
 import { jsonError } from "./lib/apiEnvelope";
 import { logAndSanitizeError } from "./lib/safeError";
+import { env } from "./config/env";
 
 export type AuthClaims = {
   userId: string;
@@ -23,25 +24,16 @@ export type JWTPayload = {
   exp: number;
 };
 
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const IS_PRODUCTION = env.NODE_ENV === "production";
 
-const devBypassOn =
-  !IS_PRODUCTION && (process.env.DEV_BYPASS_AUTH === "true" || process.env.DEV_BYPASS_AUTH === "1");
-const devBypassToken = process.env.DEV_BYPASS_BEARER ?? "dev-bypass";
-const devBypassClinic = process.env.DEV_BYPASS_CLINIC_ID ?? "11111111-1111-1111-1111-111111111101";
+const devBypassOn = !IS_PRODUCTION && env.DEV_BYPASS_AUTH;
+const devBypassToken = env.DEV_BYPASS_BEARER;
+const devBypassClinic = env.DEV_BYPASS_CLINIC_ID;
 
-if (IS_PRODUCTION && (process.env.DEV_BYPASS_AUTH === "true" || process.env.DEV_BYPASS_AUTH === "1")) {
-  logger.error("FATAL: DEV_BYPASS_AUTH must not be enabled in production");
-  process.exit(1);
-}
-
-if (IS_PRODUCTION && !process.env.JWT_SECRET) {
-  logger.error("FATAL: JWT_SECRET is required in production (custom JWT helpers)");
-  process.exit(1);
-}
+// (Safety checks are now handled in env.ts during server startup)
 
 /** Dev/test only: production must set JWT_SECRET (validated above). */
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
+const JWT_SECRET = env.JWT_SECRET;
 const ACCESS_TOKEN_EXPIRY = 3600; // 1 hour
 const REFRESH_TOKEN_EXPIRY = 604800; // 7 days
 

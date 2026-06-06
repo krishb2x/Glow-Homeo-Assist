@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../../lib/logger";
-import { loadDoctorWhatsAppConnection } from "./sendMessage";
+import { loadClinicWhatsAppConnection } from "./sendMessage";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
@@ -99,7 +99,7 @@ export async function syncMetaTemplatesForDoctor(args: {
   clinicId: string;
   doctorId: string;
 }): Promise<{ ok: true; result: TemplateSyncResult } | { ok: false; error: string }> {
-  const conn = await loadDoctorWhatsAppConnection(args.client, args.clinicId, args.doctorId);
+  const conn = await loadClinicWhatsAppConnection(args.client, args.clinicId);
   if (!conn || conn.status !== "connected") {
     return { ok: false, error: "Connect WhatsApp Business before syncing templates." };
   }

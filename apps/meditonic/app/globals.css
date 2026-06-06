@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --mt-primary: #1B6B5C;
+    --mt-primary-light: #2D8A77;
+    --mt-primary-dark: #124E44;
+    --mt-primary-bg: #E5F1EE;
+    --mt-secondary: #D4A574;
+    --mt-secondary-light: #E8C9A6;
+    --mt-secondary-dark: #B8874D;
+    --mt-bg: #FDFBF7;
+    --mt-surface: #FFFFFF;
+    --mt-text: #1C1917;
+    --mt-text-secondary: #57534E;
+    --mt-text-tertiary: #A8A29E;
+    --mt-border: #E5E0D8;
+    --mt-success: #2D6A4F;
+    --mt-error: #8B4B4B;
+    --mt-warning: #D99E2B;
+    --mt-accent-gold: #D4A017;
+    --mt-accent-teal: #1E7D8D;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--mt-bg);
+    color: var(--mt-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--mt-primary-bg);
+    color: var(--mt-primary-dark);
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply mx-auto max-w-container px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-padding {
+    @apply py-16 sm:py-20 lg:py-24;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-mt-primary to-mt-accent-teal bg-clip-text text-transparent;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-mt-border/50 rounded-2xl shadow-card;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-card-hover;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--mt-border);
+  border-radius: 20px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}

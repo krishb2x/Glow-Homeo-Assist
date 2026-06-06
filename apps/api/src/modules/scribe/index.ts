@@ -1,0 +1,1 @@
+export { registerScribeRoutes } from "./scribeRoutes";

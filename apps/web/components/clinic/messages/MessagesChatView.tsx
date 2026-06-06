@@ -5,13 +5,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, Loader2, MessageSquare, Paperclip, Search, Send, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  fetchDoctorInbox,
+  fetchDoctorConversations,
+  fetchConversationMessages,
   fetchPresignDownload,
   getToken,
   markDoctorInboxMessageRead,
   postDoctorInboxReply,
   presignStorageUpload,
-  type InboxMessageItem
+  type ConversationItem,
+  type ConversationMessageItem
 } from "../../../lib/doctor-api";
 import { isDemoMode } from "../../../lib/demo-mode";
 import { friendlyLoadError } from "../../../lib/friendly-error";
@@ -113,24 +115,17 @@ function formatTime(iso: string): string {
   }
 }
 
-type Thread = { patientId: string; patientName: string; messages: InboxMessageItem[] };
-
-function mergeInbox(fetched: InboxMessageItem[], overlay: InboxMessageItem[]): InboxMessageItem[] {
-  const byId = new Map<string, InboxMessageItem>();
-  for (const m of fetched) byId.set(m.id, m);
-  for (const m of overlay) byId.set(m.id, m);
-  return [...byId.values()];
-}
 
 export function MessagesChatView(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const patientIdFromQuery = searchParams.get("patientId");
-  const [items, setItems] = useState<InboxMessageItem[]>([]);
-  const [localReplyOverlay, setLocalReplyOverlay] = useState<InboxMessageItem[]>([]);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [activeMessages, setActiveMessages] = useState<ConversationMessageItem[]>([]);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -169,22 +164,32 @@ export function MessagesChatView(): JSX.Element {
     });
   }, []);
 
-  const allItems = useMemo(() => mergeInbox(items, localReplyOverlay), [items, localReplyOverlay]);
-
   const load = useCallback(() => {
     setLoadError(null);
     void (async () => {
       setLoading(true);
       try {
-        setItems(await fetchDoctorInbox(60));
+        setConversations(await fetchDoctorConversations(60));
       } catch (e) {
         setLoadError(e);
-        setItems([]);
+        setConversations([]);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (selectedConversationId) {
+      setMessagesLoading(true);
+      fetchConversationMessages(selectedConversationId)
+        .then(setActiveMessages)
+        .catch(() => setActiveMessages([]))
+        .finally(() => setMessagesLoading(false));
+    } else {
+      setActiveMessages([]);
+    }
+  }, [selectedConversationId]);
 
   useEffect(() => {
     if (!getToken()) {
@@ -194,16 +199,6 @@ export function MessagesChatView(): JSX.Element {
     load();
   }, [load, router]);
 
-  useEffect(() => {
-    if (patientIdFromQuery) setSelectedPatientId(patientIdFromQuery);
-  }, [patientIdFromQuery]);
-
-  /**
-   * Realtime sync — when any `messages` row changes (insert from patient,
-   * read receipt update from doctor) we re-fetch the inbox in the
-   * background. Polling is preserved as a fallback if realtime can't
-   * connect.
-   */
   useRealtimeChannel({
     enabled: !isDemoMode(),
     table: "messages",
@@ -211,7 +206,10 @@ export function MessagesChatView(): JSX.Element {
     onChange: () => {
       void (async () => {
         try {
-          setItems(await fetchDoctorInbox(60));
+          setConversations(await fetchDoctorConversations(60));
+          if (selectedConversationId) {
+             setActiveMessages(await fetchConversationMessages(selectedConversationId));
+          }
         } catch {
           /* ignore — next poll/load will pick it up */
         }
@@ -219,77 +217,60 @@ export function MessagesChatView(): JSX.Element {
     }
   });
 
-  const threads: Thread[] = useMemo(() => {
-    const map = new Map<string, InboxMessageItem[]>();
-    for (const m of allItems) {
-      const list = map.get(m.patientId) ?? [];
-      list.push(m);
-      map.set(m.patientId, list);
-    }
-    const out: Thread[] = [];
-    for (const [patientId, messages] of map) {
-      const sorted = [...messages].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      out.push({ patientId, patientName: sorted[0]?.patientName ?? "Patient", messages: sorted });
-    }
-    out.sort((a, b) => new Date(b.messages[0]!.createdAt).getTime() - new Date(a.messages[0]!.createdAt).getTime());
-    return out;
-  }, [allItems]);
-
-  const filteredThreads = useMemo(() => {
+  const filteredConversations = useMemo(() => {
     const q = inboxSearch.trim().toLowerCase();
-    return threads.filter((t) => {
+    return conversations.filter((c) => {
       if (unreadOnly) {
-        const hasUnread = t.messages.some((m) => !m.readAt && !m.fromDoctor);
-        if (!hasUnread) return false;
+         if (c.status !== "UNREAD") return false;
       }
       if (!q) return true;
-      if (t.patientName.toLowerCase().includes(q)) return true;
-      // Match if any message body contains the query (lets you find a topic).
-      return t.messages.some((m) => m.body.toLowerCase().includes(q));
+      if (c.patientName.toLowerCase().includes(q)) return true;
+      return false;
     });
-  }, [threads, inboxSearch, unreadOnly]);
+  }, [conversations, inboxSearch, unreadOnly]);
 
   const totalUnread = useMemo(
-    () =>
-      threads.reduce(
-        (n, t) => n + t.messages.filter((m) => !m.readAt && !m.fromDoctor).length,
-        0
-      ),
-    [threads]
+    () => conversations.filter((c) => c.status === "UNREAD").length,
+    [conversations]
   );
 
-  const activeThread = filteredThreads.find((t) => t.patientId === selectedPatientId) ?? filteredThreads[0] ?? threads.find((t) => t.patientId === selectedPatientId) ?? threads[0] ?? null;
+  const activeConversation = filteredConversations.find((c) => c.id === selectedConversationId) ?? filteredConversations[0] ?? conversations.find((c) => c.id === selectedConversationId) ?? conversations[0] ?? null;
 
   const messagesChronological = useMemo(() => {
-    if (!activeThread) return [];
-    return [...activeThread.messages].sort(
+    if (!activeConversation) return [];
+    return [...activeMessages].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
-  }, [activeThread]);
+  }, [activeMessages, activeConversation]);
 
   const lastMessage = messagesChronological[messagesChronological.length - 1] ?? null;
 
   useEffect(() => {
-    if (selectedPatientId == null && threads[0]) {
-      setSelectedPatientId(threads[0].patientId);
+    if (patientIdFromQuery) {
+        const found = conversations.find(c => c.patientId === patientIdFromQuery);
+        if (found) setSelectedConversationId(found.id);
     }
-  }, [selectedPatientId, threads]);
+  }, [patientIdFromQuery, conversations]);
+
+  useEffect(() => {
+    if (selectedConversationId == null && conversations[0]) {
+      setSelectedConversationId(conversations[0].id);
+    }
+  }, [selectedConversationId, conversations]);
 
   const openThread = useCallback(
-    (t: Thread) => {
-      setSelectedPatientId(t.patientId);
+    (c: ConversationItem) => {
+      setSelectedConversationId(c.id);
       setReplyText("");
       setSendError(null);
-      const unread = t.messages.find((m) => !m.readAt && !m.fromDoctor);
-      if (unread) {
+      // Mark latest unread as read conceptually
+      const unread = activeMessages.find((m) => !m.fromDoctor);
+      if (unread && c.status === "UNREAD") {
         void markDoctorInboxMessageRead(unread.id).catch(() => {});
-        setItems((prev) => prev.map((x) => (x.id === unread.id ? { ...x, readAt: new Date().toISOString() } : x)));
-        setLocalReplyOverlay((prev) =>
-          prev.map((x) => (x.id === unread.id ? { ...x, readAt: new Date().toISOString() } : x))
-        );
+        setConversations(prev => prev.map(x => x.id === c.id ? { ...x, status: "READ" } : x));
       }
     },
-    [setItems]
+    [activeMessages]
   );
 
   const uploadAttachment = useCallback(async (file: File) => {
@@ -324,7 +305,7 @@ export function MessagesChatView(): JSX.Element {
   }, [attachmentUploading]);
 
   const sendReply = useCallback(async () => {
-    if (!activeThread || !lastMessage || sending) return;
+    if (!activeConversation || sending) return;
     const text = replyText.trim();
     if (!text && !pendingAttachment) return;
     setSending(true);
@@ -336,23 +317,22 @@ export function MessagesChatView(): JSX.Element {
       : text;
     try {
       const res = await postDoctorInboxReply({
-        patientId: activeThread.patientId,
-        body,
-        inReplyToMessageId: lastMessage.id
+        conversationId: activeConversation.id,
+        body
       });
       if (isDemoMode()) {
-        setLocalReplyOverlay((prev) => [
+        setActiveMessages((prev) => [
           ...prev,
           {
             id: res.id,
-            patientId: activeThread.patientId,
-            patientName: activeThread.patientName,
+            senderType: "DOCTOR",
             body,
-            readAt: new Date().toISOString(),
             createdAt: res.created_at,
             fromDoctor: true
           }
         ]);
+      } else {
+        setActiveMessages(await fetchConversationMessages(activeConversation.id));
       }
       setReplyText("");
       setPendingAttachment(null);
@@ -362,7 +342,7 @@ export function MessagesChatView(): JSX.Element {
     } finally {
       setSending(false);
     }
-  }, [activeThread, lastMessage, replyText, sending, load, pendingAttachment]);
+  }, [activeConversation, replyText, sending, load, pendingAttachment]);
 
   if (loadError && !loading) {
     return (
@@ -433,14 +413,14 @@ export function MessagesChatView(): JSX.Element {
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading…
           </div>
-        ) : threads.length === 0 ? (
+        ) : conversations.length === 0 ? (
           <div className="mt-4">
             <EmptyState
               title="No messages"
               description="When patients write in, threads appear here."
             />
           </div>
-        ) : filteredThreads.length === 0 ? (
+        ) : filteredConversations.length === 0 ? (
           <p className="mt-6 rounded-xl border border-dashed border-hs-border/40 bg-hs-paper/60 px-3 py-3 text-caption-sm text-hs-text-tertiary">
             {unreadOnly && inboxSearch
               ? "No unread threads match that search."
@@ -450,15 +430,14 @@ export function MessagesChatView(): JSX.Element {
           </p>
         ) : (
           <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-            {filteredThreads.map((t) => {
-              const latest = t.messages[0]!;
-              const unread = t.messages.some((m) => !m.readAt && !m.fromDoctor);
-              const sel = t.patientId === (selectedPatientId ?? filteredThreads[0]?.patientId);
+            {filteredConversations.map((c) => {
+              const unread = c.status === "UNREAD";
+              const sel = c.id === (selectedConversationId ?? filteredConversations[0]?.id);
               return (
-                <li key={t.patientId}>
+                <li key={c.id}>
                   <button
                     type="button"
-                    onClick={() => openThread(t)}
+                    onClick={() => openThread(c)}
                     className={
                       "flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition duration-200 " +
                       (sel ? "bg-hs-paper font-semibold text-hs-ink shadow-sm" : "text-hs-text-secondary hover:bg-hs-cream/90 hover:shadow-sm")
@@ -473,10 +452,9 @@ export function MessagesChatView(): JSX.Element {
                       <span className="mt-1 h-2 w-2 shrink-0" aria-hidden />
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate">{t.patientName}</span>
+                      <span className="block truncate">{c.patientName}</span>
                       <span className="mt-0.5 block truncate text-xs text-hs-text-tertiary">
-                        {latest.fromDoctor ? "You: " : ""}
-                        {latest.body}
+                        {c.contextType === "CARE_PLAN" ? "Care Plan Discussion" : "General Inquiry"}
                       </span>
                     </span>
                   </button>
@@ -488,23 +466,24 @@ export function MessagesChatView(): JSX.Element {
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-hs-paper/60 transition-colors">
-        {!activeThread && !loading ? (
+        {!activeConversation && !loading ? (
           <p className="m-auto p-6 text-sm text-hs-text-secondary">Select a conversation</p>
-        ) : activeThread ? (
+        ) : activeConversation ? (
           <>
             <div className="border-b border-hs-border/25 px-6 py-3">
-              <p className="font-heading text-body-md font-bold text-hs-ink">{activeThread.patientName}</p>
+              <p className="font-heading text-body-md font-bold text-hs-ink">{activeConversation.patientName}</p>
               <Link
-                href={`/patients/${encodeURIComponent(activeThread.patientId)}/timeline`}
+                href={`/patients/${encodeURIComponent(activeConversation.patientId)}/timeline`}
                 className="mt-1 text-sm font-semibold text-hs-primary hover:underline"
               >
                 Open full chart
               </Link>
             </div>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
-              {messagesChronological.map((m) => {
+              {messagesLoading && messagesChronological.length === 0 ? (
+                 <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-hs-primary" /></div>
+              ) : messagesChronological.map((m) => {
                 const fromDoc = Boolean(m.fromDoctor);
-                const delivered = Boolean(m.readAt);
                 const { text, attachments } = parseAttachments(m.body);
                 return (
                   <div
@@ -522,6 +501,9 @@ export function MessagesChatView(): JSX.Element {
                     {attachments.map((a) => (
                       <AttachmentChip key={a.objectKey} filename={a.filename} objectKey={a.objectKey} />
                     ))}
+                    {(m.attachments ?? []).map(a => (
+                      <AttachmentChip key={a.id} filename={a.file_name} objectKey={a.file_objects?.storage_object_key ?? ""} />
+                    ))}
                     <div
                       className={
                         "mt-1.5 flex items-center justify-end gap-1 text-[10px] font-medium " +
@@ -530,11 +512,7 @@ export function MessagesChatView(): JSX.Element {
                     >
                       <span>{formatTime(m.createdAt)}</span>
                       {fromDoc ? (
-                        delivered ? (
-                          <CheckCheck className="h-3 w-3" aria-label="Read" />
-                        ) : (
-                          <Check className="h-3 w-3" aria-label="Sent" />
-                        )
+                         <CheckCheck className="h-3 w-3" aria-label="Sent" />
                       ) : null}
                     </div>
                   </div>

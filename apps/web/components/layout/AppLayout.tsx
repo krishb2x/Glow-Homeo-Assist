@@ -10,8 +10,8 @@ import { BRAND_NAME } from "../../lib/brand";
 import { cn } from "../../lib/cn";
 import { isMainNavActive, type NavItem } from "../../lib/nav-config";
 
-const SIDEBAR_W = "w-[240px]";
-const SIDEBAR_PL = "pl-[240px]";
+const SIDEBAR_W = "w-[200px]";
+const SIDEBAR_PL = "pl-[200px]";
 
 function initials(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
@@ -164,6 +164,15 @@ function ProfileMenu({
   );
 }
 
+function DevBanner() {
+  if (process.env.NODE_ENV === "production") return null;
+  return (
+    <div className="bg-[#faeeda] text-[#633806] text-[11px] font-semibold tracking-wide text-center py-1 absolute top-0 w-full z-50">
+      DEVELOPMENT / TEST ENVIRONMENT
+    </div>
+  );
+}
+
 /**
  * Desktop clinic workspace (≥1200px): fixed 240px sidebar, unified top bar, token spacing.
  * No mobile navigation — this shell targets examination-room / desk displays.
@@ -220,42 +229,38 @@ export function AppLayout({
   }
 
   return (
-    <div className="min-h-screen min-w-[1024px] bg-hs-surface">
+    <div className="h-screen w-full flex overflow-hidden bg-[#f8fdf9]">
+      <DevBanner />
       <aside
-        className={cn("fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-hs-border/30 bg-hs-paper/98 py-6 shadow-ds-sm", SIDEBAR_W)}
+        className={cn("fixed left-0 top-0 z-40 flex h-full flex-col bg-[#0a1f1a] py-6 shadow-xl", SIDEBAR_W)}
+        style={{ marginTop: process.env.NODE_ENV === "production" ? "0" : "24px" }}
         aria-label="Main navigation"
       >
-        <div className="px-5">
-          <p className="text-caption-sm font-semibold uppercase tracking-[0.12em] text-hs-text-tertiary">{BRAND_NAME}</p>
-          <p className="mt-0.5 truncate text-body-sm font-medium text-hs-ink" title={clinicContextLabel ?? clinicId ?? undefined}>
-            {clinicContextLabel ?? (clinicId ? `Clinic ${clinicId.slice(0, 8)}…` : "Clinic workspace")}
+        <div className="px-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[rgba(255,255,255,0.35)]">GLOWHOMEO</p>
+          <p className="mt-1 truncate text-[13px] font-[600] text-white" title={clinicContextLabel ?? clinicId ?? undefined}>
+            {clinicContextLabel ?? (clinicId ? `Clinic ${clinicId.slice(0, 8)}…` : "Doctor's Clinic")}
           </p>
-          {clinicSelector ? <div className="mt-3 max-w-full">{clinicSelector}</div> : null}
+          {clinicSelector ? <div className="mt-3 max-w-full text-white">{clinicSelector}</div> : null}
         </div>
         <LayoutGroup>
-          <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" aria-label="Sections">
+          <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3" aria-label="Sections">
             {navItems.map((item) => {
               const active = isMainNavActive(item.href, pathname);
               const Icon = item.Icon;
+              // Add badges later if possible via props
               return (
                 <div key={item.href} className="relative">
-                  {active ? (
-                    <motion.div
-                      layoutId="sidebar-pill"
-                      className="absolute inset-0 rounded-2xl bg-hs-primary-very-light/90 shadow-ds-sm"
-                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                    />
-                  ) : null}
                   <Link
                     href={item.href}
                     className={
-                      "relative z-10 flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-body-sm font-medium transition-colors duration-200 " +
+                      "relative z-10 flex items-center gap-3 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-colors duration-200 " +
                       (active
-                        ? "text-hs-primary"
-                        : "text-hs-text-secondary hover:bg-hs-cream/90 hover:text-hs-ink")
+                        ? "bg-[rgba(14,124,102,0.35)] text-white"
+                        : "text-[rgba(255,255,255,0.5)] hover:bg-[rgba(255,255,255,0.07)] hover:text-white")
                     }
                   >
-                    <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden />
+                    <Icon className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
                     {item.label}
                   </Link>
                 </div>
@@ -263,57 +268,54 @@ export function AppLayout({
             })}
           </nav>
         </LayoutGroup>
-        <div className="shrink-0 space-y-1.5 border-t border-hs-border/25 px-4 py-3 text-typo-small text-hs-text-tertiary">
-          <p>Signed in as</p>
-          <p className="truncate text-body-sm font-medium text-hs-ink" title={doctorName}>
-            {doctorName}
-          </p>
-          {showSidebarKeyboardHints ? (
-            <p className="text-[0.65rem] leading-snug text-hs-text-tertiary/90">
-              <kbd className="rounded border border-hs-border/50 px-0.5 font-sans">N</kbd> new patient ·{" "}
-              <kbd className="rounded border border-hs-border/50 px-0.5 font-sans">C</kbd> consult ·{" "}
-              <kbd className="rounded border border-hs-border/50 px-0.5 font-sans">⌘K</kbd> search
-            </p>
-          ) : null}
+        <div className="shrink-0 space-y-1.5 border-t border-[rgba(255,255,255,0.1)] px-4 py-4 text-white">
+          <div className="flex items-center gap-3 group cursor-pointer transition">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(255,255,255,0.15)] text-[11px] font-bold text-emerald-300">
+              {initials(doctorName)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-[600] text-white" title={doctorName}>{doctorName}</p>
+              <p className="text-[11px] text-[rgba(255,255,255,0.4)]">Doctor</p>
+            </div>
+            <ChevronDown className="h-4 w-4 text-[rgba(255,255,255,0.3)] transition group-hover:text-white" />
+          </div>
         </div>
       </aside>
 
-      <div className={cn("flex min-h-screen min-w-0 flex-col", SIDEBAR_PL)}>
-        <header className="shrink-0 border-b border-hs-border/40 bg-hs-paper/95">
-          <div className="mx-auto flex h-16 w-full max-w-full items-center justify-between gap-4 px-ds-lg">
+      <div className={cn("flex flex-1 flex-col overflow-hidden", SIDEBAR_PL)} style={{ paddingTop: process.env.NODE_ENV === "production" ? "0" : "24px" }}>
+        <header className="shrink-0 border-b border-black/[0.05] bg-white h-[44px] flex items-center">
+          <div className="mx-auto flex h-full w-full max-w-full items-center justify-between gap-4 px-6">
             <div className="flex min-w-0 flex-1 items-center gap-4">
               {headerLeading ? <div className="shrink-0">{headerLeading}</div> : null}
-              <ConnectionStatusBar />
+              <span className="text-[12px] font-medium text-slate-400">
+                {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+              </span>
+              <ConnectionStatusBar disconnectedOnly />
             </div>
             <div className="ml-auto flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => openCommandPalette()}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-hs-border/50 bg-hs-cream/70 px-3.5 text-body-sm font-medium text-hs-ink transition duration-200 hover:border-hs-primary/40 hover:bg-hs-paper"
+                className="inline-flex h-8 items-center gap-2 rounded-md bg-slate-100/60 px-3 text-[12px] font-medium text-slate-500 transition duration-200 hover:bg-slate-200/60 hover:text-slate-700 border border-slate-200/50"
                 aria-label="Search (Ctrl+K)"
               >
-                <Search className="h-4 w-4 text-hs-text-secondary" strokeWidth={2.25} />
+                <Search className="h-3.5 w-3.5 text-slate-400" strokeWidth={2.25} />
                 <span className="hidden lg:inline">Search</span>
-                <kbd className="ml-1 hidden text-[0.65rem] font-mono text-hs-text-tertiary lg:inline">⌘K</kbd>
+                <kbd className="ml-2 hidden rounded border border-slate-300 bg-white px-1 text-[10px] font-mono text-slate-400 lg:inline">⌘K</kbd>
               </button>
-              <ProfileMenu doctorName={doctorName} onLogout={onLogout} />
+              {/* Tooltip for help could go here, for now a help icon */}
+              <button className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" title="Shortcuts: N=new, C=consult, ⌘K=search">
+                <span className="text-[13px] font-bold font-serif">?</span>
+              </button>
+              <div className="hidden">
+                <ProfileMenu doctorName={doctorName} onLogout={onLogout} />
+              </div>
             </div>
           </div>
         </header>
 
-        <div
-          className={cn(
-            "min-h-0 flex-1",
-            mainFullBleed ? "flex flex-col overflow-hidden" : "overflow-y-auto bg-hs-cream/30"
-          )}
-        >
-          <main
-            className={cn(
-              mainFullBleed
-                ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden"
-                : cn("mx-auto w-full px-5 py-6 lg:px-8 lg:py-7", mainMaxClass)
-            )}
-          >
+        <div className={cn("min-h-0 flex-1 flex overflow-hidden bg-[#f8fdf9]")}>
+          <main className={cn("flex flex-1 min-h-0 w-full flex-col overflow-y-auto")}>
             {children}
           </main>
         </div>

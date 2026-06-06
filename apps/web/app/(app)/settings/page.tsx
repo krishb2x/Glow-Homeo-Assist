@@ -150,6 +150,58 @@ function DoctorProfileSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRef
   );
 }
 
+// ─── AI Personalization Section ──────────────────────────────────────────────
+
+function AIPersonalizationSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRefresh: () => void }) {
+  const [instructions, setInstructions] = useState(ctx.aiScribeInstructions ?? "");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  useEffect(() => {
+    setInstructions(ctx.aiScribeInstructions ?? "");
+  }, [ctx]);
+
+  const save = async () => {
+    setSaveState("saving");
+    try {
+      await patchDoctorProfile({ aiScribeInstructions: instructions.trim() || null });
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 3000);
+      onRefresh();
+    } catch {
+      setSaveState("error");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-body-sm text-hs-text-secondary leading-relaxed">
+        Customize how the AI Scribe and Repertorization Engine behave. Add personal instructions like: "I practice classical homeopathy, strictly use Kent's Repertory, and prioritize mental symptoms."
+      </p>
+      <div>
+        <FieldLabel>Custom AI Instructions</FieldLabel>
+        <textarea
+          className={cn(DS_FIELD, "min-h-[6rem] resize-y")}
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          placeholder="e.g. Always suggest single remedies. Avoid polycrests unless clearly indicated..."
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saveState === "saving"}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-hs-primary px-5 text-body-sm font-semibold text-white shadow-sm transition hover:bg-hs-primary-light disabled:opacity-60"
+        >
+          <Save className="h-4 w-4" aria-hidden />
+          Save AI preferences
+        </button>
+        <SaveStatus state={saveState} />
+      </div>
+    </div>
+  );
+}
+
 // ─── Signature Section ───────────────────────────────────────────────────────
 
 function SignatureSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRefresh: () => void }) {
@@ -348,21 +400,6 @@ function ClinicDetailsSection({ ctx, onRefresh }: { ctx: WorkspaceContext; onRef
   );
 }
 
-// ─── Care Plan Library (single advice surface) ─────────────────────────────
-
-function CarePlanLibrarySection(): JSX.Element {
-  return (
-    <div className="space-y-3">
-      <p className="text-body-sm text-hs-text-secondary leading-relaxed">
-        Structured diet, lifestyle, and recovery plans live in the Care Plan Library — reusable in every consultation and ready for the patient app.
-      </p>
-      <Link href="/care-plan-library" className={DS_BTN_PRIMARY}>
-        Open Care Plan Library
-      </Link>
-    </div>
-  );
-}
-
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage(): JSX.Element {
@@ -415,6 +452,15 @@ export default function SettingsPage(): JSX.Element {
         )}
       </SectionCard>
 
+      {/* AI Personalization */}
+      <SectionCard title="AI Personalization" icon={Monitor} defaultOpen={false}>
+        {ctx ? (
+          <AIPersonalizationSection ctx={ctx} onRefresh={loadCtx} />
+        ) : (
+          <p className="text-body-sm text-hs-text-tertiary">Could not load profile.</p>
+        )}
+      </SectionCard>
+
       {/* Signature */}
       <SectionCard title="Digital signature" icon={ImagePlus} defaultOpen={false}>
         {ctx ? (
@@ -431,10 +477,6 @@ export default function SettingsPage(): JSX.Element {
         ) : (
           <p className="text-body-sm text-hs-text-tertiary">Could not load clinic details.</p>
         )}
-      </SectionCard>
-
-      <SectionCard title="Patient care plans" icon={BookHeart} defaultOpen={false}>
-        <CarePlanLibrarySection />
       </SectionCard>
 
       <SectionCard title="WhatsApp Business" icon={MessageCircle} defaultOpen={false}>

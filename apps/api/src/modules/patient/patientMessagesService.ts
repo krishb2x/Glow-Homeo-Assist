@@ -3,59 +3,117 @@ import { v4 as uuid } from "uuid";
 import { signedObjectUrl } from "./patientMedia";
 import type { PatientContext } from "./types";
 
-export async function listPatientMessages(
+export async function listPatientConversations(
   admin: SupabaseClient,
   ctx: PatientContext,
-  opts: { since?: string; limit?: number }
+  opts: { limit?: number }
 ): Promise<unknown[]> {
   const limit = Math.min(50, Math.max(1, opts.limit ?? 50));
-  let q = admin
-    .from("patient_inbox_messages")
-    .select("id,body,direction,read_at,created_at")
+  
+  // Fetch conversations
+  const { data, error } = await admin
+    .from("conversations")
+    .select("id, context_type, context_id, status, updated_at")
     .eq("patient_id", ctx.patientId)
     .eq("clinic_id", ctx.clinicId)
-    .order("created_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(limit);
 
-  if (opts.since) {
-    const t = Date.parse(opts.since);
-    if (!Number.isNaN(t)) {
-      q = q.gte("created_at", new Date(t).toISOString());
-    }
-  }
-
-  const { data, error } = await q;
   if (error) throw error;
 
-  return (data ?? []).map((row) => {
-    const r = row as {
-      id: string;
-      body: string;
-      direction: string;
-      read_at: string | null;
-      created_at: string;
-    };
-    return {
-      id: r.id,
-      direction: r.direction,
-      body: r.body,
-      createdAt: r.created_at,
-      readAt: r.read_at,
-      attachments: [] as unknown[]
-    };
-  });
+  // We should also ideally fetch the latest message for preview, but we'll stick to a simple mapping for now.
+  return (data ?? []).map(row => ({
+    id: row.id,
+    contextType: row.context_type,
+    contextId: row.context_id,
+    status: row.status,
+    updatedAt: row.updated_at
+  }));
 }
 
-export async function sendPatientMessage(
+export async function listConversationMessages(
   admin: SupabaseClient,
   ctx: PatientContext,
+  conversationId: string,
+  opts: { limit?: number }
+): Promise<unknown[]> {
+  const limit = Math.min(100, Math.max(1, opts.limit ?? 50));
+  
+  // Verify ownership
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("id", conversationId)
+    .eq("patient_id", ctx.patientId)
+    .single();
+    
+  if (!conv) {
+     const err = new Error("Conversation not found");
+     (err as Error & { code: string }).code = "NOT_FOUND";
+     throw err;
+  }
+
+  // Fetch messages
+  const { data, error } = await admin
+    .from("messages")
+    .select(`
+      id,
+      sender_type,
+      body,
+      created_at,
+      message_attachments(id, file_name, mime_type, file_objects(storage_object_key))
+    `)
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return Promise.all((data ?? []).map(async (row: any) => {
+    const attachments = await Promise.all((row.message_attachments ?? []).map(async (att: any) => {
+        return {
+           id: att.id,
+           fileName: att.file_name,
+           mimeType: att.mime_type,
+           url: await signedObjectUrl(att.file_objects?.storage_object_key)
+        };
+    }));
+    
+    return {
+      id: row.id,
+      senderType: row.sender_type,
+      body: row.body,
+      createdAt: row.created_at,
+      attachments
+    };
+  }));
+}
+
+export async function sendConversationMessage(
+  admin: SupabaseClient,
+  ctx: PatientContext,
+  conversationId: string,
   body: { body: string; attachmentMediaObjectIds?: string[] }
 ): Promise<{ id: string; createdAt: string }> {
   const trimmed = body.body.trim();
-  if (!trimmed) {
-    const err = new Error("Message body is required");
+  if (!trimmed && !(body.attachmentMediaObjectIds?.length)) {
+    const err = new Error("Message body or attachment is required");
     (err as Error & { code: string }).code = "VALIDATION_ERROR";
     throw err;
+  }
+
+  // Verify ownership
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("id", conversationId)
+    .eq("patient_id", ctx.patientId)
+    .single();
+    
+  if (!conv) {
+     const err = new Error("Conversation not found");
+     (err as Error & { code: string }).code = "NOT_FOUND";
+     throw err;
   }
 
   if (body.attachmentMediaObjectIds?.length) {
@@ -73,43 +131,47 @@ export async function sendPatientMessage(
   }
 
   const { data, error } = await admin
-    .from("patient_inbox_messages")
+    .from("messages")
     .insert({
       id: uuid(),
-      clinic_id: ctx.clinicId,
-      patient_id: ctx.patientId,
+      conversation_id: conversationId,
       body: trimmed,
-      direction: "PATIENT",
-      created_by_user_id: ctx.authUserId
+      sender_type: "PATIENT",
+      sender_id: ctx.authUserId
     })
     .select("id,created_at")
     .single();
 
   if (error) throw error;
   const row = data as { id: string; created_at: string };
+  
+  // Attachments logic here (Phase 2 enhancement: link media objects to message_attachments)
+  if (body.attachmentMediaObjectIds?.length) {
+      const attachments = body.attachmentMediaObjectIds.map(fid => ({
+          message_id: row.id,
+          file_object_id: fid
+      }));
+      await admin.from("message_attachments").insert(attachments);
+  }
+
   return { id: row.id, createdAt: row.created_at };
 }
 
-export async function resolveMessageAttachments(
+export async function createConversation(
   admin: SupabaseClient,
   ctx: PatientContext,
-  mediaIds: string[]
-): Promise<Array<{ id: string; url?: string; mimeType: string }>> {
-  if (mediaIds.length === 0) return [];
-  const { data } = await admin
-    .from("media_objects")
-    .select("id,storage_object_key,mime_type")
-    .in("id", mediaIds)
-    .eq("patient_id", ctx.patientId);
-
-  const out: Array<{ id: string; url?: string; mimeType: string }> = [];
-  for (const row of data ?? []) {
-    const r = row as { id: string; storage_object_key: string; mime_type: string };
-    out.push({
-      id: r.id,
-      mimeType: r.mime_type,
-      url: await signedObjectUrl(r.storage_object_key)
-    });
-  }
-  return out;
+  contextType: string = "GENERAL"
+): Promise<{ id: string }> {
+  const { data, error } = await admin
+    .from("conversations")
+    .insert({
+       clinic_id: ctx.clinicId,
+       patient_id: ctx.patientId,
+       context_type: contextType
+    })
+    .select("id")
+    .single();
+    
+  if (error) throw error;
+  return { id: data.id };
 }

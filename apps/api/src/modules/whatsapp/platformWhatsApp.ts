@@ -1,16 +1,17 @@
 import type { WhatsAppConnectionRow } from "./types";
+import { env } from "../../config/env";
 
 /** GlowHomeo platform WABA — used when a doctor has not connected their own WhatsApp Business. */
 export function isPlatformWhatsAppConfigured(): boolean {
-  if (process.env.PLATFORM_WHATSAPP_ENABLED === "false") return false;
+  if (!env.PLATFORM_WHATSAPP_ENABLED) return false;
   return Boolean(
-    process.env.PLATFORM_WHATSAPP_PHONE_NUMBER_ID?.trim() &&
-      process.env.PLATFORM_WHATSAPP_ACCESS_TOKEN?.trim()
+    env.PLATFORM_WHATSAPP_PHONE_NUMBER_ID?.trim() &&
+    env.PLATFORM_WHATSAPP_ACCESS_TOKEN?.trim()
   );
 }
 
 export function getPlatformWhatsAppDisplayPhone(): string {
-  return process.env.PLATFORM_WHATSAPP_DISPLAY_PHONE?.trim() || "GlowHomeo Assist";
+  return env.PLATFORM_WHATSAPP_DISPLAY_PHONE?.trim() || "GlowHomeo Assist";
 }
 
 export function getPlatformWhatsAppConnection(): WhatsAppConnectionRow | null {
@@ -21,10 +22,11 @@ export function getPlatformWhatsAppConnection(): WhatsAppConnectionRow | null {
     clinic_id: "",
     doctor_id: "",
     provider: "meta_cloud",
-    waba_id: process.env.PLATFORM_WHATSAPP_WABA_ID?.trim() ?? null,
-    phone_number_id: process.env.PLATFORM_WHATSAPP_PHONE_NUMBER_ID!.trim(),
+    channel_type: "AUTOMATED",
+    waba_id: env.PLATFORM_WHATSAPP_WABA_ID?.trim() ?? null,
+    phone_number_id: env.PLATFORM_WHATSAPP_PHONE_NUMBER_ID!.trim(),
     display_phone: getPlatformWhatsAppDisplayPhone(),
-    access_token: process.env.PLATFORM_WHATSAPP_ACCESS_TOKEN!.trim(),
+    access_token: env.PLATFORM_WHATSAPP_ACCESS_TOKEN!.trim(),
     status: "connected",
     verified_at: null,
     quality_rating: null

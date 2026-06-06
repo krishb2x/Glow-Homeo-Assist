@@ -7,10 +7,11 @@ const rootFromHere = path.join(__dirname, "..", "..", "..");
 loadEnvDotenv({ path: path.join(rootFromHere, ".env") });
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { env } from "./config/env";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = env.SUPABASE_URL;
+const supabaseAnonKey = env.SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
   throw new Error("Missing Supabase env vars: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY");

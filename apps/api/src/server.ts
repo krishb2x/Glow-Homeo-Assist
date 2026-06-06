@@ -36,6 +36,8 @@ import { registerPatientRoutes } from "./modules/patient/patientRoutes";
 import { registerCarePlanRoutes } from "./modules/carePlans/carePlanRoutes";
 import { registerOfficialTemplateRoutes } from "./modules/carePlans/officialTemplateRoutes";
 import { registerContentRoutes } from "./modules/contentLibrary/contentRoutes";
+import { registerScribeRoutes } from "./modules/scribe/scribeRoutes";
+import { registerTreatmentProgramRoutes } from "./modules/treatmentPrograms/tpRoutes";
 import { provisionVideoSession } from "./modules/telemedicine/meetingService";
 import { listPatients } from "./modules/patients/patientListService";
 import { buildPatientTimeline } from "./modules/patients/timelineService";
@@ -43,10 +45,11 @@ import { refreshPatientMetrics } from "./lib/patientMetrics";
 import { doctorRateLimit } from "./lib/rateLimit";
 import { resolveClinicScope } from "./lib/clinicScope";
 import crypto from "node:crypto";
+import { env } from "./config/env";
 
 const patientSearchLimit = doctorRateLimit(
   "patient_search",
-  Number(process.env.RATE_PATIENT_SEARCH_PER_MIN ?? "120")
+  env.RATE_PATIENT_SEARCH_PER_MIN
 );
 
 const app = express();
@@ -56,8 +59,8 @@ app.use(requestContextMiddleware);
 
 // In production set CORS_ORIGIN to your exact frontend domain.
 // In development we allow any origin so the app works from any device on the LAN.
-const isProd = process.env.NODE_ENV === "production";
-const corsOriginEnv = process.env.CORS_ORIGIN;
+const isProd = env.NODE_ENV === "production";
+const corsOriginEnv = env.CORS_ORIGIN;
 const corsOriginOption: cors.CorsOptions["origin"] = corsOriginEnv
   ? corsOriginEnv.split(",").map((s) => s.trim())
   : isProd
@@ -80,7 +83,7 @@ app.use(express.json({
     }
   }
 }));
-if (process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true") {
+if (env.TRUST_PROXY) {
   app.set("trust proxy", 1);
 }
 
@@ -218,7 +221,7 @@ app.get("/doctor/workspace-context", authRequired, requireAppRoles(["DOCTOR", "S
   const client = getDb(claims);
   const { data: profile, error: pErr } = await client
     .from("profiles")
-    .select("full_name, clinic_id, credentials, registration_number, signature_object_key, prescription_document_prefs")
+    .select("full_name, clinic_id, credentials, registration_number, signature_object_key, prescription_document_prefs, specialty")
     .eq("id", claims.userId)
     .maybeSingle();
   if (pErr) {
@@ -304,7 +307,8 @@ app.get("/doctor/workspace-context", authRequired, requireAppRoles(["DOCTOR", "S
       showRegistrationNumber: docPrefs.showRegistrationNumber !== false
     },
     role: claims.role,
-    features: resolvedFeatures
+    features: resolvedFeatures,
+    aiScribeInstructions: typeof (pr as Record<string, unknown> | null)?.ai_scribe_instructions === "string" ? ((pr as Record<string, unknown>).ai_scribe_instructions as string).trim() || null : null
   });
 });
 
@@ -394,7 +398,8 @@ app.patch("/doctor/profile", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADM
       fullName: z.string().min(1).max(200).optional(),
       qualification: z.string().max(500).optional().nullable(),
       registrationNumber: z.string().max(200).optional().nullable(),
-      specialty: z.string().max(200).optional().nullable()
+      specialty: z.string().max(200).optional().nullable(),
+      aiScribeInstructions: z.string().max(5000).optional().nullable()
     })
     .refine((b) => Object.keys(b).length > 0, { message: "Empty body" })
     .safeParse(req.body);
@@ -409,6 +414,7 @@ app.patch("/doctor/profile", authRequired, requireAppRoles(["DOCTOR", "SUPER_ADM
   if (parsed.data.registrationNumber !== undefined)
     updates.registration_number = parsed.data.registrationNumber?.trim() || null;
   if (parsed.data.specialty !== undefined) updates.specialty = parsed.data.specialty?.trim() || null;
+  if (parsed.data.aiScribeInstructions !== undefined) updates.ai_scribe_instructions = parsed.data.aiScribeInstructions?.trim() || null;
   const { error } = await client.from("profiles").update(updates).eq("id", claims.userId);
   if (error) { jsonErrorDb(res, "doctor_profile_patch", error); return; }
   jsonSuccess(res, 200, { ok: true });
@@ -1435,6 +1441,8 @@ registerCarePlanRoutes(app);
 registerContentRoutes(app);
 registerOpsRoutes(app);
 registerOfficialTemplateRoutes(app);
+registerScribeRoutes(app);
+registerTreatmentProgramRoutes(app);
 
 app.get("/api/health", (req, res) => {
   res.send("OK");
@@ -2763,10 +2771,10 @@ app.get("/health", (_req, res) => {
   jsonSuccess(res, 200, { ok: true, service: "homeosync-api", storage: "supabase+s3" });
 });
 
-const port = Number(process.env.PORT ?? 4000);
+const port = env.PORT;
 const server = http.createServer(app);
 /** Skip binding a port when Vitest loads this module (Supertest uses `app` only). */
-if (process.env.VITEST !== "true") {
+if (!env.VITEST) {
   void (async () => {
     try {
       await assertRequiredTablesExist(supabaseAdmin);

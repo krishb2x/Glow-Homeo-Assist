@@ -538,34 +538,35 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
   );
 
   app.get(
-    "/doctor/inbox",
+    "/doctor/inbox/conversations",
     authRequired,
     requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
     async (req, res) => {
       const claims = (req as express.Request & { user: AuthClaims }).user;
       const clinicId = resolveClinicScope(req, claims, res);
       if (!clinicId) return;
+      
       const limit = Math.min(120, Math.max(5, parseInt(String(req.query.limit ?? "60"), 10) || 60));
       const patientFilter = typeof req.query.patientId === "string" && req.query.patientId.length > 0
         ? String(req.query.patientId)
         : null;
+        
       const client = getDb(claims);
       let q = client
-        .from("patient_inbox_messages")
-        .select("id,patient_id,body,direction,read_at,created_at")
+        .from("conversations")
+        .select("id,patient_id,context_type,context_id,status,updated_at")
         .eq("clinic_id", clinicId);
+        
       if (patientFilter) {
         q = q.eq("patient_id", patientFilter);
       }
-      const { data: rows, error } = await q.order("created_at", { ascending: false }).limit(limit);
+      
+      const { data: rows, error } = await q.order("updated_at", { ascending: false }).limit(limit);
       if (error) {
-        if (String(error.message ?? "").toLowerCase().includes("relation") || (error as { code?: string }).code === "42P01") {
-          jsonSuccess(res, 200, { items: [] as unknown[] });
-          return;
-        }
-        jsonErrorDb(res, "inbox_list", error);
+        jsonErrorDb(res, "inbox_conversations_list", error);
         return;
       }
+      
       const pids = [...new Set((rows ?? []).map((r) => (r as { patient_id: string }).patient_id))];
       const nameById = new Map<string, string>();
       if (pids.length > 0) {
@@ -575,95 +576,144 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
           nameById.set(row.id, row.name);
         }
       }
+      
       const items = (rows ?? []).map((r) => {
         const row = r as {
           id: string;
           patient_id: string;
-          body: string;
-          direction: string;
-          read_at: string | null;
-          created_at: string;
+          context_type: string | null;
+          status: string;
+          updated_at: string;
         };
         return {
           id: row.id,
           patientId: row.patient_id,
           patientName: nameById.get(row.patient_id) ?? "Patient",
-          body: row.body,
-          readAt: row.read_at,
-          createdAt: row.created_at,
-          // Conversational threads need both sides; UI uses `fromDoctor` to align bubbles.
-          fromDoctor: row.direction === "CLINIC"
+          contextType: row.context_type,
+          status: row.status,
+          updatedAt: row.updated_at
         };
       });
       jsonSuccess(res, 200, { items });
     }
   );
 
-  app.post(
-    "/doctor/inbox/reply",
+  app.get(
+    "/doctor/inbox/conversations/:id/messages",
     authRequired,
     requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
     async (req, res) => {
       const claims = (req as express.Request & { user: AuthClaims }).user;
       const clinicId = resolveClinicScope(req, claims, res);
       if (!clinicId) return;
+      
+      const client = getDb(claims);
+      const conversationId = req.params.id;
+      
+      // Verify conversation ownership
+      const { data: conv } = await client.from("conversations").select("id").eq("id", conversationId).eq("clinic_id", clinicId).maybeSingle();
+      if (!conv) {
+         jsonError(res, 404, "Conversation not found", { code: "NOT_FOUND" });
+         return;
+      }
+
+      const { data: rows, error } = await client
+        .from("messages")
+        .select(`
+          id,
+          sender_type,
+          body,
+          created_at,
+          message_attachments(id, file_name, mime_type, file_objects(storage_object_key))
+        `)
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true })
+        .limit(100);
+        
+      if (error) {
+        jsonErrorDb(res, "inbox_messages_list", error);
+        return;
+      }
+      
+      const items = (rows ?? []).map((row: any) => ({
+          id: row.id,
+          senderType: row.sender_type,
+          body: row.body,
+          createdAt: row.created_at,
+          attachments: row.message_attachments ?? [],
+          fromDoctor: row.sender_type === "DOCTOR" || row.sender_type === "SYSTEM"
+      }));
+
+      jsonSuccess(res, 200, { items });
+    }
+  );
+
+  app.post(
+    "/doctor/inbox/conversations/:id/reply",
+    authRequired,
+    requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
+    async (req, res) => {
+      const claims = (req as express.Request & { user: AuthClaims }).user;
+      const clinicId = resolveClinicScope(req, claims, res);
+      if (!clinicId) return;
+      
       const parsed = z
         .object({
-          patientId: z.string().uuid(),
           body: z.string().min(1).max(4000),
-          inReplyToMessageId: z.string().uuid().optional()
+          attachmentMediaObjectIds: z.array(z.string().uuid()).optional()
         })
         .safeParse(req.body);
+        
       if (!parsed.success) {
         jsonError(res, 400, "Invalid request", { code: "VALIDATION_ERROR", details: parsed.error.flatten() });
         return;
       }
+      
       const client = getDb(claims);
-      const { data: pat } = await client
-        .from("patients")
-        .select("id")
-        .eq("id", parsed.data.patientId)
+      const conversationId = req.params.id;
+      
+      const { data: conv } = await client
+        .from("conversations")
+        .select("id, patient_id")
+        .eq("id", conversationId)
         .eq("clinic_id", clinicId)
         .maybeSingle();
-      if (!pat) {
-        jsonError(res, 404, "Patient not found", { code: "NOT_FOUND" });
+        
+      if (!conv) {
+        jsonError(res, 404, "Conversation not found", { code: "NOT_FOUND" });
         return;
       }
+      
       const { data, error } = await client
-        .from("patient_inbox_messages")
+        .from("messages")
         .insert({
           id: uuid(),
-          clinic_id: clinicId,
-          patient_id: parsed.data.patientId,
+          conversation_id: conversationId,
           body: parsed.data.body.trim(),
-          direction: "CLINIC",
-          read_at: new Date().toISOString(),
-          created_by_user_id: claims.userId
+          sender_type: "DOCTOR",
+          sender_id: claims.userId
         })
         .select("id,created_at")
         .single();
+        
       if (error) {
-        if (String(error.message ?? "").toLowerCase().includes("relation") || (error as { code?: string }).code === "42P01") {
-          jsonError(res, 501, "Inbox is not available until migration is applied.", { code: "INBOX_NOT_READY" });
-          return;
-        }
         jsonErrorDb(res, "inbox_reply", error);
         return;
       }
-      if (parsed.data.inReplyToMessageId) {
-        await client
-          .from("patient_inbox_messages")
-          .update({ read_at: new Date().toISOString() })
-          .eq("id", parsed.data.inReplyToMessageId)
-          .eq("clinic_id", clinicId);
-      }
+
+      // Record read receipt implicitly
+      await client.from("message_read_receipts").insert({
+          message_id: (data as { id: string }).id,
+          user_id: claims.userId,
+          read_at: new Date().toISOString()
+      });
 
       try {
         const { enqueuePatientPushJob } = await import("./modules/patient/patientNotificationEnqueue");
         const { PATIENT_NOTIFICATION_TOPICS } = await import("./modules/patient/types");
         await enqueuePatientPushJob(supabaseAdmin, {
           clinicId,
-          patientId: parsed.data.patientId,
+          patientId: conv.patient_id,
           topic: PATIENT_NOTIFICATION_TOPICS.messageFromClinic,
           idempotencyKey: `inbox:${(data as { id: string }).id}:push`,
           payload: { messageId: (data as { id: string }).id }
@@ -677,20 +727,26 @@ export function registerHomeoSyncDoctorRoutes(app: express.Express): void {
   );
 
   app.post(
-    "/doctor/inbox/:messageId/read",
+    "/doctor/inbox/messages/:messageId/read",
     authRequired,
     requireAppRoles(["DOCTOR", "SUPER_ADMIN"]),
     async (req, res) => {
       const claims = (req as express.Request & { user: AuthClaims }).user;
       const clinicId = resolveClinicScope(req, claims, res);
       if (!clinicId) return;
+      
       const messageId = req.params.messageId;
       const client = getDb(claims);
+      
+      // We only insert if not exists (using upsert or just insert ignore pattern)
       const { error } = await client
-        .from("patient_inbox_messages")
-        .update({ read_at: new Date().toISOString() })
-        .eq("id", messageId)
-        .eq("clinic_id", clinicId);
+        .from("message_read_receipts")
+        .upsert({
+            message_id: messageId,
+            user_id: claims.userId,
+            read_at: new Date().toISOString()
+        }, { onConflict: "message_id,user_id" });
+        
       if (error) {
         jsonErrorDb(res, "inbox_read", error);
         return;

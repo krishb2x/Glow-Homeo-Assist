@@ -20,6 +20,9 @@ export type { ExaminationStepValue, LabEntry } from "./Step03Examination";
 export { Step04Notes } from "./Step04Notes";
 export type { NotesStepValue } from "./Step04Notes";
 
+export { Step05Analysis } from "./Step05Analysis";
+export type { RubricEntry } from "./Step05Analysis";
+
 export { Step06Prescription } from "./Step06Prescription";
 export type {
   PrescriptionEntry,

@@ -78,7 +78,7 @@ export function DashboardInboxPanel(): JSX.Element {
       setSending(true);
       setSendError(null);
       try {
-        await postDoctorInboxReply({ patientId: m.patientId, body: t, inReplyToMessageId: m.id });
+        await postDoctorInboxReply({ conversationId: m.id, body: t });
         setReplyText("");
         setExpandedId(null);
         load();

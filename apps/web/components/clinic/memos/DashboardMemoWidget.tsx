@@ -148,33 +148,32 @@ export function DashboardMemoWidget(): JSX.Element {
         )}
       </div>
 
-      <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption-sm">
-        {[
-          { label: "Open", value: s.openCount },
-          { label: "Due today", value: s.dueTodayCount, warn: s.dueTodayCount > 0 },
-          { label: "Overdue", value: s.overdueCount, warn: s.overdueCount > 0 },
-          { label: "Pinned", value: s.pinnedCount }
-        ].map((pill) => (
-          <div key={pill.label} className="flex items-baseline gap-1.5">
-            <dt className="text-hs-text-tertiary">{pill.label}</dt>
-            <dd
-              className={cn(
-                "font-semibold tabular-nums",
-                pill.warn ? "text-rose-800" : "text-hs-ink"
-              )}
-            >
-              {pill.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      {hasWork ? (
+        <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption-sm">
+          {[
+            { label: "Open", value: s.openCount },
+            { label: "Due today", value: s.dueTodayCount, warn: s.dueTodayCount > 0 },
+            { label: "Overdue", value: s.overdueCount, warn: s.overdueCount > 0 },
+            { label: "Pinned", value: s.pinnedCount }
+          ].filter(pill => pill.value > 0).map((pill) => (
+            <div key={pill.label} className="flex items-baseline gap-1.5">
+              <dt className="text-hs-text-tertiary">{pill.label}</dt>
+              <dd
+                className={cn(
+                  "font-semibold tabular-nums",
+                  pill.warn ? "text-rose-800" : "text-hs-ink"
+                )}
+              >
+                {pill.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
 
       {!hasWork ? (
         <div className="mt-4 rounded-xl border border-dashed border-hs-border/40 bg-hs-cream/30 px-3 py-4 text-center">
-          <p className="text-body-sm text-hs-text-secondary">No open reminders.</p>
-          <p className="mt-1 text-caption-sm text-hs-text-tertiary">
-            Add one during a visit from the memo strip, or pin a follow-up note.
-          </p>
+          <p className="text-body-sm text-hs-text-secondary">No reminders today.</p>
         </div>
       ) : (
         <div className="mt-3 space-y-3">

@@ -8,7 +8,7 @@ import type { NotificationTemplateVars } from "./types";
 
 import { resolveTelemedicineWhatsAppSend } from "./telemedicineWhatsApp";
 
-import { loadDoctorWhatsAppConnection, sendWhatsAppMessage } from "../whatsapp/sendMessage";
+import { loadClinicWhatsAppConnection, sendWhatsAppMessage } from "../whatsapp/sendMessage";
 
 import { deliverQueuedEmail, persistEmailProviderMessageId } from "./emailDelivery";
 
@@ -126,9 +126,7 @@ export async function processTelemedicineNotificationJob(
 
     const doctorId = typeof payload.doctorId === "string" ? payload.doctorId : null;
 
-    const conn =
-
-      doctorId != null ? await loadDoctorWhatsAppConnection(admin, job.clinic_id, doctorId) : null;
+    const conn = await loadClinicWhatsAppConnection(admin, job.clinic_id, "AUTOMATED");
 
     const fallbackBody = String(payload.body ?? "");
 
@@ -166,7 +164,9 @@ export async function processTelemedicineNotificationJob(
 
       languageCode: sendOpts.languageCode,
 
-      templateParameters: sendOpts.templateParameters
+      templateParameters: sendOpts.templateParameters,
+
+      channelType: "AUTOMATED"
 
     });
 
@@ -190,9 +190,7 @@ export async function processTelemedicineNotificationJob(
 
     const doctorId = typeof payload.doctorId === "string" ? payload.doctorId : null;
 
-    const conn =
-
-      doctorId != null ? await loadDoctorWhatsAppConnection(admin, job.clinic_id, doctorId) : null;
+    const conn = await loadClinicWhatsAppConnection(admin, job.clinic_id, "AUTOMATED");
 
     const result = await sendWhatsAppMessage({
 
@@ -200,7 +198,9 @@ export async function processTelemedicineNotificationJob(
 
       toPhone: String(payload.phone ?? ""),
 
-      body: String(payload.body ?? "")
+      body: String(payload.body ?? ""),
+
+      channelType: "AUTOMATED"
 
     });
 

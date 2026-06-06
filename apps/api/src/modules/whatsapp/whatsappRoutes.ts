@@ -18,7 +18,7 @@ import {
 import { resolveAudience } from "./audienceResolver";
 import { extractTemplateVariables } from "./variableResolver";
 import { verifyMetaConnection } from "./metaCloudApi";
-import { loadDoctorWhatsAppConnection, sendWhatsAppMessage, resolveWhatsAppSendConnection, isPlatformWhatsAppConfigured, getPlatformWhatsAppDisplayPhone } from "./sendMessage";
+import { loadClinicWhatsAppConnection, sendWhatsAppMessage, resolveWhatsAppSendConnection, isPlatformWhatsAppConfigured, getPlatformWhatsAppDisplayPhone } from "./sendMessage";
 import { createWhatsAppBroadcast } from "./broadcastService";
 import { encryptAccessToken } from "./credentialVault";
 import { handleMetaWebhook, verifyMetaWebhook, verifyMetaWebhookSignature, shouldRequireMetaWebhookSignature } from "./webhookHandler";
@@ -202,20 +202,22 @@ export function registerWhatsAppRoutes(app: express.Express): void {
       if (!(await requireWhatsAppFeature(req, res, clinicId))) return;
 
       const client = getDb(claims);
-      const row = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
-      if (row?.status === "connected") {
+      const row = await loadClinicWhatsAppConnection(client, clinicId, "CLINICAL");
+      const automatedRow = await loadClinicWhatsAppConnection(client, clinicId, "AUTOMATED");
+      if (row?.status === "connected" || automatedRow?.status === "connected") {
         jsonSuccess(res, 200, {
-          status: row.status,
+          status: row?.status || automatedRow?.status,
           connected: true,
           senderSource: "doctor",
-          provider: row.provider,
-          wabaId: row.waba_id,
-          phoneNumberId: row.phone_number_id,
-          displayPhone: row.display_phone,
-          accessTokenMasked: maskToken(row.access_token),
-          verifiedAt: row.verified_at,
-          qualityRating: row.quality_rating,
-          platformFallbackAvailable: isPlatformWhatsAppConfigured()
+          provider: row?.provider || automatedRow?.provider,
+          wabaId: row?.waba_id || automatedRow?.waba_id,
+          phoneNumberId: row?.phone_number_id || automatedRow?.phone_number_id,
+          displayPhone: row?.display_phone || automatedRow?.display_phone,
+          accessTokenMasked: maskToken(row?.access_token || automatedRow?.access_token),
+          verifiedAt: row?.verified_at || automatedRow?.verified_at,
+          qualityRating: row?.quality_rating || automatedRow?.quality_rating,
+          platformFallbackAvailable: isPlatformWhatsAppConfigured(),
+          connections: [row, automatedRow].filter(Boolean)
         });
         return;
       }
@@ -287,6 +289,7 @@ export function registerWhatsAppRoutes(app: express.Express): void {
         clinic_id: clinicId,
         doctor_id: claims.userId,
         provider: body.provider,
+        channel_type: body.channelType,
         waba_id: body.wabaId?.trim() ?? null,
         phone_number_id: body.phoneNumberId.trim(),
         display_phone: body.displayPhone?.trim() ?? verify.displayPhone ?? null,
@@ -299,7 +302,7 @@ export function registerWhatsAppRoutes(app: express.Express): void {
 
       const { data, error } = await client
         .from("whatsapp_connections")
-        .upsert(payload, { onConflict: "clinic_id,doctor_id" })
+        .upsert(payload, { onConflict: "clinic_id,channel_type" })
         .select("id,status,display_phone,verified_at")
         .maybeSingle();
 
@@ -334,7 +337,7 @@ export function registerWhatsAppRoutes(app: express.Express): void {
       }
 
       const client = getDb(claims);
-      const doctorConn = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
+      const doctorConn = await loadClinicWhatsAppConnection(client, clinicId, "CLINICAL");
       const { connection: conn, sender } = resolveWhatsAppSendConnection(doctorConn);
       if (!conn) {
         jsonError(res, 400, "Connect WhatsApp Business or configure the GlowHomeo platform sender.", {
@@ -370,11 +373,12 @@ export function registerWhatsAppRoutes(app: express.Express): void {
       if (!clinicId) return;
 
       const client = getDb(claims);
+      const channelType = (req.query.channelType as string) || "CLINICAL";
       await client
         .from("whatsapp_connections")
         .delete()
         .eq("clinic_id", clinicId)
-        .eq("doctor_id", claims.userId);
+        .eq("channel_type", channelType);
       jsonSuccess(res, 200, { disconnected: true });
     }
   );
@@ -518,7 +522,7 @@ export function registerWhatsAppRoutes(app: express.Express): void {
       }
 
       const client = getDb(claims);
-      const doctorConn = await loadDoctorWhatsAppConnection(client, clinicId, claims.userId);
+      const doctorConn = await loadClinicWhatsAppConnection(client, clinicId, "CLINICAL");
       const { connection: sendConn } = resolveWhatsAppSendConnection(doctorConn);
       if (!sendConn) {
         jsonError(res, 400, "Connect WhatsApp Business or enable the GlowHomeo platform sender.", {

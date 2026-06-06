@@ -11,7 +11,8 @@ import {
   Settings,
   Sparkles,
   Stethoscope,
-  Users
+  Users,
+  Workflow
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; Icon: LucideIcon };
@@ -32,7 +33,8 @@ export const NAV_DOCTOR: NavItem[] = [
   { href: "/patients", label: "Patients", Icon: Users },
   { href: "/appointments", label: "Schedule", Icon: CalendarDays },
   { href: "/follow-ups", label: "Follow-ups", Icon: Inbox },
-  { href: "/care-plan-library", label: "Care plans", Icon: BookHeart },
+  { href: "/programs", label: "Treatment Programs ⭐", Icon: Workflow },
+  { href: "/care-plan-library", label: "Care Plan Library", Icon: BookHeart },
   { href: "/content-library", label: "Content Library", Icon: Library },
   { href: "/messages", label: "Messages", Icon: MessageSquare },
   { href: "/settings", label: "Settings", Icon: Settings }
@@ -49,6 +51,7 @@ export function isMainNavActive(href: string, path: string): boolean {
   if (href === "/appointments") return path.startsWith("/appointments");
   if (href === "/consultation") return path === "/consultation" || path.startsWith("/consultation");
   if (href === "/follow-ups") return path.startsWith("/follow-ups");
+  if (href === "/programs") return path.startsWith("/programs");
   if (href === "/care-plan-library") return path.startsWith("/care-plan-library");
   if (href === "/content-library") return path.startsWith("/content-library");
   if (href === "/messages") return path.startsWith("/messages");

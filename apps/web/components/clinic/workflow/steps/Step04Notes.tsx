@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, ClipboardList, HeartPulse, BrainCircuit } from "lucide-react";
+import { FileText, ClipboardList, HeartPulse, BrainCircuit, Sparkles, Loader2 } from "lucide-react";
 import { StepShell, FieldRow, STEP_TEXTAREA_CLS } from "./StepShell";
 import { cn } from "../../../../lib/cn";
 
@@ -20,9 +20,20 @@ type Props = {
   value: NotesStepValue;
   onChange: (next: NotesStepValue) => void;
   readOnly?: boolean;
+  onAiAnalyze?: () => void;
+  aiLoading?: boolean;
+  aiLastAnalyzedAt?: string | null;
 };
 
-export function Step04Notes({ stepNumber, value, onChange, readOnly = false }: Props): JSX.Element {
+export function Step04Notes({ 
+  stepNumber, 
+  value, 
+  onChange, 
+  readOnly = false,
+  onAiAnalyze,
+  aiLoading,
+  aiLastAnalyzedAt
+}: Props): JSX.Element {
   const [activeTab, setActiveTab] = useState<"complaints" | "constitutional" | "assessment">("complaints");
 
   const set = <K extends keyof NotesStepValue>(key: K, v: NotesStepValue[K]): void =>
@@ -46,12 +57,36 @@ export function Step04Notes({ stepNumber, value, onChange, readOnly = false }: P
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const hasContent = Object.values(value).some((v) => v.trim().length > 10);
+
   return (
     <StepShell
       stepNumber={stepNumber}
       icon={FileText}
       title="Clinical assessment"
       description="Document your clinical impression and structured case record. Alt+1/2/3 to switch tabs."
+      actions={
+        onAiAnalyze && (
+          <button
+            type="button"
+            onClick={onAiAnalyze}
+            disabled={readOnly || !hasContent || aiLoading}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-caption-sm font-bold shadow-sm transition",
+              !hasContent
+                ? "border-hs-border/40 bg-hs-cream/40 text-hs-text-secondary cursor-not-allowed"
+                : "border-hs-primary/20 bg-hs-primary-very-light/50 text-hs-primary hover:bg-hs-primary/10"
+            )}
+          >
+            {aiLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            AI Analyze
+          </button>
+        )
+      }
     >
       {/* Premium Tab bar navigation */}
       <div className="mb-6 flex gap-1.5 rounded-xl bg-hs-cream/60 p-1 border border-hs-border/30 select-none">

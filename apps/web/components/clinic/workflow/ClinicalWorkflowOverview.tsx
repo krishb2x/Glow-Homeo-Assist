@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Calendar, FileSignature, Stethoscope } from "lucide-react";
+import { ArrowRight, Calendar, FileSignature, Stethoscope, ChevronRight } from "lucide-react";
 import { CLINICAL_PHASES } from "../../../lib/clinical-workflow-config";
+
+import { motion } from "framer-motion";
 
 const PHASE_ICONS = {
   arrival: Stethoscope,
@@ -10,34 +12,42 @@ const PHASE_ICONS = {
   continuity: Calendar
 } as const;
 
-/** Quiet orientation line — full step rail lives on the consultation page. */
 export function ClinicalWorkflowOverview(): JSX.Element {
   const phases = ["arrival", "treatment", "continuity"] as const;
 
   return (
-    <p
-      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-hs-border/30 bg-hs-paper/90 px-4 py-2.5 text-caption-sm text-hs-text-secondary"
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-hs-border/20 bg-white/40 px-6 py-4 backdrop-blur-xl shadow-lg"
       aria-label="Visit flow"
     >
-      <span className="font-medium text-hs-ink">Visit flow:</span>
-      {phases.map((phase, i) => {
-        const meta = CLINICAL_PHASES[phase];
-        const Icon = PHASE_ICONS[phase];
-        return (
-          <span key={phase} className="inline-flex items-center gap-1">
-            {i > 0 ? <span className="text-hs-text-tertiary" aria-hidden>·</span> : null}
-            <Icon className="h-3.5 w-3.5 text-hs-primary/80" aria-hidden />
-            <span>{meta.label}</span>
-          </span>
-        );
-      })}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-xs font-bold uppercase tracking-wider text-hs-text-secondary/70">Visit Workflow</span>
+        <div className="hidden sm:block h-4 w-px bg-hs-border/30" />
+        {phases.map((phase, i) => {
+          const meta = CLINICAL_PHASES[phase];
+          const Icon = PHASE_ICONS[phase];
+          return (
+            <div key={phase} className="flex items-center gap-3">
+              {i > 0 && <ChevronRight className="h-4 w-4 text-hs-border-dark/50" aria-hidden />}
+              <span className="group flex items-center gap-2 rounded-xl bg-white/60 px-3 py-1.5 text-sm font-semibold text-hs-ink shadow-sm ring-1 ring-black/5 transition-all hover:bg-white hover:shadow-md hover:ring-black/10">
+                <Icon className="h-4 w-4 text-emerald-500 transition-transform group-hover:scale-110 group-hover:text-emerald-600" aria-hidden />
+                {meta.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      
       <Link
         href="/consultation"
-        className="ml-auto inline-flex items-center gap-0.5 font-semibold text-hs-primary hover:underline"
+        className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-hs-ink px-5 py-2 text-sm font-bold text-white transition-all hover:bg-black hover:shadow-md"
       >
-        Start visit
-        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/20 to-emerald-500/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+        <span className="relative">Start visit</span>
+        <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-1 text-emerald-400" aria-hidden />
       </Link>
-    </p>
+    </motion.div>
   );
 }

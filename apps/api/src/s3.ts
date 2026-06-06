@@ -1,10 +1,11 @@
 import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { env } from "./config/env";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const region = process.env.AWS_REGION;
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-const bucket = process.env.AWS_S3_PRIVATE_BUCKET;
+const region = env.AWS_REGION;
+const accessKeyId = env.AWS_ACCESS_KEY_ID;
+const secretAccessKey = env.AWS_SECRET_ACCESS_KEY;
+const bucket = env.AWS_S3_PRIVATE_BUCKET;
 
 const s3Enabled = Boolean(
   typeof region === "string" && region.length > 0 && typeof accessKeyId === "string" && accessKeyId.length > 0

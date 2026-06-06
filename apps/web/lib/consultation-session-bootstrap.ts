@@ -44,6 +44,12 @@ export type SessionClinicalRecord = {
     spO2: string;
   };
   adviceCards: SessionAdviceCard[];
+  rubrics?: Array<{
+    id: string;
+    chapter: string;
+    rubric: string;
+    intensity: number;
+  }>;
 };
 
 export type SessionPrescriptionEntry = {

@@ -45,7 +45,7 @@ describe("validateAllSteps", () => {
   it("returns all nine step keys", () => {
     const all = validateAllSteps(emptyConsultationSnapshot());
     expect(Object.keys(all).sort()).toEqual(
-      ["advice", "ai", "examination", "finalize", "followup", "history", "notes", "patient", "prescription"].sort()
+      ["advice", "ai", "analysis", "examination", "finalize", "followup", "history", "notes", "patient", "prescription"].sort()
     );
   });
 });

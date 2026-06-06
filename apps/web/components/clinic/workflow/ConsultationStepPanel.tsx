@@ -10,6 +10,7 @@ import {
   Step02History,
   Step03Examination,
   Step04Notes,
+  Step05Analysis,
   Step06Prescription,
   Step07Advice,
   Step08FollowUp,
@@ -23,13 +24,15 @@ import {
   type PatientSnapshot,
   type PatientStepValue,
   type PrescriptionEntry,
-  type ExaminationStepValue
+  type ExaminationStepValue,
+  type RubricEntry
 } from "./steps";
 import { ConsultationPatientOverview } from "./ConsultationPatientOverview";
 import { StepLayoutProvider } from "./steps/StepLayoutContext";
 import { StepInlineValidation } from "./StepInlineValidation";
 
 export type ConsultationStepPanelProps = {
+  consultationId?: string;
   activeStep: ConsultationStep;
   readOnly?: boolean;
   validation?: StepValidation;
@@ -47,6 +50,13 @@ export type ConsultationStepPanelProps = {
 
   notesStep: NotesStepValue;
   onNotesStepChange: (v: NotesStepValue) => void;
+  onAiAnalyze?: () => void;
+  aiLoading?: boolean;
+  aiLastAnalyzedAt?: string | null;
+
+  analysisStep: RubricEntry[];
+  onAnalysisStepChange: (v: RubricEntry[]) => void;
+  onAcceptRemedy?: (name: string) => void;
 
   prescriptionEntries: PrescriptionEntry[];
   onPrescriptionChange: (v: PrescriptionEntry[]) => void;
@@ -71,6 +81,7 @@ export type ConsultationStepPanelProps = {
  */
 export function ConsultationStepPanel(props: ConsultationStepPanelProps): JSX.Element {
   const {
+    consultationId,
     activeStep,
     readOnly = false,
     validation,
@@ -84,6 +95,8 @@ export function ConsultationStepPanel(props: ConsultationStepPanelProps): JSX.El
     onExaminationStepChange,
     notesStep,
     onNotesStepChange,
+    analysisStep,
+    onAnalysisStepChange,
     prescriptionEntries,
     onPrescriptionChange,
     adviceCards,
@@ -96,7 +109,11 @@ export function ConsultationStepPanel(props: ConsultationStepPanelProps): JSX.El
     finalizeBlockedReason,
     onFinalizeGoToStep,
     outcomeSlot,
-    chartNotes
+    chartNotes,
+    onAiAnalyze,
+    aiLoading,
+    aiLastAnalyzedAt,
+    onAcceptRemedy
   } = props;
 
   const step = activeStep === "ai" ? "notes" : activeStep;
@@ -138,7 +155,26 @@ export function ConsultationStepPanel(props: ConsultationStepPanelProps): JSX.El
       break;
     case "notes":
       body = (
-        <Step04Notes stepNumber={stepNumber} value={notesStep} onChange={onNotesStepChange} readOnly={readOnly} />
+        <Step04Notes 
+          stepNumber={stepNumber} 
+          value={notesStep} 
+          onChange={onNotesStepChange} 
+          readOnly={readOnly}
+          onAiAnalyze={onAiAnalyze}
+          aiLoading={aiLoading}
+          aiLastAnalyzedAt={aiLastAnalyzedAt}
+        />
+      );
+      break;
+    case "analysis":
+      body = (
+        <Step05Analysis
+          consultationId={consultationId}
+          stepNumber={stepNumber}
+          value={analysisStep}
+          onChange={onAnalysisStepChange}
+          onAcceptRemedy={onAcceptRemedy}
+        />
       );
       break;
     case "prescription":

@@ -15,6 +15,7 @@ export type ConsultationStep =
   | "history"
   | "examination"
   | "notes"
+  | "analysis"
   | "ai"
   | "prescription"
   | "advice"
@@ -73,6 +74,14 @@ export const CLINICAL_WORKFLOW_STEPS: ClinicalWorkflowStep[] = [
     icon: FileText,
     phase: "treatment",
     description: "Clinical impression and structured case record"
+  },
+  {
+    id: "analysis",
+    label: "Repertorization",
+    shortLabel: "Analysis",
+    icon: FileText, // We'll use FileText or maybe List
+    phase: "treatment",
+    description: "Homeopathic rubrics and case analysis"
   },
   {
     id: "prescription",

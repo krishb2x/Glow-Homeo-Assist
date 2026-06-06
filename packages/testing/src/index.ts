@@ -39,6 +39,7 @@ export function emptyConsultationSnapshot(): {
   };
   prescription: Array<{ name: string }>;
   advice: { diet: string; lifestyle: string; cards: [] };
+  analysis: { rubrics: any[] };
   followUp: { enabled: boolean; recommendedAt: string | null };
   finalize: { sessionEnded: boolean; lifecycleStatus: string };
   aiTranscript: string;
@@ -58,6 +59,7 @@ export function emptyConsultationSnapshot(): {
     },
     prescription: [{ name: "" }],
     advice: { diet: "", lifestyle: "", cards: [] },
+    analysis: { rubrics: [] },
     followUp: { enabled: false, recommendedAt: null },
     finalize: { sessionEnded: false, lifecycleStatus: "ACTIVE" },
     aiTranscript: ""

@@ -3,11 +3,12 @@ import { v4 as uuid } from "uuid";
 import { AppError } from "../../lib/errors";
 import { isMissingDbObjectError, SCHEMA_MIGRATION_HINT } from "../../lib/dbErrors";
 import type { PatientAccessPurpose } from "./types";
+import { env } from "../../config/env";
 
 function publicAppBase(): string {
   return (
-    process.env.APP_PUBLIC_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    env.APP_PUBLIC_URL?.trim() ||
+    env.NEXT_PUBLIC_SITE_URL?.trim() ||
     "http://localhost:3000"
   ).replace(/\/$/, "");
 }

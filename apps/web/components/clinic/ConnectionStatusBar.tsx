@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CloudOff } from "lucide-react";
 
 /** Live connection indicator — favours a stable, non-technical readout. */
-export function ConnectionStatusBar(): JSX.Element {
+export function ConnectionStatusBar({ disconnectedOnly }: { disconnectedOnly?: boolean }): JSX.Element {
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
@@ -23,13 +23,17 @@ export function ConnectionStatusBar(): JSX.Element {
   if (!online) {
     return (
       <div
-        className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-900/90"
-        title="You can keep working. Notes and drafts may be stored on this device until you are back online."
+        className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-600"
+        title="Offline. Trying to reconnect..."
       >
         <CloudOff className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-        <span>Offline — work is saved on this device</span>
+        <span>Reconnecting…</span>
       </div>
     );
+  }
+
+  if (disconnectedOnly) {
+    return <></>;
   }
 
   return (

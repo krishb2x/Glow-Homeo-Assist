@@ -212,12 +212,33 @@ export async function buildPatientToday(
     }
   }
 
-  const { count: unread } = await admin
-    .from("patient_inbox_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("patient_id", ctx.patientId)
-    .eq("direction", "CLINIC")
-    .is("read_at", null);
+  // Calculate unread messages (V2 Schema)
+  let unread = 0;
+  const { data: convs } = await admin.from("conversations").select("id").eq("patient_id", ctx.patientId);
+  const convIds = (convs || []).map(c => (c as { id: string }).id);
+  
+  if (convIds.length > 0) {
+      const { data: msgs } = await admin
+        .from("messages")
+        .select("id")
+        .in("conversation_id", convIds)
+        .neq("sender_type", "PATIENT");
+        
+      const msgIds = (msgs || []).map(m => (m as { id: string }).id);
+      
+      if (msgIds.length > 0 && ctx.authUserId) {
+          const { data: reads } = await admin
+            .from("message_read_receipts")
+            .select("message_id")
+            .in("message_id", msgIds)
+            .eq("user_id", ctx.authUserId);
+            
+          unread = msgIds.length - (reads?.length || 0);
+      } else if (msgIds.length > 0) {
+          // If no auth user id, just assume all are unread for now
+          unread = msgIds.length;
+      }
+  }
 
   const { count: streakDays } = await admin
     .from("patient_medication_logs")
