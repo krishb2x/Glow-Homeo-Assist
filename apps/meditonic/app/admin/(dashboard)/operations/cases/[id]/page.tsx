@@ -219,9 +219,30 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <span className="text-sm text-slate-500">GlowHomeo Sync</span>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${caseData.sync_status === 'synced' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {caseData.sync_status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${caseData.sync_status === 'synced' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {caseData.sync_status}
+                  </span>
+                  {caseData.sync_status !== 'synced' && (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-7 text-xs"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/admin/cases/${caseId}/sync`, { method: "POST" });
+                          if (!res.ok) throw new Error("Failed to sync");
+                          alert("Successfully synced with GlowHomeo!");
+                          window.location.reload();
+                        } catch (err: any) {
+                          alert(err.message);
+                        }
+                      }}
+                    >
+                      Sync Now
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
