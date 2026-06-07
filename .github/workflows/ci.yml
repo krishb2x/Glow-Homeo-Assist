@@ -77,7 +77,6 @@ jobs:
   integration-api:
     runs-on: ubuntu-latest
     needs: test-api
-    if: ${{ secrets.SUPABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -85,7 +84,13 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: npm --workspace @homeoassist/api run test -- src/__tests__
+      - name: Run integration tests
+        run: |
+          if [ -n "$SUPABASE_URL" ]; then
+            npm --workspace @homeoassist/api run test -- src/__tests__
+          else
+            echo "Skipping integration tests as SUPABASE_URL is missing."
+          fi
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
