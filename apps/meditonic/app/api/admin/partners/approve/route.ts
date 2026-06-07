@@ -86,6 +86,25 @@ export async function POST(req: Request) {
       .update({ status: "approved" })
       .eq("id", app.id);
 
+    // 5b. Generate unique referral code automatically (1-Click Workflow)
+    const baseName = app.name.split(" ")[0].toUpperCase().replace(/[^A-Z]/g, '');
+    const randomSuffix = Math.floor(100 + Math.random() * 900); // 3 digits
+    const generatedCode = `${baseName}${randomSuffix}`;
+
+    const { error: codeError } = await supabase.from("mt_referral_codes").insert({
+      code: generatedCode,
+      partner_id: partner.id,
+      clinic_id: BRAND.clinicId,
+      discount_type: "percentage",
+      discount_value: 10,
+      is_active: true
+    });
+
+    if (codeError) {
+      console.error("Failed to generate code:", codeError);
+      // Non-fatal, they can generate manually later if this fails, but it shouldn't.
+    }
+
     // 6. Send Approval Email with Login Credentials
     await sendConfirmationEmail(
       app.email,

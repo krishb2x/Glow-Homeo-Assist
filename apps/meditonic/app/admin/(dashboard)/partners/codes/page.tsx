@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { Loader2, Plus, Edit2, Ban, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Edit2, Ban, CheckCircle2, Ticket, Users, Percent, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 export default function ReferralCodesPage() {
   const [codes, setCodes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [partners, setPartners] = useState<any[]>([]);
-
-  // Simple modal state for MVP
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
   const [formData, setFormData] = useState({
     partner_id: "",
     code: "",
@@ -27,7 +27,6 @@ export default function ReferralCodesPage() {
   const fetchCodes = async () => {
     setLoading(true);
     const supabase = getSupabaseBrowser();
-    // mt_partners -> mt_partner_applications (for name)
     const { data } = await supabase
       .from("mt_referral_codes")
       .select(`
@@ -68,11 +67,10 @@ export default function ReferralCodesPage() {
     e.preventDefault();
     const supabase = getSupabaseBrowser();
     
-    // In MVP, we just create via client. In real app, we might call an API.
     const { error } = await supabase
       .from("mt_referral_codes")
       .insert({
-        clinic_id: "595cd444-e89c-4d1f-b31f-27f76f59e0d7", // Use actual clinic ID
+        clinic_id: "595cd444-e89c-4d1f-b31f-27f76f59e0d7", // Fallback, will normally be dynamic
         partner_id: formData.partner_id,
         code: formData.code.toUpperCase(),
         discount_type: formData.discount_type,
@@ -84,102 +82,105 @@ export default function ReferralCodesPage() {
     if (error) {
       alert("Failed to create code: " + error.message);
     } else {
-      setIsModalOpen(false);
+      setIsDrawerOpen(false);
       setFormData({ partner_id: "", code: "", discount_type: "percentage", discount_value: 10, usage_limit: "" });
       fetchCodes();
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
+    return <div className="flex items-center justify-center h-[50vh]"><Loader2 className="w-8 h-8 animate-spin text-mt-primary" /></div>;
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-slate-800">Referral Codes</h2>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
-        >
-          <Plus className="w-4 h-4" />
-          Create Code
-        </button>
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-mt-text flex items-center gap-2">
+            <Ticket className="h-8 w-8 text-mt-primary" />
+            Referral Codes
+          </h1>
+          <p className="text-mt-text-secondary mt-1">Manage partner discount codes and usage limits.</p>
+        </div>
+        <Button onClick={() => setIsDrawerOpen(true)} className="w-full sm:w-auto h-11 sm:h-10 shrink-0">
+          <Plus className="w-4 h-4 mr-2" /> Create Code
+        </Button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-slate-500 text-sm font-medium border-b border-slate-200">
-              <th className="px-6 py-4">Code</th>
-              <th className="px-6 py-4">Partner</th>
-              <th className="px-6 py-4">Discount</th>
-              <th className="px-6 py-4">Usage</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {codes.length === 0 ? (
-              <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No referral codes found.</td></tr>
-            ) : codes.map((code) => (
-              <tr key={code.id} className="hover:bg-slate-50/50">
-                <td className="px-6 py-4">
-                  <div className="font-bold text-slate-900 tracking-wider">{code.code}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="font-medium text-slate-700">
-                    {code.mt_partners?.mt_partner_applications?.name || "Unknown"}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm text-slate-900">
-                    {code.discount_type === 'percentage' ? `${code.discount_value}%` : `₹${code.discount_value}`} OFF
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm text-slate-700">
-                    {code.current_usage} {code.usage_limit ? `/ ${code.usage_limit}` : 'uses'}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center w-fit gap-1 ${
-                    code.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {code.is_active ? <CheckCircle2 className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
-                    {code.is_active ? 'ACTIVE' : 'INACTIVE'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button 
-                    onClick={() => toggleStatus(code.id, code.is_active)}
-                    className="p-2 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors" 
-                    title={code.is_active ? "Disable Code" : "Enable Code"}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {codes.length === 0 ? (
+          <div className="col-span-full text-center py-16 bg-white rounded-3xl border border-dashed border-mt-border">
+            <Ticket className="h-10 w-10 text-mt-text-secondary/50 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-mt-text">No codes found</h3>
+            <p className="text-mt-text-secondary text-sm">Create a new referral code to get started.</p>
+          </div>
+        ) : codes.map((code) => (
+          <div key={code.id} className="bg-white rounded-2xl border border-mt-border p-5 shadow-sm relative overflow-hidden flex flex-col justify-between">
+            <div className={`absolute top-0 left-0 w-1 h-full ${code.is_active ? 'bg-mt-success' : 'bg-slate-300'}`}></div>
+            
+            <div>
+              <div className="flex justify-between items-start pl-2 mb-4">
+                <h3 className="font-mono text-xl font-bold tracking-wider text-mt-text bg-gray-100 px-2 py-0.5 rounded-lg border border-mt-border">{code.code}</h3>
+                <span className={`px-2 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider border flex items-center gap-1 ${
+                  code.is_active ? 'bg-mt-success/10 text-mt-success border-mt-success/20' : 'bg-slate-100 text-slate-500 border-slate-200'
+                }`}>
+                  {code.is_active ? <CheckCircle2 className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
+                  {code.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-slate-800">Create Referral Code</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><Ban className="w-5 h-5"/></button>
+              <div className="pl-2 space-y-2 mb-4">
+                <div className="flex items-center gap-2 text-sm text-mt-text-secondary">
+                  <Users className="w-4 h-4" /> 
+                  <span className="font-medium text-mt-text truncate">{code.mt_partners?.mt_partner_applications?.name || "Unknown"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-mt-text-secondary">
+                  <Percent className="w-4 h-4" /> 
+                  <span className="font-medium text-mt-text">{code.discount_type === 'percentage' ? `${code.discount_value}%` : `₹${code.discount_value}`} OFF</span>
+                </div>
+              </div>
             </div>
-            <form onSubmit={handleCreateCode} className="p-6 space-y-4">
+
+            <div className="border-t border-mt-border pt-4 pl-2 flex items-center justify-between mt-auto">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Partner</label>
+                <p className="text-xs uppercase tracking-wider font-semibold text-mt-text-secondary mb-0.5">Times Used</p>
+                <p className="text-sm font-medium text-mt-text">
+                  {code.current_usage} <span className="text-mt-text-secondary font-normal">{code.usage_limit ? `/ ${code.usage_limit}` : 'total'}</span>
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => toggleStatus(code.id, code.is_active)}
+                className={`h-8 ${code.is_active ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-200' : 'hover:bg-mt-success/10 hover:text-mt-success hover:border-mt-success/20'}`}
+              >
+                {code.is_active ? 'Disable' : 'Enable'}
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Drawer Overlay */}
+      {isDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm transition-opacity">
+          {/* Drawer Panel */}
+          <div className="w-full max-w-md h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="px-6 py-4 border-b border-mt-border flex justify-between items-center bg-gray-50/50 shrink-0">
+              <h3 className="text-lg font-bold text-mt-text">Create Referral Code</h3>
+              <button onClick={() => setIsDrawerOpen(false)} className="p-2 -mr-2 text-mt-text-secondary hover:text-mt-text hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-5 h-5"/>
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateCode} className="p-6 overflow-y-auto flex-1 space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-mt-text">Partner</label>
                 <select 
                   required
                   value={formData.partner_id} 
                   onChange={e => setFormData({...formData, partner_id: e.target.value})}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all"
                 >
                   <option value="">Select Partner</option>
                   {partners.map(p => (
@@ -187,61 +188,65 @@ export default function ReferralCodesPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
+              
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-mt-text">Code Name</label>
                 <input 
                   required
                   type="text" 
                   value={formData.code} 
-                  onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 uppercase"
-                  placeholder="e.g. AMAN15"
+                  onChange={e => setFormData({...formData, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})}
+                  className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all uppercase font-mono tracking-wider"
+                  placeholder="e.g. AMAN10"
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-mt-text">Discount Type</label>
                   <select 
                     value={formData.discount_type} 
                     onChange={e => setFormData({...formData, discount_type: e.target.value})}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all"
                   >
                     <option value="percentage">Percentage (%)</option>
                     <option value="fixed">Fixed (₹)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Value</label>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-mt-text">Value</label>
                   <input 
                     required
                     type="number" 
                     min="1"
                     value={formData.discount_value} 
                     onChange={e => setFormData({...formData, discount_value: Number(e.target.value)})}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all"
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Usage Limit (Optional)</label>
+              
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-mt-text">Usage Limit <span className="text-mt-text-secondary font-normal">(Optional)</span></label>
                 <input 
                   type="number" 
                   min="1"
                   value={formData.usage_limit} 
                   onChange={e => setFormData({...formData, usage_limit: e.target.value})}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all"
                   placeholder="Leave empty for unlimited"
                 />
               </div>
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 px-4 py-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg font-medium transition">
-                  Save Code
-                </button>
-              </div>
             </form>
+
+            <div className="p-6 border-t border-mt-border bg-gray-50/50 shrink-0 flex gap-3">
+              <Button type="button" variant="outline" onClick={() => setIsDrawerOpen(false)} className="flex-1 h-11">
+                Cancel
+              </Button>
+              <Button type="submit" onClick={handleCreateCode} className="flex-1 h-11">
+                Save Code
+              </Button>
+            </div>
           </div>
         </div>
       )}
