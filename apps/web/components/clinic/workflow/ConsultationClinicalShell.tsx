@@ -129,7 +129,7 @@ export function ConsultationClinicalShell({
           </select>
         </div>
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden @container">
         <ClinicalWorkflowSidebar
           variant="workspace"
           steps={PRIMARY_WORKFLOW_STEPS}
@@ -140,10 +140,10 @@ export function ConsultationClinicalShell({
           onSelectStep={onSelectStep}
           hideCollapse
           stepValidations={stepValidations}
-          className="hidden w-[12rem] shrink-0 border-r border-hs-border/30 bg-hs-cream/10 md:flex lg:w-48"
+          className="hidden shrink-0 border-r border-hs-border/30 bg-hs-cream/10 md:flex @4xl:w-[220px] @xl:w-[180px] w-[140px] transition-all duration-300"
         />
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-hs-cream/10">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-hs-cream/10 relative">
           <div
             className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain scroll-smooth"
             data-consultation-scroll
@@ -157,8 +157,8 @@ export function ConsultationClinicalShell({
 
         <aside
           className={cn(
-            "cw-panel flex shrink-0 flex-col overflow-hidden border-l border-hs-border/30 transition-[width] duration-300 ease-out",
-            drawerOpen ? "w-[min(24rem,90vw)] bg-hs-paper/95 shadow-ds-md" : "w-0 border-l-0"
+            "cw-panel flex shrink-0 flex-col overflow-hidden border-l border-hs-border/30 transition-all duration-300 ease-out absolute right-0 top-0 bottom-0 z-20 @4xl:relative @4xl:z-0",
+            drawerOpen ? "w-[min(24rem,90vw)] @4xl:w-[320px] bg-hs-paper/95 shadow-ds-xl @4xl:shadow-none" : "w-0 border-l-0"
           )}
           aria-hidden={!drawerOpen}
         >

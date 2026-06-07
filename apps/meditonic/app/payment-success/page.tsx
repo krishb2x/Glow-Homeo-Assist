@@ -13,10 +13,21 @@ function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const consultationId = searchParams.get("consultation_id");
   const [mounted, setMounted] = useState(false);
+  const [details, setDetails] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (consultationId) {
+      fetch(`/api/consultation/details?id=${consultationId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setDetails(data.data);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [consultationId]);
 
   if (!mounted) return null;
 
@@ -43,17 +54,34 @@ function PaymentSuccessContent() {
 
             <div className="bg-mt-primary-bg rounded-2xl p-6 mb-8 text-left border border-mt-primary/20">
               <h3 className="font-semibold text-mt-text mb-4">What happens next?</h3>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3 text-sm text-mt-text-secondary">
-                  <Calendar className="h-5 w-5 text-mt-primary shrink-0 mt-0.5" />
-                  <span><strong>Scheduling:</strong> Dr. Aman&apos;s team will contact you on WhatsApp shortly to confirm the exact time slot for your consultation.</span>
-                </li>
-                <li className="flex items-start gap-3 text-sm text-mt-text-secondary">
-                  <FileText className="h-5 w-5 text-mt-primary shrink-0 mt-0.5" />
-                  <span><strong>Preparation:</strong> Please keep any past medical reports handy before the consultation.</span>
-                </li>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-mt-text-secondary">
+                <li>Our team will review your details.</li>
+                <li>You will be contacted on your registered mobile number.</li>
+                <li>Consultation timing and further instructions will be shared shortly.</li>
               </ul>
             </div>
+
+            {details && (
+              <div className="text-left mb-8 border-t border-mt-border pt-6">
+                <h3 className="font-semibold text-mt-text mb-4">Booking Details</h3>
+                <div className="grid grid-cols-2 gap-y-3 text-sm">
+                  <div className="text-mt-text-secondary">Booking ID:</div>
+                  <div className="font-medium text-mt-text">{details.bookingId}</div>
+                  
+                  <div className="text-mt-text-secondary">Patient:</div>
+                  <div className="font-medium text-mt-text">{details.patientName}</div>
+                  
+                  <div className="text-mt-text-secondary">Mobile:</div>
+                  <div className="font-medium text-mt-text">{details.phone}</div>
+                  
+                  <div className="text-mt-text-secondary">Consultation:</div>
+                  <div className="font-medium text-mt-text capitalize">{details.type?.replace('-', ' ')}</div>
+                  
+                  <div className="text-mt-text-secondary">Concern:</div>
+                  <div className="font-medium text-mt-text capitalize">{details.concernCategory?.replace('-', ' ')}</div>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button asChild size="lg" className="w-full sm:w-auto">

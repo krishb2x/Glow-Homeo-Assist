@@ -31,7 +31,7 @@ type PageEmptyProps = {
 
 export function PageEmpty({ title, description, className, action }: PageEmptyProps): JSX.Element {
   return (
-    <Card hoverLift={false} className={cn("border-dashed border-hs-border/50 bg-hs-cream/30 p-ds-xl text-center", className)}>
+    <Card className={cn("border-dashed border-hs-border/50 bg-hs-cream/30 p-ds-xl text-center", className)}>
       <p className="font-heading text-typo-section text-hs-ink">{title}</p>
       <p className="mt-ds-sm text-typo-body text-hs-text-secondary">{description}</p>
       {action ? <div className="mt-ds-lg flex flex-wrap justify-center gap-ds-sm">{action}</div> : null}

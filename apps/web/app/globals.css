@@ -403,7 +403,10 @@
 
   /** Quiet card for dense clinical UI (dashboard, lists) */
   .ds-card {
-    @apply rounded-xl border border-hs-border/35 bg-hs-paper shadow-ds-sm;
+    @apply @container rounded-xl border border-hs-border/35 bg-white/80 backdrop-blur-md shadow-ds-sm transition-all duration-300 ease-out;
+  }
+  .ds-card:hover {
+    @apply border-hs-border/50 shadow-ds-md -translate-y-[2px];
   }
   .ds-card-pad {
     @apply p-[var(--ds-card-pad)] lg:p-[var(--ds-card-pad-lg)];

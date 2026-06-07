@@ -16,6 +16,9 @@ export const bookingFormSchema = z.object({
   // Scheduling (Optional initially, can be set later)
   preferredDate: z.string().optional(),
   preferredTimeSlot: z.string().optional(),
+  
+  // Referral Program
+  referralCode: z.string().optional(),
 });
 
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;

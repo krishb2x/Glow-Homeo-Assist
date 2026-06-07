@@ -1,4 +1,9 @@
-export async function sendConfirmationEmail(to: string, subject: string, html: string) {
+interface EmailOptions {
+  cc?: string;
+  bcc?: string;
+}
+
+export async function sendConfirmationEmail(to: string, subject: string, html: string, options?: EmailOptions) {
   const apiKey = process.env.RESEND_API_KEY;
   
   if (!apiKey) {
@@ -7,7 +12,7 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
   }
 
   // Use the brand email if configured, otherwise use Resend's default onboarding email for testing
-  const from = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const from = process.env.RESEND_FROM_EMAIL || process.env.NOTIFICATION_FROM_EMAIL || "onboarding@resend.dev";
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -19,6 +24,8 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
       body: JSON.stringify({
         from,
         to: [to],
+        cc: options?.cc ? [options.cc] : undefined,
+        bcc: options?.bcc ? [options.bcc] : undefined,
         subject,
         html
       })

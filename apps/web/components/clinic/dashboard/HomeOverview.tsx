@@ -319,7 +319,7 @@ export function HomeOverview(): JSX.Element {
       {/* ── HERO ───────────────────────────────────────────────────── */}
       <motion.section
         variants={itemVariants}
-        className="flex items-center justify-between h-[64px] mb-6 px-6 rounded-2xl bg-[#0E7C66] shadow-md relative overflow-hidden"
+        className="flex items-center justify-between h-[64px] mb-6 px-6 rounded-2xl bg-hs-primary shadow-md relative overflow-hidden"
         aria-label="Welcome"
       >
         <div className="absolute inset-0 bg-noise opacity-[0.05] mix-blend-overlay pointer-events-none" aria-hidden />
@@ -353,14 +353,14 @@ export function HomeOverview(): JSX.Element {
           {primaryCta ? (
             <ConsultationLink
               href={primaryCta.href}
-              className="flex items-center h-9 px-4 rounded-lg bg-white text-[#0E7C66] text-[13px] font-bold shadow-sm hover:bg-slate-50 transition"
+              className="flex items-center h-9 px-4 rounded-lg bg-white text-hs-primary text-[13px] font-bold shadow-sm hover:bg-slate-50 transition"
             >
               {primaryCta.label} <ChevronRight className="w-4 h-4 ml-1" />
             </ConsultationLink>
           ) : (
             <Link
               href="/consultation"
-              className="flex items-center h-9 px-4 rounded-lg bg-white text-[#0E7C66] text-[13px] font-bold shadow-sm hover:bg-slate-50 transition"
+              className="flex items-center h-9 px-4 rounded-lg bg-white text-hs-primary text-[13px] font-bold shadow-sm hover:bg-slate-50 transition"
             >
               <Mic className="h-4 w-4 mr-1.5" /> Start visit
             </Link>
@@ -413,10 +413,8 @@ export function HomeOverview(): JSX.Element {
         </motion.section>
       ) : null}
 
-      <div className="flex flex-1 h-full max-w-7xl mx-auto w-full">
-        <div className="flex-1 min-w-0 pr-8 pb-10">
-
-          {/* ── LEFT COLUMN ──────────────────────────────────────── */}
+      <div className="flex flex-1 h-full w-full px-4 md:px-8 xl:px-12 mx-auto pb-10 @container">
+        <div className="grid w-full grid-cols-1 @5xl:grid-cols-[minmax(0,1fr)_320px] gap-8">
           <div className="space-y-6">
 
             <motion.div variants={itemVariants}>
@@ -538,10 +536,9 @@ export function HomeOverview(): JSX.Element {
 
 
           </div>
-        </div>
 
         {/* ── RIGHT SIDEBAR ─────────────────────────────────────── */}
-        <motion.aside variants={itemVariants} className="w-[240px] shrink-0 pl-8 border-l border-hs-border/40 pb-10">
+        <motion.aside variants={itemVariants} className="flex shrink-0 flex-col space-y-6 border-t @5xl:border-t-0 @5xl:border-l border-hs-border/40 pt-8 @5xl:pt-0 @5xl:pl-8">
           <div className="space-y-6 sticky top-0">
             <DashboardRightRail
               followUps={myDay?.followUps ?? []}
@@ -568,6 +565,7 @@ export function HomeOverview(): JSX.Element {
             <DashboardMemoWidget />
           </div>
         </motion.aside>
+        </div>
       </div>
     </motion.div>
   );

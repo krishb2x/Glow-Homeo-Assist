@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { BRAND, TREATMENT_CATEGORIES } from "@/lib/constants";
 import { Mail, MapPin, Phone } from "lucide-react";
 
@@ -17,6 +20,10 @@ const YoutubeIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const pathname = usePathname();
+
+  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login');
+  if (isDashboardRoute) return null;
 
   return (
     <footer className="mt-auto border-t border-mt-border bg-white pt-16 pb-8">

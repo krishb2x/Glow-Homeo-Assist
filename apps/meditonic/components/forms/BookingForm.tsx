@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { bookingFormSchema, type BookingFormValues } from "@/lib/validations";
+import { useReferral } from "@/lib/hooks/useReferral";
 import { TREATMENT_CATEGORIES } from "@/lib/constants";
 import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +19,12 @@ interface BookingFormProps {
 export default function BookingForm({ initialConcern = "", fees = [], onSuccess }: BookingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  
+  const { referralCode: autoRefCode, clearReferral } = useReferral();
+  const [referralInput, setReferralInput] = useState("");
+  const [discountInfo, setDiscountInfo] = useState<{ type: string; value: number; code: string } | null>(null);
+  const [validatingRef, setValidatingRef] = useState(false);
+  const [refError, setRefError] = useState("");
 
   const {
     register,
@@ -35,7 +42,55 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
 
   // Find the single unified consultation fee
   const feeObj = fees.find((f) => f.type === "initial_online") || fees[0];
-  const price = feeObj ? feeObj.price : 499; // Fallback only if no DB result
+  const basePrice = feeObj ? feeObj.price : 499; // Fallback only if no DB result
+  
+  let discountAmount = 0;
+  if (discountInfo) {
+    if (discountInfo.type === 'percentage') {
+      discountAmount = (basePrice * discountInfo.value) / 100;
+    } else {
+      discountAmount = discountInfo.value;
+    }
+  }
+  const finalPrice = Math.max(0, basePrice - discountAmount);
+
+  useEffect(() => {
+    if (autoRefCode && !discountInfo) {
+      setReferralInput(autoRefCode);
+      validateReferralCode(autoRefCode);
+    }
+  }, [autoRefCode]);
+
+  const validateReferralCode = async (code: string) => {
+    if (!code) return;
+    setValidatingRef(true);
+    setRefError("");
+    try {
+      const res = await fetch(`/api/referral/validate?code=${encodeURIComponent(code)}&productType=consultation`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDiscountInfo({ type: data.discountType, value: data.discountValue, code: data.code });
+      } else {
+        setRefError(data.error || "Invalid code");
+        setDiscountInfo(null);
+      }
+    } catch (err) {
+      setRefError("Failed to validate code");
+    } finally {
+      setValidatingRef(false);
+    }
+  };
+
+  const handleApplyReferral = () => {
+    validateReferralCode(referralInput);
+  };
+
+  const handleRemoveReferral = () => {
+    setDiscountInfo(null);
+    setReferralInput("");
+    setRefError("");
+    clearReferral();
+  };
 
   const onSubmit = async (data: BookingFormValues) => {
     setIsSubmitting(true);
@@ -43,10 +98,11 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
 
     try {
       // 1. Call our API to create a consultation request and a Razorpay Order
+      const payload = { ...data, referralCode: discountInfo?.code };
       const res = await fetch("/api/consultation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       const responseData = await res.json();
@@ -173,11 +229,57 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
         </div>
       </div>
 
+      {/* Referral Code */}
+      <div className="space-y-4">
+        <h3 className="font-display text-lg font-bold text-mt-text border-b border-mt-border pb-2">3. Referral Code / रेफरल कोड (Optional)</h3>
+        {discountInfo ? (
+          <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 flex justify-between items-center">
+            <div>
+              <p className="text-emerald-800 font-semibold flex items-center gap-2">
+                <span className="text-xl">✓</span> Referral Code Applied: {discountInfo.code}
+              </p>
+              <p className="text-sm text-emerald-600 mt-1">Special Benefit Applied</p>
+            </div>
+            <Button type="button" variant="outline" onClick={handleRemoveReferral} className="text-sm border-emerald-200 text-emerald-700 hover:bg-emerald-100">Remove</Button>
+          </div>
+        ) : (
+          <div className="flex gap-3 max-w-sm">
+            <Input 
+              value={referralInput} 
+              onChange={(e) => setReferralInput(e.target.value)} 
+              placeholder="Enter referral code" 
+              className="uppercase"
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleApplyReferral} 
+              disabled={validatingRef || !referralInput}
+            >
+              {validatingRef ? "Validating..." : "Apply"}
+            </Button>
+          </div>
+        )}
+        {refError && <p className="text-sm text-mt-error">{refError}</p>}
+      </div>
+
       {/* Summary & Submit */}
       <div className="rounded-xl bg-mt-primary-bg p-6 border border-mt-primary/20">
-        <div className="flex justify-between items-center mb-6">
-          <span className="text-mt-text font-semibold">Consultation Fee / परामर्श शुल्क</span>
-          <span className="font-display text-2xl font-bold text-mt-primary">{formatPrice(price)}</span>
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-mt-text font-medium">Consultation Fee</span>
+          <span className={`font-display text-lg ${discountInfo ? 'line-through text-slate-400' : 'font-bold text-mt-primary'}`}>
+            {formatPrice(basePrice)}
+          </span>
+        </div>
+        {discountInfo && (
+          <div className="flex justify-between items-center mb-3 text-emerald-600 font-medium">
+            <span>Referral Benefit</span>
+            <span>- {formatPrice(discountAmount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between items-center mb-6 pt-3 border-t border-mt-primary/10">
+          <span className="text-mt-text font-bold text-lg">Total Amount</span>
+          <span className="font-display text-2xl font-bold text-mt-primary">{formatPrice(finalPrice)}</span>
         </div>
         
         <Button 
@@ -186,7 +288,7 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
           className="w-full text-sm sm:text-base h-auto py-3 sm:h-14 sm:py-0 whitespace-normal" 
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Processing..." : `Pay ${formatPrice(price)} & Book / भुगतान करें और बुक करें`}
+          {isSubmitting ? "Processing..." : `Pay ${formatPrice(finalPrice)} & Book / भुगतान करें और बुक करें`}
         </Button>
         <p className="text-center text-xs text-mt-text-secondary mt-3">
           Secure payment powered by Razorpay. Doctor Aman will contact you to schedule the exact time slot after booking.

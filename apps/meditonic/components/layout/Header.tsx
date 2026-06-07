@@ -12,6 +12,9 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
+  // Hide header on dashboard routes
+  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login');
+
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +23,8 @@ export default function Header() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  if (isDashboardRoute) return null;
 
   return (
     <>
