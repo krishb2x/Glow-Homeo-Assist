@@ -14,7 +14,7 @@ export type CaseRowData = {
 };
 
 // Ensure credentials exist
-function getAuthClient() {
+export function getAuthClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   let privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n') || "";
   
