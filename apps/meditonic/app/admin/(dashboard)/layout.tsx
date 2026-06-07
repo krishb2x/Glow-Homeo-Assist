@@ -58,7 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         
         <div className="flex-1 flex md:flex-col overflow-x-auto md:overflow-y-auto overflow-y-hidden md:p-4 space-x-2 md:space-x-0 md:space-y-1 p-2 items-center md:items-stretch">
-          <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-4 px-2">Partner Program</div>
+          <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-4 px-2">Clinic Administration</div>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;

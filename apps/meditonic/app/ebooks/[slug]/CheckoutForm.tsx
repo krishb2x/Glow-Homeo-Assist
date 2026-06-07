@@ -26,6 +26,7 @@ export default function CheckoutForm({ ebook, isPhysical }: CheckoutFormProps) {
     setError("");
 
     try {
+      const refCode = localStorage.getItem("mt_referral_code");
       const res = await fetch("/api/ebook-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -34,7 +35,8 @@ export default function CheckoutForm({ ebook, isPhysical }: CheckoutFormProps) {
           name, 
           email, 
           phone,
-          ...(isPhysical && { shippingAddress })
+          ...(isPhysical && { shippingAddress }),
+          referralCode: refCode || undefined
         }),
       });
 

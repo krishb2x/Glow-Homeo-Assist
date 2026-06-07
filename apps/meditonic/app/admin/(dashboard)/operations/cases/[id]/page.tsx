@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { Loader2, ArrowLeft, UserPlus, FileText, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import React from "react";
 
 export default function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -71,10 +70,10 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
 
       if (!res.ok) throw new Error("Failed to assign doctor");
       
-      toast.success("Doctor assigned successfully");
+      alert("Doctor assigned successfully");
       await fetchData(caseId);
     } catch (err: any) {
-      toast.error(err.message);
+      alert(err.message);
     } finally {
       setAssigning(false);
     }

@@ -43,6 +43,7 @@ export default function ProgramsPage() {
   const handleEnroll = async (programId: string, price: number) => {
     setLoadingId(programId);
     try {
+      const refCode = localStorage.getItem("mt_referral_code");
       // Create Order
       const res = await fetch("/api/program-order", {
         method: "POST",
@@ -52,6 +53,7 @@ export default function ProgramsPage() {
           name: "Guest Patient", // Normally collected via an input modal
           email: "guest@meditonic.com", 
           phone: "+910000000000",
+          referralCode: refCode || undefined
         }),
       });
 
