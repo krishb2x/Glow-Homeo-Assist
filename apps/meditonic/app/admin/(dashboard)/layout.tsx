@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import Link from "next/link";
-import { LayoutDashboard, Users, UserPlus, Gift, IndianRupee, LogOut, Loader2 } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, Gift, IndianRupee, LogOut, Loader2, Workflow, FolderGit2 } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,6 +40,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { name: "Overview", href: "/admin", icon: LayoutDashboard },
+    { name: "Operations", href: "/admin/operations", icon: Workflow },
+    { name: "All Cases", href: "/admin/operations/cases", icon: FolderGit2 },
     { name: "Applications", href: "/admin/partners/applications", icon: UserPlus },
     { name: "Partners", href: "/admin/partners", icon: Users },
     { name: "Referral Codes", href: "/admin/partners/codes", icon: Gift },

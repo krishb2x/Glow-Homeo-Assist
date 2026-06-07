@@ -270,3 +270,31 @@ export function Template_PartnerRejected(name: string) {
   `;
   return BaseTemplate("Application Update", "An update regarding your MediTonic Partner Application.", html);
 }
+
+export function Template_ProgramPurchased(
+  name: string,
+  details?: { programName?: string; amount?: number }
+) {
+  const html = `
+    <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px; font-weight: 600;">Welcome to the Program!</h2>
+    <p style="margin: 0 0 16px 0; color: #64748b; font-size: 15px; line-height: 24px;">
+      Dear ${name},
+    </p>
+    <p style="margin: 0 0 24px 0; color: #64748b; font-size: 15px; line-height: 24px;">
+      Thank you for enrolling in the <strong>${details?.programName || 'MediTonic Premium Program'}</strong>. Your payment was successfully captured.
+    </p>
+    
+    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Next Steps</h3>
+      <p style="margin: 0; color: #15803d; font-size: 14px; line-height: 22px;">
+        Our clinical team has been notified of your enrollment. You will receive a follow-up email or call shortly with your comprehensive program guidelines and next steps.
+      </p>
+    </div>
+
+    <p style="margin: 0; color: #64748b; font-size: 15px; line-height: 24px;">
+      Warm regards,<br>
+      <strong style="color: #1e293b;">The MediTonic Team</strong>
+    </p>
+  `;
+  return BaseTemplate("Program Enrollment Confirmed", "Your MediTonic program enrollment was successful.", html);
+}

@@ -15,8 +15,8 @@ export default async function PartnersPage() {
       mt_partner_applications (
         name,
         email,
-        phone,
-        company_name
+        mobile,
+        profession
       )
     `)
     .eq("clinic_id", BRAND.clinicId)
@@ -62,10 +62,10 @@ export default async function PartnersPage() {
                     <tr key={p.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4">
                         <div className="font-medium text-slate-900">{app?.name}</div>
-                        {app?.company_name && <div className="text-slate-500 text-xs mt-0.5">{app.company_name}</div>}
+                        {app?.profession && <div className="text-slate-500 text-xs mt-0.5">{app.profession}</div>}
                         <div className="flex items-center gap-3 mt-2 text-slate-500 text-xs">
                           <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {app?.email}</span>
-                          <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {app?.phone}</span>
+                          <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {app?.mobile}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">

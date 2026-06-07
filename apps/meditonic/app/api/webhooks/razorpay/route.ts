@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { sendConfirmationEmail } from "@/lib/email";
-import { Template_ConsultationConfirmed, Template_EbookPurchased } from "@/lib/email-templates";
+import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased } from "@/lib/email-templates";
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +74,30 @@ export async function POST(req: Request) {
             updated_at: new Date().toISOString()
           })
           .eq("id", paymentRecord.reference_id);
+
+        // Update Case Status & Log Activity
+        const { data: updatedCase } = await supabase
+          .from("mt_cases")
+          .update({ payment_status: "captured" })
+          .eq("reference_id", paymentRecord.reference_id)
+          .select("id")
+          .single();
+
+        if (updatedCase) {
+          await supabase.from("mt_case_activities").insert({
+            case_id: updatedCase.id,
+            action: "Payment Captured",
+            details: { message: "Razorpay webhook confirmed payment", orderId, amount: paymentRecord.amount }
+          });
+          
+          // Enqueue Sync Job for Google Sheets
+          await supabase.from("mt_sync_queue").insert({
+            case_id: updatedCase.id,
+            target_system: "google_sheets",
+            operation: "insert",
+            payload: { reference_id: paymentRecord.reference_id, case_type: "consultation" }
+          });
+        }
           
         // Fetch patient to send email
         if (paymentRecord.patient_id) {
@@ -95,14 +119,9 @@ export async function POST(req: Request) {
               "Consultation Booking Confirmed - MediTonic",
               Template_ConsultationConfirmed(patient.name, {
                 phone: patient.phone,
-                age: patient.age,
-                gender: patient.gender,
-                amount: paymentRecord.amount,
                 type: consultationData?.type,
                 concernCategory: consultationData?.concern_category,
                 concernDescription: consultationData?.concern_description,
-                preferredDate: consultationData?.preferred_date,
-                preferredTimeSlot: consultationData?.preferred_time_slot,
                 bookingId: `MT-${new Date().getFullYear()}-${paymentRecord.reference_id.substring(0, 6).toUpperCase()}`
               }),
               { cc: "care.meditonic@gmail.com", bcc: "aman.aga998@gmail.com" }
@@ -117,6 +136,25 @@ export async function POST(req: Request) {
           .update({ status: "active" })
           .eq("id", paymentRecord.reference_id);
           
+        // Fetch patient to send email
+        if (paymentRecord.patient_id) {
+          const { data: patient } = await supabase
+            .from("mt_patients")
+            .select("name, email")
+            .eq("id", paymentRecord.patient_id)
+            .single();
+
+          if (patient?.email) {
+            await sendConfirmationEmail(
+              patient.email,
+              "Program Enrollment Confirmed - MediTonic",
+              Template_ProgramPurchased(patient.name, {
+                amount: paymentRecord.amount
+              }),
+              { cc: "care.meditonic@gmail.com", bcc: "aman.aga998@gmail.com" }
+            );
+          }
+        }
       } else if (paymentRecord.purpose === "ebook") {
         // Update eBook order status to require manual delivery
         await supabase
@@ -156,7 +194,8 @@ export async function POST(req: Request) {
           .single();
           
         if (!referralError && referralData && referralData.mt_partners) {
-          const commissionRate = referralData.mt_partners.base_commission_rate || 10;
+          const partner: any = Array.isArray(referralData.mt_partners) ? referralData.mt_partners[0] : referralData.mt_partners;
+          const commissionRate = partner?.base_commission_rate || 10;
           const revenueAfterDiscount = paymentRecord.amount || 0;
           const commissionAmount = (revenueAfterDiscount * commissionRate) / 100;
 

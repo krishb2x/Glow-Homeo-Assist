@@ -144,7 +144,8 @@ export async function POST(req: Request) {
     if (consultationError) throw consultationError;
 
     // 6. Create Razorpay Order
-    const amountInPaise = price * 100;
+    // Ensure amount is an integer to prevent Razorpay BAD_REQUEST_ERROR
+    const amountInPaise = Math.round(price * 100);
     
     const options = {
       amount: amountInPaise,
@@ -168,7 +169,7 @@ export async function POST(req: Request) {
     }
 
     // 7. Create Payment Record (Pending)
-    const { error: paymentError } = await supabase
+    const { data: payment, error: paymentError } = await supabase
       .from("mt_payments")
       .insert({
         clinic_id: clinicId,
@@ -182,9 +183,70 @@ export async function POST(req: Request) {
         purpose: "consultation",
         reference_id: consultation.id,
         referral_code_id: referralCodeId,
-      });
+      })
+      .select("id")
+      .single();
 
     if (paymentError) throw paymentError;
+
+    // 7.5. Create Case Record (Immediate Lead Capture)
+    const { data: newCase, error: caseError } = await supabase
+      .from("mt_cases")
+      .insert({
+        clinic_id: clinicId,
+        case_type: "consultation",
+        reference_id: consultation.id,
+        patient_name: data.name,
+        mobile: data.phone,
+        email: data.email || null,
+        age: data.age || null,
+        gender: data.gender || null,
+        concern_category: data.concernCategory,
+        description: data.concernDescription,
+        source: "website",
+        referral_code_id: referralCodeId,
+        payment_status: "pending",
+        status: "new"
+      })
+      .select("id")
+      .single();
+
+    if (caseError) {
+      console.error("Failed to create mt_cases record:", caseError);
+      // We don't throw here to ensure the payment flow still continues
+    } else {
+      // Log Activity
+      await supabase.from("mt_case_activities").insert({
+        case_id: newCase.id,
+        action: "Case Created",
+        details: { message: "Consultation booked from website", consultationId: consultation.id }
+      });
+    }
+
+    // DEV ONLY: Automatically trigger the webhook since Razorpay cannot reach localhost
+    if (process.env.NODE_ENV === "development") {
+      setTimeout(() => {
+        fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001'}/api/webhooks/razorpay`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-razorpay-signature": "test_signature_bypass"
+          },
+          body: JSON.stringify({
+            event: "payment.captured",
+            payload: {
+              payment: {
+                entity: {
+                  id: `mock_pay_${Date.now()}`,
+                  order_id: orderId,
+                  amount: amountInPaise
+                }
+              }
+            }
+          })
+        }).catch(err => console.error("Local webhook mock failed:", err));
+      }, 3000);
+    }
 
     // 8. Return Order Details to Client
     return NextResponse.json({
