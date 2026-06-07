@@ -37,6 +37,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       details: { doctorId, message: "Doctor assigned to case via Admin UI" }
     });
 
+    // 3. Queue a sync to Google Sheets
+    await supabase.from("mt_sync_queue").insert({
+      target_system: "google_sheets",
+      operation: "update",
+      case_id: caseId,
+      status: "pending"
+    });
+
     return NextResponse.json({ success: true, caseId });
   } catch (error: any) {
     console.error("Doctor assignment API error:", error);

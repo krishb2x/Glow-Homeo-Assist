@@ -71,3 +71,69 @@ export async function appendCaseToSheet(rowData: CaseRowData) {
     throw error;
   }
 }
+
+export async function updateCaseInSheet(rowData: CaseRowData) {
+  const spreadsheetId = process.env.MEDITONIC_OPERATIONS_SHEET_ID;
+  if (!spreadsheetId) {
+    throw new Error("Missing MEDITONIC_OPERATIONS_SHEET_ID in environment variables.");
+  }
+
+  const auth = getAuthClient();
+  const sheets = google.sheets({ version: "v4", auth });
+
+  try {
+    // 1. Fetch column A to find the row index
+    const getRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "All Cases!A:A",
+    });
+    
+    const rows = getRes.data.values;
+    if (!rows || rows.length === 0) {
+      await appendCaseToSheet(rowData);
+      return;
+    }
+    
+    // Find row index (1-based for Google Sheets)
+    let rowIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] === rowData.caseId) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      // Row not found, append it instead
+      await appendCaseToSheet(rowData);
+      return;
+    }
+
+    // 2. Update the specific row
+    const values = [
+      [
+        rowData.caseId,
+        rowData.date,
+        rowData.patientName,
+        rowData.mobile,
+        rowData.caseType,
+        rowData.concern,
+        rowData.assignedDoctor,
+        rowData.status,
+        rowData.paymentStatus
+      ]
+    ];
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `All Cases!A${rowIndex}:I${rowIndex}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values },
+    });
+    
+    console.log("Successfully updated case in Google Sheets:", rowData.caseId);
+  } catch (error) {
+    console.error("Google Sheets API update error:", error);
+    throw error;
+  }
+}

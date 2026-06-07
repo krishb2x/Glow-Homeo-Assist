@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { appendCaseToSheet } from "@/lib/google-sheets";
+import { appendCaseToSheet, updateCaseInSheet } from "@/lib/google-sheets";
 
 export async function POST(req: Request) {
   // In production, you would want a secret token here to prevent abuse
@@ -47,6 +47,31 @@ export async function POST(req: Request) {
 
           if (caseData) {
             await appendCaseToSheet({
+              caseId: caseData.id.split('-')[0].toUpperCase(), // Short ID
+              date: new Date(caseData.created_at).toISOString().split('T')[0],
+              patientName: caseData.patient_name,
+              mobile: caseData.mobile,
+              caseType: caseData.case_type,
+              concern: caseData.concern_category || "N/A",
+              assignedDoctor: caseData.profiles?.full_name || "Unassigned",
+              status: caseData.status.replace('_', ' '),
+              paymentStatus: caseData.payment_status
+            });
+          }
+        } else if (job.operation === "update") {
+          // Fetch the full case details to update in sheets
+          const caseId = job.case_id;
+          const { data: caseData } = await supabase
+            .from("mt_cases")
+            .select(`
+              *,
+              profiles:assigned_doctor_id (full_name)
+            `)
+            .eq("id", caseId)
+            .single();
+
+          if (caseData) {
+            await updateCaseInSheet({
               caseId: caseData.id.split('-')[0].toUpperCase(), // Short ID
               date: new Date(caseData.created_at).toISOString().split('T')[0],
               patientName: caseData.patient_name,
