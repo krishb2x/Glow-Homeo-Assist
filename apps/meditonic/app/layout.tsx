@@ -4,7 +4,6 @@ import "./globals.css";
 import { BRAND } from "@/lib/constants";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { Suspense } from "react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -59,7 +58,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`scroll-smooth ${inter.variable} ${outfit.variable}`}>
       <body className="flex min-h-screen flex-col font-sans text-mt-text antialiased">
-        <Suspense fallback={null}>
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-mt-primary focus:text-white"
