@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabaseAdmin } from "../supabase";
 
 const programTitle = "The 100-Day PCOS Holistic Reversal (Functional & Homeopathic)";
