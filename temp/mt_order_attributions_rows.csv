@@ -1,2 +1,0 @@
-id,clinic_id,partner_id,referral_code_id,order_id,customer_id,product_type,product_id,revenue_before_discount,discount_applied,revenue_after_discount,commission_percentage,commission_amount,status,created_at,updated_at
-d2bfc4f4-269c-49d3-8021-4b09d5e8b700,595cd444-e89c-4d1f-b31f-27f76f59e0d7,d4fe41b3-955e-47e4-a9ee-d56ccf49a705,7b029b86-b719-4096-ae3c-bf549ba65a25,b10c1e4e-7b94-4f87-ac48-4d424e0d231c,e15c55e6-2e76-477c-ad9a-d66a54931cc9,consultation,,2.00,0.30,1.70,10.00,0.17,paid,2026-06-07 10:41:36.490979+00,2026-06-07 10:41:36.490979+00
