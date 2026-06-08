@@ -50,8 +50,8 @@ export async function POST(req: Request) {
       throw new Error("Failed to create DB order");
     }
 
-    return NextResponse.json({ 
-      orderId: order.id, 
+    return NextResponse.json({
+      orderId: order.id,
       mtOrderId: dbOrder.id,
       keyId: process.env.MEDITONIC_RAZORPAY_KEY_ID || ""
     });
