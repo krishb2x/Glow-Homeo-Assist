@@ -13,7 +13,7 @@ export default function Header() {
   const pathname = usePathname();
 
   // Hide header on dashboard routes
-  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login');
+  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login') || pathname.startsWith('/ebooks');
 
   // Handle scroll effect
   useEffect(() => {

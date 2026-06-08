@@ -1,10 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, FileText, Layers, Truck } from "lucide-react";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Card, CardContent } from "@/components/ui/Card";
+import { ArrowLeft, CheckCircle2, FileText, Layers, Truck, Star } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
-import CTABand from "@/components/sections/CTABand";
 import { createPublicClient } from "@/lib/supabase";
 import { BRAND } from "@/lib/constants";
 import LandingBuyButton from "@/components/store/LandingBuyButton";
@@ -12,14 +9,13 @@ import { Metadata } from "next";
 
 export const revalidate = 60;
 
-// Dynamic Metadata Generation for SEO and Ads
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const resolvedParams = await params;
   const supabase = createPublicClient();
   
   const { data: product } = await supabase
-    .from("mt_ebooks") // fallback check, assume mt_products will be used later
-    .select("title, description, image_url")
+    .from("mt_products")
+    .select("title, description, cover_image_path")
     .eq("slug", resolvedParams.slug)
     .single();
 
@@ -34,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url: `https://meditonic.glowhomeo.com/ebooks/${resolvedParams.slug}`,
       images: [
         {
-          url: product.image_url || `https://meditonic.glowhomeo.com/og-default.jpg`,
+          url: product.cover_image_path || `https://meditonic.glowhomeo.com/og-default.jpg`,
           width: 1200,
           height: 630,
         }
@@ -53,7 +49,7 @@ export default async function StoreProductPage({
   const supabase = createPublicClient();
 
   const { data: product, error } = await supabase
-    .from("mt_ebooks") // Using fallback table name here until user runs SQL
+    .from("mt_products")
     .select("*")
     .eq("slug", resolvedParams.slug)
     .eq("clinic_id", BRAND.clinicId)
@@ -68,50 +64,79 @@ export default async function StoreProductPage({
     metadata = typeof product.metadata === 'string' ? JSON.parse(product.metadata) : product.metadata;
   }
 
-  const isCombo = product.is_combo;
-  const isPhysical = product.type === 'hardcopy' || metadata.format === 'Hard Copy';
+  const isCombo = product.product_type === 'BUNDLE' || product.is_combo;
+  const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.type === 'hardcopy';
+  const rating = metadata.rating || 5.0;
+  const author = metadata.author || "Dr. Aman Agrawal";
+  const imageSrc = product.cover_image_path || product.image_url;
 
   return (
-    <div className="flex flex-col pt-[52px]">
-      <section className="bg-mt-primary-bg pt-12 pb-16">
-        <div className="section-container">
-          <ScrollReveal direction="up">
-            <Link 
-              href="/ebooks" 
-              className="inline-flex items-center text-sm font-semibold text-mt-primary hover:text-mt-primary-dark mb-8"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Store
-            </Link>
-          </ScrollReveal>
+    <div className="flex flex-col min-h-screen bg-[#FDFDFD] pt-[52px]">
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-16">
+          <Link 
+            href="/ebooks" 
+            className="inline-flex items-center text-sm font-semibold text-mt-text-secondary hover:text-mt-primary mb-8 transition-colors"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Store
+          </Link>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            <ScrollReveal direction="right">
-              <div className={`relative ${isCombo ? 'aspect-[3/2]' : 'aspect-[3/4]'} max-w-md mx-auto lg:mx-0 overflow-hidden rounded-xl shadow-2xl`}>
-                {product.badge && (
-                  <div className="absolute top-4 left-4 z-20 bg-mt-primary text-white text-sm font-bold px-4 py-1.5 rounded-full uppercase tracking-wider">
-                    {product.badge}
+          <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
+            {/* Left Column: Gallery */}
+            <div className="w-full lg:w-1/2 flex flex-col gap-4">
+              <div className={`relative w-full ${isCombo ? 'aspect-[4/3]' : 'aspect-[3/4]'} bg-mt-primary-bg rounded-2xl overflow-hidden shadow-sm border border-mt-border`}>
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
+                    alt={product.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#1B6B5C] to-[#0A3D33] flex items-center justify-center p-8">
+                    <span className="text-white/50 font-display text-4xl text-center leading-tight drop-shadow-md">
+                      {product.title}
+                    </span>
                   </div>
                 )}
-                <img
-                  src={product.image_url || `https://placehold.co/${isCombo ? '600x400' : '400x520'}/064E3B/ffffff?text=${encodeURIComponent(product.title)}`}
-                  alt={product.title}
-                  className="w-full h-full object-cover"
-                />
               </div>
-            </ScrollReveal>
-            
-            <ScrollReveal direction="left" className="flex flex-col h-full">
-              <div className="mb-2">
-                <span className="inline-block bg-white text-mt-primary text-xs font-semibold px-3 py-1 rounded-full border border-mt-border uppercase tracking-wider">
-                  {isCombo ? 'Combo Bundle' : product.category.replace('_', ' ')}
+            </div>
+
+            {/* Right Column: Product Details */}
+            <div className="w-full lg:w-1/2 flex flex-col">
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                {product.metadata?.bestseller && (
+                  <span className="bg-yellow-400 text-yellow-950 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    Bestseller
+                  </span>
+                )}
+                <span className="bg-black/5 text-mt-text text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                  {isPhysical ? 'Physical Book' : 'Digital PDF'}
                 </span>
+                {isCombo && (
+                  <span className="bg-[#1B6B5C]/10 text-[#1B6B5C] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    Premium Bundle
+                  </span>
+                )}
               </div>
               
-              <h1 className="font-display text-4xl text-mt-text mb-4 leading-tight">
+              <h1 className="font-display text-3xl md:text-4xl lg:text-5xl text-mt-text mb-4 leading-tight">
                 {product.title}
               </h1>
               
-              <div className="mb-6 flex items-baseline gap-3 flex-wrap">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 mb-8">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex text-yellow-400">
+                    {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
+                  </div>
+                  <span className="text-sm font-medium text-mt-text-secondary">{rating.toFixed(1)} Rating</span>
+                </div>
+                <div className="hidden sm:block w-px h-4 bg-mt-border"></div>
+                <div className="text-sm font-medium text-mt-text-secondary">
+                  By <span className="text-mt-text">{author}</span>
+                </div>
+              </div>
+              
+              <div className="mb-8 flex items-baseline gap-4">
                 <span className="font-display text-4xl font-bold text-[#1B6B5C]">
                   {formatPrice(product.price)}
                 </span>
@@ -120,51 +145,73 @@ export default async function StoreProductPage({
                     {formatPrice(product.original_price)}
                   </span>
                 )}
-                {product.original_price && product.price < product.original_price && (
-                  <span className="text-sm font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full ml-auto md:ml-4">
-                    Save {formatPrice(product.original_price - product.price)}
-                  </span>
-                )}
+              </div>
+
+              {/* Desktop Buy Button */}
+              <div className="hidden md:block w-full mb-12">
+                <LandingBuyButton product={product as any} />
+                <p className="text-xs text-center text-mt-text-tertiary mt-4">Secure payment via Razorpay. Instant delivery.</p>
               </div>
               
-              <div className="prose prose-mt-primary text-mt-text-secondary mb-8">
-                <p className="text-lg">{product.description}</p>
+              {/* Description */}
+              <div className="prose prose-mt-primary text-mt-text-secondary mb-10 max-w-none">
+                <p className="text-base md:text-lg leading-relaxed">{product.description}</p>
               </div>
               
-              <div className="grid grid-cols-2 gap-4 mb-8">
+              {/* Format Details */}
+              <div className="grid grid-cols-2 gap-4 mb-10">
                 {metadata.pages && (
-                  <div className="bg-white p-4 rounded-xl border border-mt-border flex flex-col items-center justify-center text-center">
-                    <FileText className="h-6 w-6 text-mt-secondary mb-2" />
-                    <span className="text-sm font-semibold text-mt-text">{metadata.pages} Pages</span>
-                    <span className="text-xs text-mt-text-secondary">Comprehensive</span>
+                  <div className="bg-[#F8F9FA] p-4 rounded-xl border border-mt-border flex flex-col">
+                    <FileText className="h-5 w-5 text-mt-secondary mb-2" />
+                    <span className="text-sm font-bold text-mt-text">{metadata.pages} Pages</span>
+                    <span className="text-xs text-mt-text-secondary">Comprehensive text</span>
                   </div>
                 )}
                 {metadata.books && (
-                  <div className="bg-white p-4 rounded-xl border border-mt-border flex flex-col items-center justify-center text-center">
-                    <Layers className="h-6 w-6 text-mt-secondary mb-2" />
-                    <span className="text-sm font-semibold text-mt-text">{metadata.books} Books</span>
-                    <span className="text-xs text-mt-text-secondary">Included</span>
+                  <div className="bg-[#F8F9FA] p-4 rounded-xl border border-mt-border flex flex-col">
+                    <Layers className="h-5 w-5 text-mt-secondary mb-2" />
+                    <span className="text-sm font-bold text-mt-text">{metadata.books} Books</span>
+                    <span className="text-xs text-mt-text-secondary">Included in bundle</span>
                   </div>
                 )}
-                <div className="bg-white p-4 rounded-xl border border-mt-border flex flex-col items-center justify-center text-center">
-                  <Truck className="h-6 w-6 text-mt-secondary mb-2" />
-                  <span className="text-sm font-semibold text-mt-text">{isPhysical ? 'Physical Copy' : 'Instant PDF'}</span>
-                  <span className="text-xs text-mt-text-secondary">{isPhysical ? 'Home Delivery' : 'Digital Access'}</span>
+                <div className="bg-[#F8F9FA] p-4 rounded-xl border border-mt-border flex flex-col">
+                  <Truck className="h-5 w-5 text-mt-secondary mb-2" />
+                  <span className="text-sm font-bold text-mt-text">{isPhysical ? 'Physical Copy' : 'Instant PDF'}</span>
+                  <span className="text-xs text-mt-text-secondary">{isPhysical ? 'Home Delivery' : 'Digital Download'}</span>
                 </div>
               </div>
-              
-              <Card className="border-[#1B6B5C]/20 shadow-lg mt-auto overflow-hidden bg-[#E1F5EE]">
-                <CardContent className="p-6">
-                  {/* Buy Button integrating with Cart State */}
-                  <LandingBuyButton product={product as any} />
-                </CardContent>
-              </Card>
-            </ScrollReveal>
+
+              {/* Key Learnings (if available) */}
+              {metadata.key_learnings && Array.isArray(metadata.key_learnings) && (
+                <div className="mb-12">
+                  <h3 className="font-bold text-lg text-mt-text mb-4">What you'll learn</h3>
+                  <ul className="space-y-3">
+                    {metadata.key_learnings.map((learning: string, index: number) => (
+                      <li key={index} className="flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-mt-primary shrink-0 mt-0.5" />
+                        <span className="text-sm text-mt-text-secondary leading-relaxed">{learning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </section>
+      </main>
 
-      <CTABand />
+      {/* Sticky Mobile Purchase Action */}
+      <div className="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-mt-border p-4 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col">
+            <span className="text-sm text-mt-text-secondary font-medium">Total Price</span>
+            <span className="font-bold text-lg text-[#1B6B5C]">{formatPrice(product.price)}</span>
+          </div>
+        </div>
+        <LandingBuyButton product={product as any} />
+      </div>
+      {/* Spacer for mobile sticky footer */}
+      <div className="h-24 md:hidden"></div>
     </div>
   );
 }
