@@ -92,8 +92,8 @@ export default function ProductsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-12 bg-slate-100 rounded overflow-hidden shrink-0">
-                          {product.cover_image_url ? (
-                            <img src={product.cover_image_url} alt="" className="w-full h-full object-cover" />
+                          {product.cover_image_path ? (
+                            <img src={product.cover_image_path} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-slate-300">
                               <Package className="w-5 h-5" />

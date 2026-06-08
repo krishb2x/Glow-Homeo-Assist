@@ -15,7 +15,7 @@ export async function saveProductAction(payload: any, productId?: string) {
           title: payload.title,
           description: payload.description,
           price: payload.price,
-          cover_image_url: payload.cover_image_path,
+          cover_image_path: payload.cover_image_path,
           is_active: payload.status === 'PUBLISHED',
         })
         .eq("id", productId);
@@ -29,7 +29,7 @@ export async function saveProductAction(payload: any, productId?: string) {
           slug: payload.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
           description: payload.description,
           price: payload.price,
-          cover_image_url: payload.cover_image_path,
+          cover_image_path: payload.cover_image_path,
           is_active: payload.status === 'PUBLISHED',
           clinic_id: BRAND.clinicId
         }]);

@@ -30,7 +30,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     meta_title: (initialData as any)?.meta_title || "",
     meta_description: (initialData as any)?.meta_description || "",
     status: (initialData as any)?.is_active === false ? "DRAFT" : "PUBLISHED",
-    cover_image_path: (initialData as any)?.cover_image_url || "",
+    cover_image_path: (initialData as any)?.cover_image_path || "",
     gallery_image_paths: (initialData as any)?.gallery_image_paths || [],
     preview_pdf_path: (initialData as any)?.preview_pdf_path || "",
     final_pdf_path: (initialData as any)?.final_pdf_path || "",
