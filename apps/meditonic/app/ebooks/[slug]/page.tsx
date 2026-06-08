@@ -89,7 +89,7 @@ export default async function StoreProductPage({
               <ProductGallery 
                 title={product.title} 
                 coverImage={imageSrc} 
-                galleryImages={product.gallery_image_paths || []} 
+                galleryImages={metadata.gallery_image_paths || []} 
                 isCombo={isCombo} 
                 videoUrl={metadata.preview_video_url} 
               />
@@ -149,9 +149,9 @@ export default async function StoreProductPage({
               {/* Desktop Buy Button */}
               <div className="hidden md:flex flex-col gap-3 w-full mb-12">
                 <LandingBuyButton product={product as any} />
-                {product.preview_pdf_path && (
+                {metadata.preview_pdf_path && (
                   <a
-                    href={product.preview_pdf_path.startsWith('http') ? product.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.preview_pdf_path}`}
+                    href={metadata.preview_pdf_path.startsWith('http') ? metadata.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${metadata.preview_pdf_path}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-4 px-6 rounded-xl border-2 border-mt-primary text-mt-primary font-bold text-center hover:bg-mt-primary/5 transition-colors flex items-center justify-center gap-2"
@@ -164,8 +164,12 @@ export default async function StoreProductPage({
               </div>
               
               {/* Description */}
-              <div className="prose prose-mt-primary text-mt-text-secondary mb-10 max-w-none whitespace-pre-wrap">
-                <p className="text-base md:text-lg leading-relaxed">{product.description}</p>
+              <div className="prose prose-mt-primary text-mt-text-secondary mb-10 max-w-none">
+                <div className="text-base md:text-lg leading-relaxed space-y-4">
+                  {product.description?.split('\n').map((line: string, i: number) => (
+                    <p key={i} className="m-0">{line}</p>
+                  ))}
+                </div>
               </div>
               
               {/* Format Details */}
@@ -220,9 +224,9 @@ export default async function StoreProductPage({
             <span className="text-sm text-mt-text-secondary font-medium">Total Price</span>
             <span className="font-bold text-lg text-[#1B6B5C]">{formatPrice(product.price)}</span>
           </div>
-          {product.preview_pdf_path && (
+          {metadata.preview_pdf_path && (
             <a
-              href={product.preview_pdf_path.startsWith('http') ? product.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.preview_pdf_path}`}
+              href={metadata.preview_pdf_path.startsWith('http') ? metadata.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${metadata.preview_pdf_path}`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 rounded-lg border border-mt-primary text-mt-primary text-sm font-semibold flex items-center gap-2"

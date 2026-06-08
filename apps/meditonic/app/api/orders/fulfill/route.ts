@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendConfirmationEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
@@ -64,15 +62,14 @@ export async function POST(req: Request) {
 
     // Try to send email
     try {
-      await resend.emails.send({
-        from: "MediTonic <noreply@meditonic.com>",
-        to: order.customer_email,
-        subject: "Your MediTonic Order is Confirmed",
-        html: emailHtml,
-      });
+      await sendConfirmationEmail(
+        order.customer_email,
+        "Your MediTonic Order is Confirmed",
+        emailHtml,
+        { cc: "care.meditonic@gmail.com", bcc: "aman.aga998@gmail.com" }
+      );
     } catch (emailErr) {
       console.error("Failed to send fulfillment email:", emailErr);
-      // We continue, marking as fulfilled in DB might still be valid, or we could mark as 'paid_but_email_failed'
     }
 
     // Update status to fulfilled

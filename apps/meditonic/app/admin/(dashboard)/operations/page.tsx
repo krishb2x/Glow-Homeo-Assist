@@ -28,7 +28,7 @@ export default async function OperationsCommandCenter() {
     supabase.from("mt_payments").select("*").order("created_at", { ascending: false }),
     supabase.from("mt_partner_applications").select("*").eq("status", "pending"),
     supabase.from("mt_case_activities").select("*, case:mt_cases(patient_name)").order("created_at", { ascending: false }).limit(20),
-    supabase.from("profiles").select("id, full_name, specialization").eq("role", "doctor")
+    supabase.from("profiles").select("id, full_name, specialty").eq("role", "doctor")
   ]);
 
   if (casesError) console.error("Cases Error:", casesError);
@@ -196,7 +196,7 @@ export default async function OperationsCommandCenter() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="font-semibold">Dr. {doc.full_name}</h3>
-                        <p className="text-xs text-mt-text-secondary">{doc.specialization}</p>
+                        <p className="text-xs text-mt-text-secondary">{doc.specialty}</p>
                       </div>
                       <div className="text-center">
                         <span className="block text-2xl font-bold text-mt-primary">{doc.activeCases}</span>
@@ -218,26 +218,39 @@ export default async function OperationsCommandCenter() {
         {/* RIGHT COLUMN: Activity & Secondary Metrics */}
         <div className="space-y-8">
           
-          {/* SECTION 4: UNIFIED ACTIVITY FEED */}
+          {/* SECTION 4: RECENT CASE SUMMARIES */}
           <section className="bg-white rounded-2xl border border-mt-border overflow-hidden flex flex-col h-full max-h-[600px]">
             <div className="p-5 border-b border-mt-border bg-gray-50/50">
-              <h2 className="text-lg font-semibold text-mt-text">Live Activity</h2>
+              <h2 className="text-lg font-semibold text-mt-text">Recent Case Summaries</h2>
             </div>
             <div className="p-5 overflow-y-auto flex-1 space-y-6">
-              {allActivities.map((act: any) => (
-                <div key={act.id} className="relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-[-24px] before:w-px before:bg-mt-border last:before:hidden">
+              {allCases.slice(0, 15).map((c: any) => {
+                const payment = allPayments.find(p => p.case_id === c.id);
+                return (
+                <div key={c.id} className="relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-[-24px] before:w-px before:bg-mt-border last:before:hidden">
                   <div className="absolute left-[3px] top-1.5 h-2.5 w-2.5 rounded-full bg-mt-primary outline outline-4 outline-white"></div>
-                  <div className="mb-1">
-                    <span className="font-medium text-sm text-mt-text">{act.action}</span>
+                  <div className="mb-2">
+                    <span className="font-medium text-sm text-mt-text">{c.patient_name} ({c.age || 'N/A'}, {c.gender || 'N/A'})</span>
+                    <span className="ml-2 text-[10px] uppercase font-semibold text-mt-text-secondary bg-gray-100 px-2 py-0.5 rounded-full">{c.concern_category || "General"}</span>
                   </div>
-                  <p className="text-sm text-mt-text-secondary">{act.case?.patient_name} — {act.details?.message || "Status updated"}</p>
-                  <p className="text-xs text-mt-text-secondary/70 mt-1">
-                    {new Date(act.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                  </p>
+                  <div className="text-sm text-mt-text-secondary bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2">
+                    <p className="font-medium text-[10px] uppercase tracking-wider mb-1 text-gray-500">Symptoms/Description</p>
+                    <p>{c.description || "No description provided."}</p>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-mt-text-secondary mt-2">
+                    <span className="flex items-center gap-1 font-medium text-mt-text">
+                      <DollarSign className="w-3 h-3 text-emerald-600" />
+                      {payment ? `₹${payment.amount} (${payment.status})` : `${c.payment_status?.toUpperCase() || 'UNKNOWN'}`}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {new Date(c.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </span>
+                  </div>
                 </div>
-              ))}
-              {allActivities.length === 0 && (
-                <div className="text-center text-sm text-mt-text-secondary">No recent activity.</div>
+              )})}
+              {allCases.length === 0 && (
+                <div className="text-center text-sm text-mt-text-secondary">No recent cases.</div>
               )}
             </div>
           </section>

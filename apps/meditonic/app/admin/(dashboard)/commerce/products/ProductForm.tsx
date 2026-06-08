@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { UploadCloud, Loader2, Save, X, ExternalLink } from "lucide-react";
 import { saveProductAction } from "./actions";
 import VerifiedReviewsManager, { VerifiedReview } from "./VerifiedReviewsManager";
+import MobilePreview from "./MobilePreview";
 
 export default function ProductForm({ initialData }: { initialData?: Product }) {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [metaFields, setMetaFields] = useState<any>(initialData?.metadata || {});
   const [isBestseller, setIsBestseller] = useState(initialData?.metadata?.bestseller || false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<Partial<Product>>({
     title: initialData?.title || "",
@@ -129,22 +132,27 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     }
   };
 
+  const getPayload = () => ({
+    ...formData,
+    metadata: {
+      ...metaFields,
+      bestseller: isBestseller
+    },
+    is_active: formData.status === 'PUBLISHED',
+    clinic_id: BRAND.clinicId,
+  });
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowPreview(true);
+    setSaveError(null);
+  };
+
+  const confirmSave = async () => {
     setLoading(true);
-    const supabase = getSupabaseBrowser();
-
+    setSaveError(null);
     try {
-      const payload = {
-        ...formData,
-        metadata: {
-          ...metaFields,
-          bestseller: isBestseller
-        },
-        is_active: formData.status === 'PUBLISHED',
-        clinic_id: BRAND.clinicId,
-      };
-
+      const payload = getPayload();
       const result = await saveProductAction(payload, initialData?.id);
       
       if (!result.success) {
@@ -155,7 +163,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
       router.refresh();
     } catch (err: any) {
       console.error(err);
-      alert(`Save failed: ${err.message}`);
+      setSaveError(`Failed to save: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -178,17 +186,32 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
           </h2>
           <p className="text-sm text-slate-500">Configure your commerce listing.</p>
         </div>
-        <div className="flex gap-3">
-          <button type="button" onClick={() => router.back()} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            Cancel
-          </button>
-          <button type="submit" disabled={loading} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 flex items-center gap-2">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Product
-          </button>
-        </div>
+        {!showPreview && (
+          <div className="flex gap-3">
+            <button type="button" onClick={() => router.back()} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 flex items-center gap-2">
+              Preview Changes
+            </button>
+          </div>
+        )}
       </div>
 
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium">
+          {saveError}
+        </div>
+      )}
+
+      {showPreview ? (
+        <MobilePreview 
+          payload={getPayload()} 
+          onBack={() => setShowPreview(false)} 
+          onConfirm={confirmSave} 
+          isSaving={loading} 
+        />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         
         {/* Left Column - Main Details */}
@@ -420,6 +443,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
         </div>
 
       </div>
+      )}
     </form>
   );
 }

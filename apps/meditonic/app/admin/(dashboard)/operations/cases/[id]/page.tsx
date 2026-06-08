@@ -34,14 +34,14 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       
       const { data: cData, error: cError } = await supabase
         .from("mt_cases")
-        .select("*, doctor:profiles(id, full_name, specialization)")
+        .select("*, doctor:profiles(id, full_name, specialty)")
         .eq("id", id)
         .single();
 
       if (cError) throw cError;
       setCaseData(cData);
 
-      const { data: dData, error: dError } = await supabase.from("profiles").select("id, full_name, specialization").eq("role", "doctor");
+      const { data: dData, error: dError } = await supabase.from("profiles").select("id, full_name, specialty").eq("role", "doctor");
 
       if (dError) throw dError;
       setDoctors(dData || []);
@@ -208,7 +208,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
                   <CheckCircle2 className="h-10 w-10 text-mt-success shrink-0" />
                   <div>
                     <p className="font-bold text-lg text-mt-text">Dr. {caseData.doctor.full_name}</p>
-                    <p className="text-sm text-mt-text-secondary font-medium">{caseData.doctor.specialization}</p>
+                    <p className="text-sm text-mt-text-secondary font-medium">{caseData.doctor.specialty}</p>
                   </div>
                 </div>
               ) : (
@@ -221,7 +221,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
                       <div key={doc.id} className="flex flex-col justify-between p-4 border border-mt-border rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
                         <div className="mb-4">
                           <p className="font-bold">Dr. {doc.full_name}</p>
-                          <p className="text-xs text-mt-text-secondary font-medium">{doc.specialization}</p>
+                          <p className="text-xs text-mt-text-secondary font-medium">{doc.specialty}</p>
                         </div>
                         <Button 
                           size="sm" 

@@ -64,7 +64,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       if (existing) {
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1, utm_source: utmSource, utm_campaign: utmCampaign }
+            ? { ...item, quantity: 1, utm_source: utmSource || item.utm_source, utm_campaign: utmCampaign || item.utm_campaign }
             : item
         );
       }

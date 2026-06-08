@@ -37,6 +37,38 @@ export async function POST(req: Request) {
     if (event === "payment.captured" || event === "payment.authorized") {
       const supabase = createAdminClient();
 
+      // 0. Check if this is a Store Order in mt_orders
+      const { data: storeOrder } = await supabase
+        .from("mt_orders")
+        .select("id, status")
+        .eq("razorpay_order_id", orderId)
+        .single();
+
+      if (storeOrder) {
+        if (storeOrder.status === "paid" || storeOrder.status === "fulfilled") {
+          return NextResponse.json({ status: "ok", message: "Already processed store order" });
+        }
+
+        // Update Store Order
+        await supabase
+          .from("mt_orders")
+          .update({
+            status: "paid",
+            razorpay_payment_id: payment.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", storeOrder.id);
+
+        // Trigger fulfillment asynchronously
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://meditonic.glowhomeo.com'}/api/orders/fulfill`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mtOrderId: storeOrder.id })
+        }).catch(e => console.error("Webhook store fulfillment trigger failed:", e));
+
+        return NextResponse.json({ status: "ok" });
+      }
+
       // 1. Fetch existing Payment Record to check status
       const { data: paymentRecord, error: paymentError } = await supabase
         .from("mt_payments")

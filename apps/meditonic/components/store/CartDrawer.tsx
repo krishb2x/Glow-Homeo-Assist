@@ -333,7 +333,7 @@ export const CartDrawer = () => {
                 </div>
               </div>
               
-              <div className="mt-6 pt-4 shrink-0">
+              <div className="mt-6 pt-4 shrink-0 pb-safe pb-8">
                 <button 
                   onClick={handleCreateOrderAndPay} 
                   disabled={loading}
