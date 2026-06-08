@@ -195,7 +195,7 @@ export default async function OperationsCommandCenter() {
                   <div key={doc.id} className="p-4 rounded-xl border border-mt-border bg-white flex flex-col justify-between">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="font-semibold">Dr. {doc.name}</h3>
+                        <h3 className="font-semibold">Dr. {doc.full_name}</h3>
                         <p className="text-xs text-mt-text-secondary">{doc.specialization}</p>
                       </div>
                       <div className="text-center">

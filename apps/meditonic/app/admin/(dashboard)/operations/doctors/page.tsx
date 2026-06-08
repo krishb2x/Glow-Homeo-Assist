@@ -18,11 +18,12 @@ export default function DoctorsPage() {
     try {
       const supabase = getSupabaseBrowser();
       
-      // Fetch doctors
+      // Fetch doctors from profiles
       const { data: dData, error: dError } = await supabase
-        .from("doctors")
+        .from("profiles")
         .select("*")
-        .order("name");
+        .eq("role", "doctor")
+        .order("full_name");
 
       if (dError) throw dError;
 
@@ -40,7 +41,7 @@ export default function DoctorsPage() {
         const docCases = (cData || []).filter(c => c.assigned_doctor_id === doc.id);
         const activeCount = docCases.filter(c => c.status === "assigned" || c.status === "active").length;
         const totalCount = docCases.length;
-        return { ...doc, activeCount, totalCount };
+        return { ...doc, activeCount, totalCount, is_active: true }; // Hardcode is_active for now
       });
 
       setDoctors(mapped);
@@ -48,21 +49,6 @@ export default function DoctorsPage() {
       console.error("Error fetching doctors:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const toggleAvailability = async (id: string, currentStatus: boolean) => {
-    try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase
-        .from("doctors")
-        .update({ is_active: !currentStatus })
-        .eq("id", id);
-
-      if (error) throw error;
-      await fetchDoctors();
-    } catch (err) {
-      alert("Failed to update status");
     }
   };
 
@@ -82,7 +68,7 @@ export default function DoctorsPage() {
             <Stethoscope className="h-8 w-8 text-mt-primary" />
             Doctor Management
           </h1>
-          <p className="text-mt-text-secondary mt-1">Manage doctor availability and monitor caseloads.</p>
+          <p className="text-mt-text-secondary mt-1">Monitor doctor caseloads.</p>
         </div>
       </div>
 
@@ -90,22 +76,17 @@ export default function DoctorsPage() {
         {doctors.map(doc => (
           <div key={doc.id} className="bg-white rounded-2xl border border-mt-border p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
             {/* Status Indicator Strip */}
-            <div className={`absolute top-0 left-0 w-1 h-full ${doc.is_active ? 'bg-mt-success' : 'bg-slate-300'}`}></div>
+            <div className={`absolute top-0 left-0 w-1 h-full bg-mt-success`}></div>
             
             <div className="flex justify-between items-start pl-2 mb-4">
               <div>
-                <h3 className="font-bold text-lg text-mt-text">Dr. {doc.name}</h3>
-                <p className="text-sm font-medium text-mt-text-secondary">{doc.specialization}</p>
+                <h3 className="font-bold text-lg text-mt-text">Dr. {doc.full_name}</h3>
+                <p className="text-sm font-medium text-mt-text-secondary">{doc.specialty || "Homeopathic Physician"}</p>
               </div>
               <button 
-                onClick={() => toggleAvailability(doc.id, doc.is_active)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-all ${
-                  doc.is_active 
-                    ? "bg-mt-success/10 text-mt-success border-mt-success/20 hover:bg-red-50 hover:text-red-600 hover:border-red-200" 
-                    : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-mt-success/10 hover:text-mt-success hover:border-mt-success/20"
-                }`}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-all bg-mt-success/10 text-mt-success border-mt-success/20 cursor-default"
               >
-                {doc.is_active ? <><CheckCircle2 className="w-3 h-3"/> Active</> : <><XCircle className="w-3 h-3"/> Offline</>}
+                <CheckCircle2 className="w-3 h-3"/> Active
               </button>
             </div>
 
@@ -120,13 +101,6 @@ export default function DoctorsPage() {
               </div>
             </div>
             
-            {!doc.is_active && (
-              <div className="mt-4 pl-2">
-                <p className="text-xs text-orange-600 bg-orange-50 px-2 py-1.5 rounded border border-orange-100">
-                  This doctor will not appear in the assignment queue.
-                </p>
-              </div>
-            )}
           </div>
         ))}
       </div>
