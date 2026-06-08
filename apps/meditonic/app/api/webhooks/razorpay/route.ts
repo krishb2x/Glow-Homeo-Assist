@@ -128,7 +128,6 @@ export async function POST(req: Request) {
             );
           }
         }
-        
       } else if (paymentRecord.purpose === "program") {
         // Handle program enrollment activation
         await supabase

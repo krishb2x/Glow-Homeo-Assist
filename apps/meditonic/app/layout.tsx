@@ -7,6 +7,7 @@ import Footer from "@/components/layout/Footer";
 import { StoreProvider } from "@/components/store/StoreProvider";
 import { CartDrawer } from "@/components/store/CartDrawer";
 import Script from "next/script";
+import { Suspense } from "react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -74,7 +75,9 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
-          <CartDrawer />
+          <Suspense fallback={null}>
+            <CartDrawer />
+          </Suspense>
         </StoreProvider>
       </body>
     </html>

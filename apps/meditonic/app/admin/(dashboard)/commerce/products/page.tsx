@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
-import { Search, Plus, Edit, Package, CircleDot, AlertCircle } from "lucide-react";
+import { Search, Plus, Edit, Package, CircleDot, AlertCircle, ExternalLink } from "lucide-react";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -16,7 +16,7 @@ export default function ProductsPage() {
       const supabase = getSupabaseBrowser();
       try {
         const { data, error } = await supabase
-          .from("mt_products")
+          .from("mt_ebooks")
           .select("*")
           .order("sort_order", { ascending: true });
           
@@ -33,8 +33,7 @@ export default function ProductsPage() {
 
   const filteredProducts = products.filter(p => 
     p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.product_type.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -58,7 +57,7 @@ export default function ProductsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search by title, category, or type..." 
+              placeholder="Search by title or description..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
@@ -93,8 +92,8 @@ export default function ProductsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-12 bg-slate-100 rounded overflow-hidden shrink-0">
-                          {product.cover_image_path ? (
-                            <img src={product.cover_image_path.startsWith('http') ? product.cover_image_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.cover_image_path}`} alt="" className="w-full h-full object-cover" />
+                          {product.cover_image_url ? (
+                            <img src={product.cover_image_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-slate-300">
                               <Package className="w-5 h-5" />
@@ -103,38 +102,43 @@ export default function ProductsPage() {
                         </div>
                         <div>
                           <div className="font-medium text-slate-800">{product.title}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">{product.category}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
-                        {product.product_type}
+                        EBOOK
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-slate-200 text-slate-600">
-                        {product.fulfillment_type}
+                        DIGITAL
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-800">{formatPrice(product.price)}</div>
-                      {product.original_price && (
-                        <div className="text-xs text-slate-400 line-through">{formatPrice(product.original_price)}</div>
-                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-xs font-medium">
-                        {product.status === 'PUBLISHED' ? (
-                          <><CircleDot className="w-3 h-3 text-emerald-500" /> Published</>
-                        ) : product.status === 'DRAFT' ? (
-                          <><CircleDot className="w-3 h-3 text-amber-500" /> Draft</>
+                        {product.is_active ? (
+                          <><CircleDot className="w-3 h-3 text-emerald-500" /> Active</>
                         ) : (
-                          <><AlertCircle className="w-3 h-3 text-slate-400" /> Archived</>
+                          <><AlertCircle className="w-3 h-3 text-slate-400" /> Inactive</>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right space-x-4">
+                      {product.is_active && (
+                        <a 
+                          href={`/ebooks/${product.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-slate-400 hover:text-emerald-600 transition-colors"
+                          title="View on Storefront"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
                       <Link 
                         href={`/admin/commerce/products/${product.id}`}
                         className="inline-flex items-center gap-1 text-slate-500 hover:text-emerald-600 font-medium text-sm transition-colors"

@@ -23,12 +23,12 @@ export default async function OperationsCommandCenter() {
     { data: activities, error: activitiesError },
     { data: doctors, error: doctorsError }
   ] = await Promise.all([
-    supabase.from("mt_cases").select("*, doctor:doctors(id, name)").eq("clinic_id", clinicId).order("created_at", { ascending: false }),
+    supabase.from("mt_cases").select("*, doctor:profiles(id, full_name)").eq("clinic_id", clinicId).order("created_at", { ascending: false }),
     supabase.from("mt_sync_queue").select("*").order("created_at", { ascending: false }),
     supabase.from("mt_payments").select("*").order("created_at", { ascending: false }),
     supabase.from("mt_partner_applications").select("*").eq("status", "pending"),
     supabase.from("mt_case_activities").select("*, case:mt_cases(patient_name)").order("created_at", { ascending: false }).limit(20),
-    supabase.from("doctors").select("id, name, specialization").eq("is_active", true)
+    supabase.from("profiles").select("id, full_name, specialization").eq("role", "doctor")
   ]);
 
   if (casesError) console.error("Cases Error:", casesError);
@@ -165,7 +165,7 @@ export default async function OperationsCommandCenter() {
                   <div className="flex items-center gap-3">
                     <div className="text-sm text-right hidden sm:block">
                       <p className="text-mt-text-secondary text-xs">Assigned to</p>
-                      <p className="font-medium text-mt-text">{c.doctor?.name ? `Dr. ${c.doctor.name}` : "Unassigned"}</p>
+                      <p className="font-medium text-mt-text">{c.doctor?.full_name ? `Dr. ${c.doctor.full_name}` : "Unassigned"}</p>
                     </div>
                     <Button asChild variant="outline" size="sm">
                       <Link href={`/admin/operations/cases/${c.id}`}>

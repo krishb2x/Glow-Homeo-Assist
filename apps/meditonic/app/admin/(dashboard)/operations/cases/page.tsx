@@ -23,7 +23,7 @@ export default function CasesPage() {
       const supabase = getSupabaseBrowser();
       const { data, error } = await supabase
         .from("mt_cases")
-        .select("*, doctor:doctors(name)")
+        .select("*, doctor:profiles(full_name)")
         .eq("clinic_id", BRAND.clinicId)
         .order("created_at", { ascending: false });
 
@@ -163,7 +163,7 @@ export default function CasesPage() {
                   </span>
 
                   <span className="flex items-center gap-1.5">
-                    Assigned: <span className="text-mt-text font-medium">{c.doctor?.name ? `Dr. ${c.doctor.name}` : "None"}</span>
+                    Assigned: <span className="text-mt-text font-medium">{c.doctor?.full_name ? `Dr. ${c.doctor.full_name}` : "None"}</span>
                   </span>
                 </div>
               </div>

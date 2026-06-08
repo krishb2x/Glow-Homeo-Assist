@@ -8,7 +8,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   const supabase = createAdminClient();
   
   const { data: product, error } = await supabase
-    .from("mt_products")
+    .from("mt_ebooks")
     .select("*")
     .eq("id", resolvedParams.id)
     .single();

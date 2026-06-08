@@ -5,6 +5,8 @@ import { formatPrice } from "@/lib/utils";
 import { createPublicClient } from "@/lib/supabase";
 import { BRAND } from "@/lib/constants";
 import LandingBuyButton from "@/components/store/LandingBuyButton";
+import ProductGallery from "@/components/store/ProductGallery";
+import VerifiedReviewsGallery from "./VerifiedReviewsGallery";
 import { Metadata } from "next";
 
 export const revalidate = 60;
@@ -14,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const supabase = createPublicClient();
   
   const { data: product } = await supabase
-    .from("mt_products")
+    .from("mt_ebooks")
     .select("title, description, cover_image_path")
     .eq("slug", resolvedParams.slug)
     .single();
@@ -49,7 +51,7 @@ export default async function StoreProductPage({
   const supabase = createPublicClient();
 
   const { data: product, error } = await supabase
-    .from("mt_products")
+    .from("mt_ebooks")
     .select("*")
     .eq("slug", resolvedParams.slug)
     .eq("clinic_id", BRAND.clinicId)
@@ -84,21 +86,13 @@ export default async function StoreProductPage({
           <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
             {/* Left Column: Gallery */}
             <div className="w-full lg:w-1/2 flex flex-col gap-4">
-              <div className={`relative w-full ${isCombo ? 'aspect-[4/3]' : 'aspect-[3/4]'} bg-mt-primary-bg rounded-2xl overflow-hidden shadow-sm border border-mt-border`}>
-                {imageSrc ? (
-                  <img
-                    src={imageSrc}
-                    alt={product.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#1B6B5C] to-[#0A3D33] flex items-center justify-center p-8">
-                    <span className="text-white/50 font-display text-4xl text-center leading-tight drop-shadow-md">
-                      {product.title}
-                    </span>
-                  </div>
-                )}
-              </div>
+              <ProductGallery 
+                title={product.title} 
+                coverImage={imageSrc} 
+                galleryImages={product.gallery_image_paths || []} 
+                isCombo={isCombo} 
+                videoUrl={metadata.preview_video_url} 
+              />
             </div>
 
             {/* Right Column: Product Details */}
@@ -107,6 +101,11 @@ export default async function StoreProductPage({
                 {product.metadata?.bestseller && (
                   <span className="bg-yellow-400 text-yellow-950 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
                     Bestseller
+                  </span>
+                )}
+                {product.metadata?.custom_badge && (
+                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    {product.metadata.custom_badge}
                   </span>
                 )}
                 <span className="bg-black/5 text-mt-text text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
@@ -148,13 +147,24 @@ export default async function StoreProductPage({
               </div>
 
               {/* Desktop Buy Button */}
-              <div className="hidden md:block w-full mb-12">
+              <div className="hidden md:flex flex-col gap-3 w-full mb-12">
                 <LandingBuyButton product={product as any} />
-                <p className="text-xs text-center text-mt-text-tertiary mt-4">Secure payment via Razorpay. Instant delivery.</p>
+                {product.preview_pdf_path && (
+                  <a
+                    href={product.preview_pdf_path.startsWith('http') ? product.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.preview_pdf_path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-4 px-6 rounded-xl border-2 border-mt-primary text-mt-primary font-bold text-center hover:bg-mt-primary/5 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FileText className="w-5 h-5" />
+                    Read Free Sample
+                  </a>
+                )}
+                <p className="text-xs text-center text-mt-text-tertiary mt-2">Secure payment via Razorpay. Instant delivery.</p>
               </div>
               
               {/* Description */}
-              <div className="prose prose-mt-primary text-mt-text-secondary mb-10 max-w-none">
+              <div className="prose prose-mt-primary text-mt-text-secondary mb-10 max-w-none whitespace-pre-wrap">
                 <p className="text-base md:text-lg leading-relaxed">{product.description}</p>
               </div>
               
@@ -197,6 +207,9 @@ export default async function StoreProductPage({
               )}
             </div>
           </div>
+          
+          {/* Verified Reviews Section */}
+          <VerifiedReviewsGallery reviews={metadata.verified_reviews || []} />
         </div>
       </main>
 
@@ -207,6 +220,17 @@ export default async function StoreProductPage({
             <span className="text-sm text-mt-text-secondary font-medium">Total Price</span>
             <span className="font-bold text-lg text-[#1B6B5C]">{formatPrice(product.price)}</span>
           </div>
+          {product.preview_pdf_path && (
+            <a
+              href={product.preview_pdf_path.startsWith('http') ? product.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.preview_pdf_path}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg border border-mt-primary text-mt-primary text-sm font-semibold flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Sample
+            </a>
+          )}
         </div>
         <LandingBuyButton product={product as any} />
       </div>

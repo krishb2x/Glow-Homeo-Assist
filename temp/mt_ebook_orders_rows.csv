@@ -1,0 +1,2 @@
+id,clinic_id,patient_id,total_amount,payment_status,delivery_status,delivered_at,delivered_via,created_at
+975c85b3-1ee0-4762-b52c-6949b892dedc,595cd444-e89c-4d1f-b31f-27f76f59e0d7,2f0df00e-517b-43fa-824c-7e24be2a7a9d,1500.00,created,pending,,email,2026-06-06 19:27:50.360789+00

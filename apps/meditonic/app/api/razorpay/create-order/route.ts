@@ -5,7 +5,7 @@ import { BRAND } from "@/lib/constants";
 
 export async function POST(req: Request) {
   try {
-    const { amount, items, contact } = await req.json();
+    const { amount, items, contact, referralCode } = await req.json();
 
     if (!amount || !items || !contact) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -40,7 +40,8 @@ export async function POST(req: Request) {
         items: items, // CartItem[]
         // Pick utm_source from the first item if exists
         utm_source: items[0]?.utm_source || null,
-        utm_campaign: items[0]?.utm_campaign || null
+        utm_campaign: items[0]?.utm_campaign || null,
+        audit_log: referralCode ? [{ action: 'applied_referral', code: referralCode, timestamp: new Date().toISOString() }] : []
       })
       .select()
       .single();

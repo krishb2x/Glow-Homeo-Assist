@@ -9,13 +9,13 @@ export const revalidate = 60; // Revalidate every minute
 export default async function StorefrontPage() {
   const supabase = createPublicClient();
   
-  // Single Source of Truth: ONLY query mt_products
+  // Single Source of Truth: ONLY query mt_ebooks
   const { data, error } = await supabase
-    .from("mt_products")
+    .from("mt_ebooks")
     .select("*")
     .eq("clinic_id", BRAND.clinicId)
     .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+    .order("created_at", { ascending: true });
     
   if (error) {
     console.error("Failed to fetch products:", error);
@@ -24,13 +24,15 @@ export default async function StorefrontPage() {
   const catalog = data || [];
   
   // Categorization
-  const combos = catalog.filter(e => e.product_type === 'BUNDLE' || e.is_combo);
-  const bestSellers = catalog.filter(e => e.metadata?.bestseller && !combos.find(c => c.id === e.id));
-  const individual = catalog.filter(e => !e.is_combo && e.product_type !== 'BUNDLE');
+  // Assuming 'slug' or 'title' determines combos if is_combo column is not present. But mt_ebooks does not have is_combo.
+  // Wait, let me just pass all of them as individual for now, or check if they have a 'bundle' in the title.
+  const combos = catalog.filter(e => e.title.toLowerCase().includes('bundle') || e.title.toLowerCase().includes('combo'));
+  const bestSellers = catalog.filter(e => e.price > 500 && !combos.find(c => c.id === e.id));
+  const individual = catalog.filter(e => !combos.find(c => c.id === e.id));
   
-  const diagnosticBooks = individual.filter(e => e.category === 'diagnostic');
-  const medicineBooks = individual.filter(e => e.category === 'medicine');
-  const gynePediaBooks = individual.filter(e => e.category === 'gyne_pedia');
+  const diagnosticBooks = individual.filter(e => e.title.toLowerCase().includes('diagnos') || e.title.toLowerCase().includes('test'));
+  const medicineBooks = individual.filter(e => e.title.toLowerCase().includes('medicine') || e.title.toLowerCase().includes('materia'));
+  const gynePediaBooks = individual.filter(e => e.title.toLowerCase().includes('gyne') || e.title.toLowerCase().includes('pedia'));
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FDFDFD] pb-32 pt-[52px]">

@@ -1,0 +1,10 @@
+id,case_id,action,performed_by,details,created_at
+0ef9e104-a814-4f3b-9543-96dbcf684b07,134f2818-7de5-4176-9509-792d2b732318,Case Created,,"{""message"":""Consultation booked from website"",""consultationId"":""2c214187-543c-4e12-b414-7acbe34fcaa8""}",2026-06-08 11:51:10.057362+00
+355e9dc1-73c8-44a4-9faf-12762b7873d0,55e43305-96b2-49b5-bb3a-c8fa1d0823a3,Case Created,,"{""message"":""Consultation booked from website"",""consultationId"":""ef939c14-eec3-49c2-bdae-f7cdd2f29633""}",2026-06-07 16:11:25.261285+00
+706c03eb-d4fb-4d07-84e6-cb6a83eb85c0,ef554878-8e99-4369-aa83-26f7e7fc87eb,Case Created,,"{""message"":""Consultation booked from website"",""consultationId"":""ace8c7e4-bbf2-4321-8255-bc8fa005bb0f""}",2026-06-07 16:26:07.617188+00
+8d317d38-ce83-46cb-961d-606d59b53bd5,183c65a4-58eb-459d-8c62-f3daae702aba,Case Created,,"{""message"":""Consultation booked from website"",""consultationId"":""72f31ad5-a6f7-47d1-a389-7d9e63eb5b0f""}",2026-06-08 15:14:23.834147+00
+95b3741d-9f82-4f27-b634-e74c196a91ed,9a93d185-951b-4b80-9ae4-b10e60b789e7,Case Created,,"{""message"":""Consultation booked from website"",""consultationId"":""605bf672-f1d5-4e49-84e2-eae3473d3c01""}",2026-06-08 15:12:42.608738+00
+b0952f08-d0de-4b92-8443-073f0eb44c52,9f7d7ea1-b73d-4935-a361-11c80ef67719,Payment Captured,,"{""amount"":2,""message"":""Razorpay webhook confirmed payment"",""orderId"":""order_Sz7jqeFB8DZRcX""}",2026-06-08 11:40:35.69281+00
+d904602f-371a-4034-9447-fc5447ea5b59,55e43305-96b2-49b5-bb3a-c8fa1d0823a3,Payment Captured,,"{""amount"":2,""message"":""Razorpay webhook confirmed payment"",""orderId"":""order_Synoz2CGKGqix1""}",2026-06-07 16:11:30.247095+00
+e51d2886-716f-4fea-ac37-b0ef2a65129d,9f7d7ea1-b73d-4935-a361-11c80ef67719,Case Created,,"{""message"":""Consultation booked from website"",""consultationId"":""ec3daa05-6f58-43a7-ba3e-1cc2d77c137b""}",2026-06-08 11:40:25.808712+00
+e86466d9-47d3-47a2-bc26-3fef27ce383b,3bba0c05-98dc-4931-a386-544bcd5c7f4a,Case Created,,"{""message"":""Consultation booked from website"",""consultationId"":""2b5e1926-f203-42d5-8fb2-80a05dbbd647""}",2026-06-07 16:20:45.420092+00

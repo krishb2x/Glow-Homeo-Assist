@@ -26,8 +26,10 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
         to: [to],
         cc: options?.cc ? [options.cc] : undefined,
         bcc: options?.bcc ? [options.bcc] : undefined,
+        reply_to: process.env.NOTIFICATION_REPLY_TO_EMAIL || "care@glowhomeo.in",
         subject,
-        html
+        html,
+        text: `Please enable HTML to view this email from MediTonic.`
       })
     });
 

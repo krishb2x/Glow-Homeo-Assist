@@ -34,17 +34,14 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
       
       const { data: cData, error: cError } = await supabase
         .from("mt_cases")
-        .select("*, doctor:doctors(id, name, specialization)")
+        .select("*, doctor:profiles(id, full_name, specialization)")
         .eq("id", id)
         .single();
 
       if (cError) throw cError;
       setCaseData(cData);
 
-      const { data: dData, error: dError } = await supabase
-        .from("doctors")
-        .select("id, name, specialization")
-        .eq("is_active", true);
+      const { data: dData, error: dError } = await supabase.from("profiles").select("id, full_name, specialization").eq("role", "doctor");
 
       if (dError) throw dError;
       setDoctors(dData || []);
@@ -210,7 +207,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="rounded-xl border border-mt-success/20 bg-mt-success/5 p-4 flex items-center gap-4">
                   <CheckCircle2 className="h-10 w-10 text-mt-success shrink-0" />
                   <div>
-                    <p className="font-bold text-lg text-mt-text">Dr. {caseData.doctor.name}</p>
+                    <p className="font-bold text-lg text-mt-text">Dr. {caseData.doctor.full_name}</p>
                     <p className="text-sm text-mt-text-secondary font-medium">{caseData.doctor.specialization}</p>
                   </div>
                 </div>
@@ -223,7 +220,7 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
                     {doctors.map((doc) => (
                       <div key={doc.id} className="flex flex-col justify-between p-4 border border-mt-border rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
                         <div className="mb-4">
-                          <p className="font-bold">Dr. {doc.name}</p>
+                          <p className="font-bold">Dr. {doc.full_name}</p>
                           <p className="text-xs text-mt-text-secondary font-medium">{doc.specialization}</p>
                         </div>
                         <Button 

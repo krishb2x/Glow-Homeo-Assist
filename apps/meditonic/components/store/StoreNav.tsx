@@ -11,13 +11,12 @@ export default function StoreNav() {
   return (
     <nav className="fixed top-0 left-0 right-0 h-[52px] bg-white border-b border-mt-border z-40 px-4 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <Link href="/ebooks" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded bg-mt-primary flex items-center justify-center">
             <span className="text-white font-display font-bold">M</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold leading-tight text-mt-text">MediTonic</span>
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-mt-primary leading-tight">Books & Guides</span>
+            <span className="text-lg font-bold leading-tight text-mt-text">MediTonic</span>
           </div>
         </Link>
       </div>
