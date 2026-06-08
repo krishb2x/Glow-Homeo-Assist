@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   
   const { data: product } = await supabase
     .from("mt_ebooks")
-    .select("title, description, cover_image_path")
+    .select("title, description, image_url")
     .eq("slug", resolvedParams.slug)
     .single();
 
@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url: `https://meditonic.glowhomeo.com/ebooks/${resolvedParams.slug}`,
       images: [
         {
-          url: product.cover_image_path || `https://meditonic.glowhomeo.com/og-default.jpg`,
+          url: product.image_url || `https://meditonic.glowhomeo.com/og-default.jpg`,
           width: 1200,
           height: 630,
         }
