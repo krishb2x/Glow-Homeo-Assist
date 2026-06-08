@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { sendConfirmationEmail } from "@/lib/email";
-import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased } from "@/lib/email-templates";
+import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased, Template_StorePaymentConfirmed } from "@/lib/email-templates";
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       // 0. Check if this is a Store Order in mt_orders
       const { data: storeOrder } = await supabase
         .from("mt_orders")
-        .select("id, status")
+        .select("id, status, customer_name, customer_email")
         .eq("razorpay_order_id", orderId)
         .single();
 
@@ -59,12 +59,29 @@ export async function POST(req: Request) {
           })
           .eq("id", storeOrder.id);
 
-        // Trigger fulfillment asynchronously
-        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://meditonic.glowhomeo.com'}/api/orders/fulfill`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mtOrderId: storeOrder.id })
-        }).catch(e => console.error("Webhook store fulfillment trigger failed:", e));
+        // Send Payment Confirmation Email (Email #1)
+        if (storeOrder.customer_email) {
+          try {
+            await sendConfirmationEmail(
+              storeOrder.customer_email,
+              "Payment Successful - MediTonic",
+              Template_StorePaymentConfirmed(storeOrder.customer_name, storeOrder.id)
+            );
+          } catch (err) {
+            console.error("Failed to send payment confirmation email:", err);
+          }
+        }
+
+        // Trigger fulfillment synchronously for serverless (must await)
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://meditonic.glowhomeo.com'}/api/orders/fulfill`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mtOrderId: storeOrder.id })
+          });
+        } catch (e) {
+          console.error("Webhook store fulfillment trigger failed:", e);
+        }
 
         return NextResponse.json({ status: "ok" });
       }

@@ -291,10 +291,110 @@ export function Template_ProgramPurchased(
       </p>
     </div>
 
-    <p style="margin: 0; color: #64748b; font-size: 15px; line-height: 24px;">
-      Warm regards,<br>
-      <strong style="color: #1e293b;">The MediTonic Team</strong>
     </p>
   `;
   return BaseTemplate("Program Enrollment Confirmed", "Your MediTonic program enrollment was successful.", html);
+}
+
+export function Template_StorePaymentConfirmed(name: string, orderId: string) {
+  const html = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="display: inline-block; width: 64px; height: 64px; background-color: #E5F1EE; border-radius: 50%; line-height: 64px; text-align: center;">
+        <span style="color: ${COLORS.primary}; font-size: 32px;">✓</span>
+      </div>
+    </div>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 24px; font-weight: 700; text-align: center;">Payment Successful</h2>
+    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px; text-align: center;">
+      Hi ${name}, thank you for your order! We have successfully received your payment for Order #${orderId.slice(0, 8)}.
+    </p>
+    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase;">Next Steps</h3>
+      <p style="margin: 0; color: #15803d; font-size: 14px; line-height: 22px;">
+        Your order is currently being processed. You will receive a separate email shortly containing your secure download links and delivery information.
+      </p>
+    </div>
+    <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Warm regards,<br>
+      <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
+    </p>
+  `;
+  return BaseTemplate("Payment Confirmed", "We have received your payment.", html);
+}
+
+export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[]) {
+  let html = `
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Your Order is Ready!</h2>
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Hi ${name},
+    </p>
+    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Your order #${orderId.slice(0, 8)} has been successfully fulfilled.
+    </p>
+  `;
+
+  if (downloadLinks.length > 0) {
+    html += `<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">`;
+    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 16px; font-weight: 600;">Your Digital Downloads</h3>`;
+    html += `<ul style="margin: 0; padding-left: 20px; color: ${COLORS.textPrimary}; font-size: 14px; line-height: 24px;">`;
+    downloadLinks.forEach(link => {
+      html += `<li style="margin-bottom: 8px;"><a href="${link.url}" style="color: ${COLORS.primary}; font-weight: 500;">${link.title}</a> <span style="color: #94a3b8; font-size: 12px;">(Expires in 7 days)</span></li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  if (physicalItems.length > 0) {
+    html += `<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">`;
+    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">Physical Deliveries</h3>`;
+    html += `<p style="margin: 0 0 12px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 20px;">The following items will be delivered to your address within 5-7 days:</p>`;
+    html += `<ul style="margin: 0; padding-left: 20px; color: ${COLORS.textPrimary}; font-size: 14px; line-height: 24px;">`;
+    physicalItems.forEach(item => {
+      html += `<li>${item.title}</li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  html += `
+    <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Warm regards,<br>
+      <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
+    </p>
+  `;
+  return BaseTemplate("Your Order is Ready", "Your download links and delivery information.", html);
+}
+
+export function Template_StoreAdminNotification(order: any, downloadLinks: any[], physicalItems: any[]) {
+  let html = `
+    <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px; font-weight: 600;">New Store Order Fulfilled</h2>
+    <p style="margin: 0 0 16px 0; color: #64748b; font-size: 15px; line-height: 24px;">
+      A new order has been paid and automatically fulfilled.
+    </p>
+    
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+      <tr><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; width: 120px; color: #64748b; font-size: 13px;">Order ID:</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 14px; font-weight: 500;">${order.id}</td></tr>
+      <tr><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 13px;">Customer:</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 14px; font-weight: 500;">${order.customer_name}</td></tr>
+      <tr><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 13px;">Email:</td><td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 14px; font-weight: 500;">${order.customer_email}</td></tr>
+      <tr><td style="padding: 12px 16px; color: #64748b; font-size: 13px;">Phone:</td><td style="padding: 12px 16px; color: #1e293b; font-size: 14px; font-weight: 500;">${order.customer_phone || 'N/A'}</td></tr>
+    </table>
+  `;
+
+  if (downloadLinks.length > 0) {
+    html += `
+      <h3 style="margin: 0 0 12px 0; color: #1e293b; font-size: 14px;">Digital Items Provided:</h3>
+      <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #64748b; font-size: 14px;">
+        ${downloadLinks.map(link => `<li>${link.title}</li>`).join('')}
+      </ul>
+    `;
+  }
+
+  if (physicalItems.length > 0) {
+    html += `
+      <h3 style="margin: 0 0 12px 0; color: #1e293b; font-size: 14px;">Physical Items (Action Required):</h3>
+      <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #b91c1c; font-size: 14px; font-weight: 500;">
+        ${physicalItems.map(item => `<li>${item.title}</li>`).join('')}
+      </ul>
+      <p style="margin: 0 0 24px 0; color: #64748b; font-size: 14px;">Please ensure physical items are shipped to the customer's address.</p>
+    `;
+  }
+
+  return BaseTemplate("Admin: New Order", "A new store order was placed.", html);
 }
