@@ -29,15 +29,15 @@ export default function DoctorsPage() {
       // Fetch case counts per doctor
       const { data: cData, error: cError } = await supabase
         .from("mt_cases")
-        .select("doctor_id, status")
+        .select("assigned_doctor_id, status")
         .eq("clinic_id", BRAND.clinicId)
-        .not("doctor_id", "is", null);
+        .not("assigned_doctor_id", "is", null);
 
       if (cError) throw cError;
 
       // Map case counts to doctors
       const mapped = (dData || []).map(doc => {
-        const docCases = (cData || []).filter(c => c.doctor_id === doc.id);
+        const docCases = (cData || []).filter(c => c.assigned_doctor_id === doc.id);
         const activeCount = docCases.filter(c => c.status === "assigned" || c.status === "active").length;
         const totalCount = docCases.length;
         return { ...doc, activeCount, totalCount };

@@ -169,7 +169,7 @@ export default function CasesPage() {
               </div>
 
               <div className="shrink-0 w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t border-mt-border sm:border-0">
-                <Button asChild className="w-full sm:w-auto" variant={c.status === 'unassigned' ? 'default' : 'outline'}>
+                <Button asChild className="w-full sm:w-auto" variant={c.status === 'unassigned' ? 'primary' : 'outline'}>
                   <Link href={`/admin/operations/cases/${c.id}`} className="flex items-center justify-center gap-2 h-11 sm:h-9">
                     {c.status === 'unassigned' ? 'Assign Doctor' : 'Manage Case'}
                     <ArrowRight className="h-4 w-4" />

@@ -19,3 +19,10 @@ export function generateId(prefix: string) {
   const randomStr = Math.floor(1000 + Math.random() * 9000).toString();
   return `${prefix}-${dateStr}-${randomStr}`;
 }
+
+export function formatDate(dateString: string | Date) {
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(dateString));
+}

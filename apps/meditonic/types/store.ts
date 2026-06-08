@@ -1,0 +1,64 @@
+export type ProductType = 'EBOOK' | 'PHYSICAL_BOOK' | 'PROGRAM' | 'COURSE' | 'CONSULTATION' | 'MEMBERSHIP' | 'BUNDLE';
+export type FulfillmentType = 'DIGITAL_DOWNLOAD' | 'PHYSICAL_SHIPPING' | 'LMS_ACCESS' | 'BOOKING';
+export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type OrderStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type FulfillmentStatus = 'unfulfilled' | 'partial' | 'fulfilled';
+
+export interface Product {
+  id: string;
+  clinic_id: string;
+  slug: string;
+  title: string;
+  description: string;
+  product_type: ProductType;
+  fulfillment_type: FulfillmentType;
+  price: number;
+  original_price?: number;
+  category: string;
+  audience?: string;
+  meta_title?: string;
+  meta_description?: string;
+  status: ProductStatus;
+  metadata?: any;
+  cover_image_path?: string;
+  gallery_image_paths?: string[];
+  preview_pdf_path?: string;
+  final_pdf_path?: string;
+  is_active: boolean;
+  sort_order: number;
+  is_combo: boolean;
+  combo_includes?: any;
+  stock_status?: string;
+  delivery_method?: string;
+  created_at: string;
+  updated_at: string;
+  // Temporary legacy mapping to prevent breaking existing UI until they are fully migrated
+  type?: string;
+  image_url?: string;
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  utm_source?: string;
+  utm_campaign?: string;
+}
+
+export interface Order {
+  id: string;
+  clinic_id: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  total_amount: number;
+  status: OrderStatus;
+  fulfillment_status: FulfillmentStatus;
+  utm_source?: string;
+  utm_campaign?: string;
+  items: CartItem[];
+  audit_log: any[];
+  created_at: string;
+  updated_at: string;
+}

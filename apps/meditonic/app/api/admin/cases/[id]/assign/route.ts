@@ -12,17 +12,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const supabase = createAdminClient();
 
-    // Update the case
-    const { error } = await supabase
-      .from("cases")
+    const { data: updatedCase, error: updateError } = await supabase
+      .from("mt_cases")
       .update({ 
-        doctor_id: doctorId,
+        assigned_doctor_id: doctorId,
         status: "assigned",
         updated_at: new Date().toISOString()
       })
       .eq("id", p.id);
 
-    if (error) throw error;
+    if (updateError) throw updateError;
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
