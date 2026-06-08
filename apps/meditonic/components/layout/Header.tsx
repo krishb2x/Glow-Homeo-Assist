@@ -3,17 +3,19 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
 import { BRAND, NAV_LINKS } from "@/lib/constants";
 import MobileMenu from "./MobileMenu";
+import { useStore } from "@/components/store/StoreProvider";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { cartCount, setIsCartOpen } = useStore();
 
   // Hide header on dashboard routes
-  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login') || pathname.startsWith('/ebooks');
+  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login');
 
   // Handle scroll effect
   useEffect(() => {
@@ -91,6 +93,19 @@ export default function Header() {
 
           {/* CTA & Mobile Toggle */}
           <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className="relative p-2 text-mt-text-secondary hover:text-mt-primary transition-colors"
+              aria-label="Open cart"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute top-0 right-0 w-4 h-4 bg-mt-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
             <Link
               href="/book-consultation"
               className="hidden rounded-lg bg-mt-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-mt-primary-light lg:inline-block"

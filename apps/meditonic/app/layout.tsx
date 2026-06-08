@@ -4,6 +4,9 @@ import "./globals.css";
 import { BRAND } from "@/lib/constants";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { StoreProvider } from "@/components/store/StoreProvider";
+import { CartDrawer } from "@/components/store/CartDrawer";
+import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -58,17 +61,21 @@ export default function RootLayout({
   return (
     <html lang="en" className={`scroll-smooth ${inter.variable} ${outfit.variable}`}>
       <body className="flex min-h-screen flex-col font-sans text-mt-text antialiased">
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-mt-primary focus:text-white"
-        >
-          Skip to main content
-        </a>
-        <Header />
-        <main id="main-content" className="flex-1">
-          {children}
-        </main>
-        <Footer />
+        <StoreProvider>
+          <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-mt-primary focus:text-white"
+          >
+            Skip to main content
+          </a>
+          <Header />
+          <main id="main-content" className="flex-1">
+            {children}
+          </main>
+          <Footer />
+          <CartDrawer />
+        </StoreProvider>
       </body>
     </html>
   );

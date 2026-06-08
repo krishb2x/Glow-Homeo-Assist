@@ -22,7 +22,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
   const pathname = usePathname();
 
-  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login') || pathname.startsWith('/ebooks');
+  const isDashboardRoute = pathname.startsWith('/admin') || pathname.startsWith('/partner-dashboard') || pathname.startsWith('/partner-login');
   if (isDashboardRoute) return null;
 
   return (
