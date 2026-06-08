@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Product } from "@/types/store";
 import { useStore } from "./StoreProvider";

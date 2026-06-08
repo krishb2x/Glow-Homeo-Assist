@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { formatPrice, formatDate } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeft, User, CreditCard, Package, Truck, Calendar, MapPin, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, User, CreditCard, Package, Truck, Calendar, MapPin, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
 import { Order } from "@/types/store";
 
 export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {

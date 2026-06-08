@@ -71,7 +71,7 @@ export default function CommerceDashboard() {
         const productMap: Record<string, { title: string, count: number, revenue: number }> = {};
         paidOrders.forEach(o => {
           if (o.items && Array.isArray(o.items)) {
-            o.items.forEach(item => {
+            o.items.forEach((item: any) => {
               const pId = item.product.id;
               if (!productMap[pId]) {
                 productMap[pId] = { title: item.product.title, count: 0, revenue: 0 };
