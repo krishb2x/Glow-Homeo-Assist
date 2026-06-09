@@ -22,7 +22,7 @@ export const CartDrawer = () => {
   // Referral State
   const { referralCode: autoRefCode, clearReferral } = useReferral();
   const [referralInput, setReferralInput] = useState("");
-  const [discountInfo, setDiscountInfo] = useState<{ type: string; value: number; code: string } | null>(null);
+  const [discountInfo, setDiscountInfo] = useState<{ type: string; value: number; code: string; applicableProducts?: any[] } | null>(null);
   const [validatingRef, setValidatingRef] = useState(false);
   const [refError, setRefError] = useState("");
 
@@ -38,10 +38,19 @@ export const CartDrawer = () => {
     setValidatingRef(true);
     setRefError("");
     try {
-      const res = await fetch(`/api/referral/validate?code=${encodeURIComponent(code)}&productType=ebooks`);
+      const res = await fetch(`/api/referral/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, items: cart })
+      });
       const data = await res.json();
       if (res.ok && data.success) {
-        setDiscountInfo({ type: data.discountType, value: data.discountValue, code: data.code });
+        setDiscountInfo({ 
+          type: data.discountType, 
+          value: data.discountValue, 
+          code: data.code,
+          applicableProducts: data.applicableProducts 
+        });
       } else {
         setRefError(data.error || "Invalid code");
         setDiscountInfo(null);
@@ -91,10 +100,27 @@ export const CartDrawer = () => {
   
   let discountAmount = 0;
   if (discountInfo) {
-    if (discountInfo.type === 'percentage') {
-      discountAmount = (cartTotal * discountInfo.value) / 100;
+    // Calculate eligible amount
+    let eligibleTotal = 0;
+    if (discountInfo.applicableProducts && discountInfo.applicableProducts.length > 0) {
+      cart.forEach(item => {
+        const itemType = item.product.category;
+        const isEligible = discountInfo.applicableProducts!.some(
+          (p: any) => p.product_type === 'all' || p.product_type === itemType || p.product_id === item.product.id
+        );
+        if (isEligible) {
+          eligibleTotal += (item.product.original_price || item.product.price) * item.quantity;
+        }
+      });
     } else {
-      discountAmount = discountInfo.value;
+      eligibleTotal = cartTotal;
+    }
+
+    if (discountInfo.type === 'percentage') {
+      discountAmount = (eligibleTotal * discountInfo.value) / 100;
+    } else {
+      // Fixed discount cannot exceed eligible total
+      discountAmount = Math.min(discountInfo.value, eligibleTotal);
     }
   }
   const finalTotal = Math.max(0, cartTotal - discountAmount);
@@ -240,11 +266,11 @@ export const CartDrawer = () => {
                     {discountInfo ? (
                       <div className="bg-[#1B6B5C]/10 rounded-lg p-3 flex items-center justify-between border border-[#1B6B5C]/20">
                         <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-[#1B6B5C]" />
+                          <CheckCircle2 className="w-5 h-5 text-[#1B6B5C]" />
                           <div>
-                            <p className="text-xs font-bold text-[#1B6B5C] uppercase">{discountInfo.code} Applied</p>
-                            <p className="text-[10px] text-mt-text-secondary">
-                              {discountInfo.type === 'percentage' ? `${discountInfo.value}% off` : `₹${discountInfo.value} off`}
+                            <p className="text-xs font-bold text-[#1B6B5C] uppercase">Referral Benefit Applied ✓</p>
+                            <p className="text-[10px] font-semibold text-mt-text-secondary mt-0.5">
+                              Code {discountInfo.code}: {discountInfo.type === 'percentage' ? `${discountInfo.value}% off` : `₹${discountInfo.value} off`}
                             </p>
                           </div>
                         </div>

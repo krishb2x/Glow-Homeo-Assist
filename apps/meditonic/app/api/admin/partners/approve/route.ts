@@ -91,18 +91,25 @@ export async function POST(req: Request) {
     const randomSuffix = Math.floor(100 + Math.random() * 900); // 3 digits
     const generatedCode = `${baseName}${randomSuffix}`;
 
-    const { error: codeError } = await supabase.from("mt_referral_codes").insert({
+    const { data: newCode, error: codeError } = await supabase.from("mt_referral_codes").insert({
       code: generatedCode,
       partner_id: partner.id,
       clinic_id: BRAND.clinicId,
       discount_type: "percentage",
       discount_value: 10,
+      landing_path: "/",
       is_active: true
-    });
+    }).select().single();
 
     if (codeError) {
       console.error("Failed to generate code:", codeError);
       // Non-fatal, they can generate manually later if this fails, but it shouldn't.
+    } else if (newCode) {
+      // Map to All Products by default
+      await supabase.from("mt_referral_products").insert({
+        referral_code_id: newCode.id,
+        product_type: "all"
+      });
     }
 
     // 6. Send Approval Email with Login Credentials

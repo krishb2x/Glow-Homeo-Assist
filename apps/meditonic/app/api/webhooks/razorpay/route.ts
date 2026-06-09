@@ -237,13 +237,14 @@ export async function POST(req: Request) {
         // Fetch the referral code and partner info
         const { data: referralData, error: referralError } = await supabase
           .from("mt_referral_codes")
-          .select("id, partner_id, current_usage, mt_partners(id, base_commission_rate)")
+          .select("id, partner_id, current_usage, commission_rate, mt_partners(id, base_commission_rate)")
           .eq("id", paymentRecord.referral_code_id)
           .single();
           
         if (!referralError && referralData && referralData.mt_partners) {
           const partner: any = Array.isArray(referralData.mt_partners) ? referralData.mt_partners[0] : referralData.mt_partners;
-          const commissionRate = partner?.base_commission_rate || 10;
+          // Use code-specific override if it exists, otherwise fall back to base rate
+          const commissionRate = referralData.commission_rate ?? (partner?.base_commission_rate || 10);
           const revenueAfterDiscount = paymentRecord.amount || 0;
           const commissionAmount = (revenueAfterDiscount * commissionRate) / 100;
 
@@ -260,7 +261,7 @@ export async function POST(req: Request) {
             revenue_after_discount: revenueAfterDiscount,
             commission_percentage: commissionRate,
             commission_amount: commissionAmount,
-            status: "paid"
+            status: "pending"
           });
           if (attrError) {
             console.error("Failed to insert attribution:", attrError);

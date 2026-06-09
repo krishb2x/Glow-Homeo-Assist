@@ -1,53 +1,31 @@
-"use client";
+import { createAdminClient } from "@/lib/supabase";
+import { MarkPaidButton } from "./MarkPaidButton";
 
-import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { Loader2, ArrowUpRight, Ban, CheckCircle } from "lucide-react";
+// Revalidate data on every request for this admin page to ensure fresh data
+export const revalidate = 0;
 
-export default function PartnerCommissionsPage() {
-  const [commissions, setCommissions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Simple modal state for Payout
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedPartner, setSelectedPartner] = useState("");
-  const [amount, setAmount] = useState<number | "">("");
-
-  useEffect(() => {
-    fetchCommissions();
-  }, []);
-
-  const fetchCommissions = async () => {
-    setLoading(true);
-    const supabase = getSupabaseBrowser();
-    
-    // Fetch attributions to see all tracked commissions
-    const { data } = await supabase
-      .from("mt_order_attributions")
-      .select(`
-        *,
-        mt_partners (
-          id,
-          mt_partner_applications ( name )
-        ),
-        mt_referral_codes ( code )
-      `)
-      .order("created_at", { ascending: false });
-    
-    if (data) setCommissions(data);
-    setLoading(false);
-  };
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
-  }
+export default async function PartnerCommissionsPage() {
+  const supabase = createAdminClient();
+  
+  // Fetch attributions to see all tracked commissions
+  const { data: commissions, error } = await supabase
+    .from("mt_order_attributions")
+    .select(`
+      *,
+      mt_partners (
+        id,
+        mt_partner_applications ( name )
+      ),
+      mt_referral_codes ( code )
+    `)
+    .order("created_at", { ascending: false });
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-6 border-b border-slate-200 flex justify-between items-center">
         <div>
           <h2 className="text-lg font-semibold text-slate-800">Commissions Ledger</h2>
-          <p className="text-sm text-slate-500 mt-1">View all recorded attributions and commissions.</p>
+          <p className="text-sm text-slate-500 mt-1">View all recorded attributions and mark them as paid.</p>
         </div>
       </div>
 
@@ -58,15 +36,15 @@ export default function PartnerCommissionsPage() {
               <th className="px-6 py-4">Date</th>
               <th className="px-6 py-4">Partner</th>
               <th className="px-6 py-4">Code Used</th>
-              <th className="px-6 py-4">Product Type</th>
               <th className="px-6 py-4">Revenue</th>
               <th className="px-6 py-4">Commission</th>
+              <th className="px-6 py-4">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {commissions.length === 0 ? (
+            {!commissions || commissions.length === 0 ? (
               <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No commissions recorded yet.</td></tr>
-            ) : commissions.map((item) => (
+            ) : commissions.map((item: any) => (
               <tr key={item.id} className="hover:bg-slate-50/50">
                 <td className="px-6 py-4">
                   <div className="text-sm text-slate-600">
@@ -86,9 +64,6 @@ export default function PartnerCommissionsPage() {
                     {item.mt_referral_codes?.code || "N/A"}
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-slate-600 capitalize">
-                  {item.product_type}
-                </td>
                 <td className="px-6 py-4">
                   <div className="text-sm text-slate-900 font-medium">
                     ₹{item.revenue_after_discount}
@@ -101,6 +76,9 @@ export default function PartnerCommissionsPage() {
                   <div className="text-xs text-slate-500">
                     ({item.commission_percentage}%)
                   </div>
+                </td>
+                <td className="px-6 py-4">
+                  <MarkPaidButton attributionId={item.id} currentStatus={item.status} />
                 </td>
               </tr>
             ))}

@@ -13,6 +13,7 @@ export default function PartnerDashboard() {
   const router = useRouter();
   const [partner, setPartner] = useState<any>(null);
   const [codes, setCodes] = useState<any[]>([]);
+  const [attributions, setAttributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState("");
   const [greeting, setGreeting] = useState("Welcome back");
@@ -54,6 +55,16 @@ export default function PartnerDashboard() {
           setCodes(codesData);
         }
 
+        const { data: attrData } = await supabase
+          .from("mt_order_attributions")
+          .select("*")
+          .eq("partner_id", partnerData.id)
+          .order("created_at", { ascending: false });
+
+        if (attrData) {
+          setAttributions(attrData);
+        }
+
       } catch (err) {
         console.error(err);
         router.push("/partner-login");
@@ -65,9 +76,10 @@ export default function PartnerDashboard() {
     fetchPartnerData();
   }, [router]);
 
-  const handleShare = async (code: string) => {
+  const handleShare = async (code: any) => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://meditonic.glowhomeo.com';
-    const link = `${baseUrl}?ref=${code}`;
+    const path = code.landing_path || '';
+    const link = `${baseUrl}${path}?ref=${code.code}`;
     
     // Use Native Share API if available (Mobile devices)
     if (navigator.share) {
@@ -110,8 +122,18 @@ export default function PartnerDashboard() {
 
   const name = partner?.mt_partner_applications?.name || "Partner";
   const firstName = name.split(" ")[0];
-  const activeCode = codes.find(c => c.is_active);
+  const activeCodes = codes.filter(c => c.is_active);
   const revenue = partner.total_revenue || 0;
+  
+  // Calculate specific metrics from attributions
+  const pendingCommission = attributions
+    .filter(a => a.status === 'pending')
+    .reduce((sum, a) => sum + (a.commission_amount || 0), 0);
+    
+  const paidCommission = attributions
+    .filter(a => a.status === 'paid')
+    .reduce((sum, a) => sum + (a.commission_amount || 0), 0);
+    
   const targetRevenue = 50000;
   const progressPercent = Math.min(100, (revenue / targetRevenue) * 100);
 
@@ -149,48 +171,65 @@ export default function PartnerDashboard() {
           </h1>
         </div>
 
-        {/* PRIMARY ACTION: Referral Link (Mobile First Stack) */}
-        {activeCode ? (
-          <div className="bg-slate-900 rounded-3xl p-5 md:p-6 mb-8 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
-            {/* Background design elements to make it pop */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-emerald-500/30 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-            
-            <div className="relative z-10">
-              <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold mb-3">Your Referral Code</p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 flex-1 flex items-center justify-between">
-                  <span className="font-mono text-xl md:text-2xl font-bold tracking-wider">{activeCode.code}</span>
-                  <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] uppercase font-bold tracking-wider rounded-md border border-emerald-500/30">
-                    Active
-                  </span>
-                </div>
+        {/* MY REFERRAL CODES (Mobile First Stack) */}
+        {activeCodes.length > 0 ? (
+          <div className="space-y-4 mb-8">
+            {activeCodes.map((code) => (
+              <div key={code.id} className="bg-slate-900 rounded-3xl p-5 md:p-6 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-emerald-500/30 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
                 
-                <button 
-                  onClick={() => handleShare(activeCode.code)}
-                  className={`w-full sm:w-auto h-[52px] px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-                    copied === activeCode.code 
-                      ? "bg-emerald-500 text-white" 
-                      : "bg-emerald-400 text-slate-900 hover:bg-emerald-300 active:scale-[0.98]"
-                  }`}
-                >
-                  {copied === activeCode.code ? (
-                    <><Check className="w-5 h-5" /> Copied!</>
-                  ) : (
-                    <><Share2 className="w-5 h-5" /> Share Link</>
-                  )}
-                </button>
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-3">
+                    <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Referral Code</p>
+                    <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] uppercase font-bold tracking-wider rounded-md border border-emerald-500/30">
+                      Active
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 flex-1 flex items-center justify-between">
+                      <span className="font-mono text-xl md:text-2xl font-bold tracking-wider">{code.code}</span>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleShare(code)}
+                      className={`w-full sm:w-auto h-[52px] px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
+                        copied === code.code 
+                          ? "bg-emerald-500 text-white" 
+                          : "bg-emerald-400 text-slate-900 hover:bg-emerald-300 active:scale-[0.98]"
+                      }`}
+                    >
+                      {copied === code.code ? (
+                        <><Check className="w-5 h-5" /> Copied!</>
+                      ) : (
+                        <><Share2 className="w-5 h-5" /> Share Link</>
+                      )}
+                    </button>
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">Customer Gets</p>
+                      <p className="text-sm font-bold text-emerald-400">
+                        {code.discount_type === 'percentage' ? `${code.discount_value}% Off` : `₹${code.discount_value} Off`}
+                      </p>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">You Earn</p>
+                      <p className="text-sm font-bold text-white">
+                        {code.commission_rate ? `${code.commission_rate}%` : `${partner.base_commission_rate}%`} Commission
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="mt-4 flex gap-4 text-xs font-medium text-slate-400">
-                <span>Discount: <strong className="text-white">{activeCode.discount_type === 'percentage' ? `${activeCode.discount_value}%` : `₹${activeCode.discount_value}`} Off</strong></span>
-                <span>Used: <strong className="text-white">{activeCode.current_usage} times</strong></span>
-              </div>
-            </div>
+            ))}
           </div>
         ) : (
           <div className="bg-slate-50 border border-dashed border-slate-300 rounded-3xl p-6 mb-8 text-center">
             <Award className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <h3 className="font-semibold text-slate-700">Code Pending</h3>
-            <p className="text-sm text-slate-500 mt-1">Your referral code is being generated.</p>
+            <h3 className="font-semibold text-slate-700">No Active Codes</h3>
+            <p className="text-sm text-slate-500 mt-1">Your referral code is being generated or pending approval.</p>
           </div>
         )}
 
@@ -225,19 +264,57 @@ export default function PartnerDashboard() {
             </h3>
           </div>
 
-          {/* Revenue */}
-          <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-indigo-600">
-              <div className="bg-indigo-50 p-2 rounded-lg">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Revenue</span>
+          {/* Pending Commission */}
+          <div className="bg-amber-50/50 rounded-2xl p-4 md:p-5 border border-amber-200/50 shadow-sm col-span-1">
+            <div className="flex items-center gap-2 mb-3 text-amber-600">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Pending</span>
             </div>
             <h3 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-              {formatPrice(partner.total_revenue)}
+              {formatPrice(pendingCommission)}
             </h3>
           </div>
 
+          {/* Paid Commission */}
+          <div className="bg-emerald-50/50 rounded-2xl p-4 md:p-5 border border-emerald-200/50 shadow-sm col-span-1">
+            <div className="flex items-center gap-2 mb-3 text-emerald-600">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">Paid Out</span>
+            </div>
+            <h3 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+              {formatPrice(paidCommission)}
+            </h3>
+          </div>
+
+        </div>
+
+        {/* TRANSPARENCY LEDGER */}
+        <h2 className="text-lg font-bold text-slate-900 mb-4 px-1 mt-8">Recent Sales</h2>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+          {attributions.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">No sales recorded yet.</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {attributions.slice(0, 10).map((attr) => (
+                <div key={attr.id} className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{attr.product_type ? attr.product_type.replace('_', ' ') : 'Product Sale'}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{new Date(attr.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-600">+{formatPrice(attr.commission_amount)}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-0.5">
+                      {attr.status === 'paid' ? (
+                        <span className="text-emerald-500">Paid</span>
+                      ) : attr.status === 'approved' ? (
+                        <span className="text-blue-500">Approved</span>
+                      ) : (
+                        <span className="text-amber-500">Pending</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* COMPACT PROGRESS CARD */}

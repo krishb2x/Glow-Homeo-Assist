@@ -27,15 +27,21 @@ export default function CheckoutForm({ ebook, isPhysical }: CheckoutFormProps) {
 
     try {
       const refCode = localStorage.getItem("mt_referral_code");
-      const res = await fetch("/api/ebook-order", {
+      const res = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          slug: ebook.slug, 
-          name, 
-          email, 
-          phone,
-          ...(isPhysical && { shippingAddress }),
+          amount: ebook.price,
+          items: [{
+            product: ebook,
+            quantity: 1
+          }],
+          contact: {
+            name,
+            email,
+            phone,
+            ...(isPhysical && { shippingAddress }),
+          },
           referralCode: refCode || undefined
         }),
       });
@@ -48,14 +54,31 @@ export default function CheckoutForm({ ebook, isPhysical }: CheckoutFormProps) {
 
       // Razorpay Checkout modal
       const options = {
-        key: process.env.NEXT_PUBLIC_MEDITONIC_RAZORPAY_KEY_ID,
-        amount: responseData.amount,
+        key: responseData.keyId,
+        amount: Math.round(ebook.price * 100),
         currency: "INR",
-        name: "MediTonic eBooks",
+        name: "MediTonic",
         description: `Purchase: ${ebook.title}`,
-        order_id: responseData.razorpayOrderId,
-        handler: function (response: any) {
-          router.push(`/ebook-order-success?order_id=${responseData.orderId}`);
+        order_id: responseData.orderId,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch("/api/razorpay/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                mtOrderId: responseData.mtOrderId,
+              }),
+            });
+            if (!verifyRes.ok) throw new Error("Payment verification failed");
+            router.push(`/payment-success?order_id=${responseData.mtOrderId}`);
+          } catch (e) {
+            console.error("Verification failed:", e);
+            setError("Payment verification failed. Please contact support.");
+            setIsSubmitting(false);
+          }
         },
         prefill: {
           name,

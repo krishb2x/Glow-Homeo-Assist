@@ -16,6 +16,8 @@ export default function ReferralCodesPage() {
     code: "",
     discount_type: "percentage",
     discount_value: 10,
+    commission_rate: "",
+    product_scope: "all",
     usage_limit: "",
   });
 
@@ -67,7 +69,12 @@ export default function ReferralCodesPage() {
     e.preventDefault();
     const supabase = getSupabaseBrowser();
     
-    const { error } = await supabase
+    let landing_path = "/";
+    if (formData.product_scope === "ebooks") landing_path = "/ebooks";
+    if (formData.product_scope === "consultation") landing_path = "/consultation";
+    if (formData.product_scope === "programs") landing_path = "/programs";
+
+    const { data: newCode, error } = await supabase
       .from("mt_referral_codes")
       .insert({
         clinic_id: "595cd444-e89c-4d1f-b31f-27f76f59e0d7", // Fallback, will normally be dynamic
@@ -75,15 +82,25 @@ export default function ReferralCodesPage() {
         code: formData.code.toUpperCase(),
         discount_type: formData.discount_type,
         discount_value: Number(formData.discount_value),
+        commission_rate: formData.commission_rate ? Number(formData.commission_rate) : null,
+        landing_path: landing_path,
         usage_limit: formData.usage_limit ? Number(formData.usage_limit) : null,
         is_active: true
-      });
+      })
+      .select()
+      .single();
 
     if (error) {
       alert("Failed to create code: " + error.message);
-    } else {
+    } else if (newCode) {
+      // Map product scope
+      await supabase.from("mt_referral_products").insert({
+        referral_code_id: newCode.id,
+        product_type: formData.product_scope
+      });
+
       setIsDrawerOpen(false);
-      setFormData({ partner_id: "", code: "", discount_type: "percentage", discount_value: 10, usage_limit: "" });
+      setFormData({ partner_id: "", code: "", discount_type: "percentage", discount_value: 10, commission_rate: "", product_scope: "all", usage_limit: "" });
       fetchCodes();
     }
   };
@@ -214,7 +231,7 @@ export default function ReferralCodesPage() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-mt-text">Value</label>
+                  <label className="text-sm font-semibold text-mt-text">Discount Value</label>
                   <input 
                     required
                     type="number" 
@@ -222,6 +239,34 @@ export default function ReferralCodesPage() {
                     value={formData.discount_value} 
                     onChange={e => setFormData({...formData, discount_value: Number(e.target.value)})}
                     className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-mt-text">Product Scope</label>
+                  <select 
+                    value={formData.product_scope} 
+                    onChange={e => setFormData({...formData, product_scope: e.target.value})}
+                    className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all"
+                  >
+                    <option value="all">All Products</option>
+                    <option value="consultation">Consultations Only</option>
+                    <option value="ebooks">eBooks Only</option>
+                    <option value="programs">Programs Only</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-mt-text">Partner Comm. (%)</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    max="100"
+                    value={formData.commission_rate} 
+                    onChange={e => setFormData({...formData, commission_rate: e.target.value})}
+                    className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all"
+                    placeholder="Base Rate"
                   />
                 </div>
               </div>
