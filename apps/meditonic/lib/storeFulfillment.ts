@@ -33,7 +33,8 @@ export async function processStoreFulfillment(mtOrderId: string) {
         product_id: p.id,
         title: p.title,
         slug: p.slug,
-        stock_status: p.stock_status
+        stock_status: p.stock_status,
+        summary: p.summary || p.description,
       });
     } else if (p.product_type === 'BUNDLE' || p.is_bundle) {
       // Fetch bundle items from relationships
@@ -42,7 +43,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
         .select(`
           related_product_id,
           mt_products!mt_product_relationships_related_product_id_fkey (
-            id, title, slug, stock_status
+            id, title, slug, stock_status, summary, description
           )
         `)
         .eq("product_id", p.id)
@@ -56,7 +57,8 @@ export async function processStoreFulfillment(mtOrderId: string) {
               product_id: childProduct.id,
               title: childProduct.title,
               slug: childProduct.slug,
-              stock_status: childProduct.stock_status
+              stock_status: childProduct.stock_status,
+              summary: childProduct.summary || childProduct.description,
             });
           }
         }
@@ -70,7 +72,8 @@ export async function processStoreFulfillment(mtOrderId: string) {
   // Map to the format expected by the email template
   const downloadLinks = deliveredPdfs.map(pdf => ({
     title: pdf.title,
-    url: pdf.downloadUrl
+    url: pdf.downloadUrl,
+    summary: pdf.summary
   }));
 
   // Update database with delivery URLs

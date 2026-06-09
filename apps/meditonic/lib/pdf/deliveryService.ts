@@ -27,6 +27,7 @@ export interface DeliveryItem {
   doctor_name?: string;
   doctor_id?: string;
   stock_status?: string;
+  summary?: string;
 }
 
 export interface DeliveredPdf {
@@ -34,6 +35,7 @@ export interface DeliveredPdf {
   downloadUrl: string;
   expiresAt: string;
   s3Key: string;
+  summary?: string;
 }
 
 /**
@@ -109,6 +111,7 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
       downloadUrl,
       expiresAt,
       s3Key: wKey,
+      summary: item.summary,
     };
   } catch (err: any) {
     console.error(`[PDF] Failed to process ${item.title} (Key: ${originalKey}):`, err.message);

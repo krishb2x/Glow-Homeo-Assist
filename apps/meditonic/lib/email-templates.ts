@@ -87,23 +87,24 @@ export function Template_ConsultationConfirmed(
       </div>
     </div>
 
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 24px; font-weight: 700; text-align: center;">Booking Confirmed!</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 24px; font-weight: 700; text-align: center;">Booking Confirmed! (बुकिंग कन्फर्म हो गई!)</h2>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px; text-align: center;">
-      Thank you for choosing MediTonic. Your payment was successful and your consultation request has been received.
+      Thank you for choosing MediTonic. Your payment was successful and your consultation request has been received.<br>
+      MediTonic को चुनने के लिए धन्यवाद। आपका भुगतान सफल रहा और आपका परामर्श अनुरोध प्राप्त हो गया है।
     </p>
 
     <!-- What happens next card -->
     <div style="background-color: #E5F1EE; border: 1px solid #cce3dc; padding: 24px; border-radius: 12px; margin-bottom: 32px;">
-      <h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 600;">What happens next?</h3>
+      <h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 600;">What happens next? (आगे क्या होगा?)</h3>
       
       <ul style="margin: 0; padding-left: 20px; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 24px;">
-        <li>Our team will review your details.</li>
-        <li>You will be contacted on your registered mobile number.</li>
-        <li>Consultation timing and further instructions will be shared shortly.</li>
+        <li>Our team will review your details.<br>(हमारी टीम आपके विवरण की समीक्षा करेगी।)</li>
+        <li>You will be contacted on your registered mobile number.<br>(आपके पंजीकृत मोबाइल नंबर पर आपसे संपर्क किया जाएगा।)</li>
+        <li>Consultation timing and further instructions will be shared shortly.<br>(परामर्श का समय और आगे के निर्देश जल्द ही साझा किए जाएंगे।)</li>
       </ul>
     </div>
 
-    <h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600; border-bottom: 1px solid ${COLORS.border}; padding-bottom: 8px;">Booking Details</h3>
+    <h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600; border-bottom: 1px solid ${COLORS.border}; padding-bottom: 8px;">Booking Details (बुकिंग विवरण)</h3>
     
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
       <tr>
@@ -128,7 +129,7 @@ export function Template_ConsultationConfirmed(
       </tr>
     </table>
   `;
-  return BaseTemplate("Booking Confirmed - MediTonic", "Your MediTonic consultation has been confirmed.", html);
+  return BaseTemplate("Booking Confirmed / बुकिंग कन्फर्म हो गई - MediTonic", "Your MediTonic consultation has been confirmed.", html);
 }
 
 export function Template_EbookPurchased(
@@ -137,21 +138,21 @@ export function Template_EbookPurchased(
 ) {
   const amountRow = details?.amount !== undefined ? `
     <tr>
-      <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px;">Amount Paid:</td>
+      <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px;">Amount Paid (भुगतान राशि):</td>
       <td style="padding-bottom: 8px; color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500;">₹${details.amount}</td>
     </tr>
   ` : "";
 
   const phoneRow = details?.phone ? `
     <tr>
-      <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px; width: 100px;">Phone/WA:</td>
+      <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px; width: 150px;">Phone/WA (फ़ोन):</td>
       <td style="padding-bottom: 8px; color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500;">${details.phone}</td>
     </tr>
   ` : "";
 
   const detailsHtml = (amountRow || phoneRow) ? `
     <div style="background-color: #f8fafc; border: 1px solid ${COLORS.border}; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 12px 0; color: ${COLORS.primary}; font-size: 14px; font-weight: 600; text-transform: uppercase;">Order Details</h3>
+      <h3 style="margin: 0 0 12px 0; color: ${COLORS.primary}; font-size: 14px; font-weight: 600; text-transform: uppercase;">Order Details (ऑर्डर विवरण)</h3>
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         ${phoneRow}
         ${amountRow}
@@ -189,88 +190,94 @@ export function Template_EbookPurchased(
 
 export function Template_PartnerApplication(name: string) {
   const html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Application Received</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Application Received (आवेदन प्राप्त हुआ)</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Hi ${name},
+      Hi / नमस्ते ${name},
     </p>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Thank you for applying to the <strong>MediTonic Partner Program</strong>! We have received your application.
+      Thank you for applying to the <strong>MediTonic Partner Program</strong>! We have received your application.<br>
+      <strong>MediTonic पार्टनर प्रोग्राम</strong> में आवेदन करने के लिए धन्यवाद! हमें आपका आवेदन प्राप्त हो गया है।
     </p>
     
     <div style="background-color: #f8fafc; border: 1px solid ${COLORS.border}; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
       <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 22px;">
-        Our team will review your application within the next 24-48 hours. Once approved, you'll receive your portal login details and instructions on how to generate your referral codes.
+        Our team will review your application within the next 24-48 hours. Once approved, you'll receive your portal login details and instructions on how to generate your referral codes.<br><br>
+        हमारी टीम अगले 24-48 घंटों के भीतर आपके आवेदन की समीक्षा करेगी। स्वीकृत होने के बाद, आपको अपने पोर्टल लॉगिन विवरण और अपने रेफरल कोड जनरेट करने के निर्देश प्राप्त होंगे।
       </p>
     </div>
 
     <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Warm regards,<br>
+      Warm regards (सादर),<br>
       <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
     </p>
   `;
-  return BaseTemplate("Application Received", "We have received your MediTonic Partner Application.", html);
+  return BaseTemplate("Application Received / आवेदन प्राप्त हुआ", "We have received your MediTonic Partner Application.", html);
 }
 
 export function Template_PartnerApproved(name: string, loginUrl: string, tempPassword: string, email: string) {
   const html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Welcome to the Program!</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Welcome to the Program! (प्रोग्राम में आपका स्वागत है!)</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Hi ${name},
+      Hi / नमस्ते ${name},
     </p>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      We are thrilled to welcome you to the <strong>MediTonic Partner Referral Program</strong>! Your application has been approved.
+      We are thrilled to welcome you to the <strong>MediTonic Partner Referral Program</strong>! Your application has been approved.<br>
+      हमें आपको <strong>MediTonic पार्टनर रेफरल प्रोग्राम</strong> में शामिल करने में खुशी हो रही है! आपका आवेदन स्वीकृत कर लिया गया है।
     </p>
     
     <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 12px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Your Portal Credentials</h3>
+      <h3 style="margin: 0 0 12px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Your Portal Credentials (आपके पोर्टल क्रेडेंशियल)</h3>
       
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px; width: 80px;">Login URL:</td>
+          <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px; width: 100px;">Login URL:</td>
           <td style="padding-bottom: 8px; font-size: 14px;"><a href="${loginUrl}" style="color: ${COLORS.primary}; font-weight: 500; text-decoration: none;">${loginUrl}</a></td>
         </tr>
         <tr>
-          <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px;">Email:</td>
+          <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px;">Email (ईमेल):</td>
           <td style="padding-bottom: 8px; color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500;">${email}</td>
         </tr>
         <tr>
-          <td style="color: ${COLORS.textSecondary}; font-size: 14px;">Password:</td>
+          <td style="color: ${COLORS.textSecondary}; font-size: 14px;">Password (पासवर्ड):</td>
           <td style="color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500; font-family: monospace; background: #dcfce7; padding: 2px 6px; border-radius: 4px; display: inline-block;">${tempPassword}</td>
         </tr>
       </table>
     </div>
 
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 22px;">
-      <em>Please log in to your dashboard to change your password immediately and view your assigned referral codes.</em>
+      <em>Please log in to your dashboard to change your password immediately and view your assigned referral codes.</em><br>
+      <em>कृपया अपना पासवर्ड तुरंत बदलने और अपने रेफरल कोड देखने के लिए अपने डैशबोर्ड में लॉग इन करें।</em>
     </p>
 
     <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Warm regards,<br>
+      Warm regards (सादर),<br>
       <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
     </p>
   `;
-  return BaseTemplate("Application Approved!", "Welcome to the MediTonic Partner Program.", html);
+  return BaseTemplate("Application Approved! / आवेदन स्वीकृत हुआ!", "Welcome to the MediTonic Partner Program.", html);
 }
 
 export function Template_PartnerRejected(name: string) {
   const html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Application Update</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Application Update (आवेदन अपडेट)</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Hi ${name},
+      Hi / नमस्ते ${name},
     </p>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Thank you for your interest in the MediTonic Partner Program. After careful consideration, we are unable to approve your application at this time.
+      Thank you for your interest in the MediTonic Partner Program. After careful consideration, we are unable to approve your application at this time.<br>
+      MediTonic पार्टनर प्रोग्राम में रुचि दिखाने के लिए धन्यवाद। सावधानीपूर्वक विचार करने के बाद, हम इस समय आपके आवेदन को स्वीकृत करने में असमर्थ हैं।
     </p>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      We appreciate you taking the time to apply and wish you the best in your future endeavors.
+      We appreciate you taking the time to apply and wish you the best in your future endeavors.<br>
+      हम आवेदन करने के लिए आपके द्वारा निकाले गए समय की सराहना करते हैं और आपके भविष्य के प्रयासों के लिए शुभकामनाएं देते हैं।
     </p>
 
     <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Warm regards,<br>
+      Warm regards (सादर),<br>
       <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
     </p>
   `;
-  return BaseTemplate("Application Update", "An update regarding your MediTonic Partner Application.", html);
+  return BaseTemplate("Application Update / आवेदन अपडेट", "An update regarding your MediTonic Partner Application.", html);
 }
 
 export function Template_ProgramPurchased(
@@ -278,24 +285,29 @@ export function Template_ProgramPurchased(
   details?: { programName?: string; amount?: number }
 ) {
   const html = `
-    <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px; font-weight: 600;">Welcome to the Program!</h2>
+    <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px; font-weight: 600;">Welcome to the Program! (प्रोग्राम में आपका स्वागत है!)</h2>
     <p style="margin: 0 0 16px 0; color: #64748b; font-size: 15px; line-height: 24px;">
-      Dear ${name},
+      Dear / प्रिय ${name},
     </p>
     <p style="margin: 0 0 24px 0; color: #64748b; font-size: 15px; line-height: 24px;">
-      Thank you for enrolling in the <strong>${details?.programName || 'MediTonic Premium Program'}</strong>. Your payment was successfully captured.
+      Thank you for enrolling in the <strong>${details?.programName || 'MediTonic Premium Program'}</strong>. Your payment was successfully captured.<br>
+      <strong>${details?.programName || 'MediTonic Premium Program'}</strong> में नामांकन करने के लिए धन्यवाद। आपका भुगतान सफलतापूर्वक प्राप्त हो गया है।
     </p>
     
     <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Next Steps</h3>
+      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Next Steps (अगला कदम)</h3>
       <p style="margin: 0; color: #15803d; font-size: 14px; line-height: 22px;">
-        Our clinical team has been notified of your enrollment. You will receive a follow-up email or call shortly with your comprehensive program guidelines and next steps.
+        Our clinical team has been notified of your enrollment. You will receive a follow-up email or call shortly with your comprehensive program guidelines and next steps.<br>
+        हमारी क्लिनिकल टीम को आपके नामांकन के बारे में सूचित कर दिया गया है। आपको अपने व्यापक प्रोग्राम दिशानिर्देशों और अगले कदमों के साथ जल्द ही एक फॉलो-अप ईमेल या कॉल प्राप्त होगी।
       </p>
     </div>
 
+    <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Warm regards (सादर),<br>
+      <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
     </p>
   `;
-  return BaseTemplate("Program Enrollment Confirmed", "Your MediTonic program enrollment was successful.", html);
+  return BaseTemplate("Program Enrollment Confirmed / प्रोग्राम नामांकन कन्फर्म हो गया", "Your MediTonic program enrollment was successful.", html);
 }
 
 export function Template_StorePaymentConfirmed(name: string, orderId: string) {
@@ -305,70 +317,131 @@ export function Template_StorePaymentConfirmed(name: string, orderId: string) {
         <span style="color: ${COLORS.primary}; font-size: 32px;">✓</span>
       </div>
     </div>
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 24px; font-weight: 700; text-align: center;">Payment Successful</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 24px; font-weight: 700; text-align: center;">Payment Successful (भुगतान सफल)</h2>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px; text-align: center;">
-      Hi ${name}, thank you for your order! We have successfully received your payment for Order #${orderId.slice(0, 8)}.
+      Hi / नमस्ते ${name}, thank you for your order! We have successfully received your payment for Order #${orderId.slice(0, 8)}.<br>
+      आपके ऑर्डर के लिए धन्यवाद! हमें ऑर्डर #${orderId.slice(0, 8)} के लिए आपका भुगतान सफलतापूर्वक प्राप्त हो गया है।
     </p>
     <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase;">Next Steps</h3>
+      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase;">Next Steps (अगला कदम)</h3>
       <p style="margin: 0; color: #15803d; font-size: 14px; line-height: 22px;">
-        Your order is currently being processed. You will receive a separate email shortly containing your secure download links and delivery information.
+        Your order is currently being processed. You will receive a separate email shortly containing your secure download links and delivery information.<br>
+        आपका ऑर्डर वर्तमान में प्रोसेस किया जा रहा है। आपको जल्द ही एक अलग ईमेल प्राप्त होगा जिसमें आपके सुरक्षित डाउनलोड लिंक और डिलीवरी की जानकारी होगी।
       </p>
     </div>
-    <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Warm regards,<br>
-      <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
-    </p>
-  `;
-  return BaseTemplate("Payment Confirmed", "We have received your payment.", html);
-}
-
-export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[]) {
-  let html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Your Order is Ready! (आपका ऑर्डर तैयार है!)</h2>
-    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Hi / नमस्ते ${name},
-    </p>
-    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Your order #${orderId.slice(0, 8)} has been successfully fulfilled.<br>
-      आपका ऑर्डर #${orderId.slice(0, 8)} सफलतापूर्वक पूरा हो गया है।
-    </p>
-  `;
-
-  if (downloadLinks.length > 0) {
-    html += `<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">`;
-    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 16px; font-weight: 600;">Your Digital Downloads (आपके डिजिटल डाउनलोड)</h3>`;
-    
-    html += `<div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 16px; border-radius: 4px;">`;
-    html += `<p style="margin: 0 0 8px 0; color: #b45309; font-size: 14px; line-height: 20px;"><strong>Security Notice:</strong> Your eBooks are securely locked. Please use your <strong>Phone Number</strong> as the password to open them. (If your phone number is missing, use your email address).</p>`;
-    html += `<p style="margin: 0; color: #b45309; font-size: 14px; line-height: 20px;"><strong>सुरक्षा सूचना:</strong> आपकी ई-बुक सुरक्षित रूप से लॉक की गई हैं। कृपया उन्हें खोलने के लिए अपने <strong>फ़ोन नंबर</strong> का पासवर्ड के रूप में उपयोग करें। (यदि फ़ोन नंबर नहीं है, तो अपने ईमेल पते का उपयोग करें)।</p>`;
-    html += `</div>`;
-    
-    html += `<ul style="margin: 0; padding-left: 20px; color: ${COLORS.textPrimary}; font-size: 14px; line-height: 24px;">`;
-    downloadLinks.forEach(link => {
-      html += `<li style="margin-bottom: 8px;"><a href="${link.url}" style="color: ${COLORS.primary}; font-weight: 500;">${link.title}</a> <span style="color: #94a3b8; font-size: 12px;">(Expires in 7 days / 7 दिनों में समाप्त)</span></li>`;
-    });
-    html += `</ul></div>`;
-  }
-
-  if (physicalItems.length > 0) {
-    html += `<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">`;
-    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">Physical Deliveries (फिजिकल डिलीवरी)</h3>`;
-    html += `<p style="margin: 0 0 12px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 20px;">The following items will be delivered to your address within 5-7 days:<br>निम्नलिखित आइटम 5-7 दिनों के भीतर आपके पते पर वितरित किए जाएंगे:</p>`;
-    html += `<ul style="margin: 0; padding-left: 20px; color: ${COLORS.textPrimary}; font-size: 14px; line-height: 24px;">`;
-    physicalItems.forEach(item => {
-      html += `<li>${item.title}</li>`;
-    });
-    html += `</ul></div>`;
-  }
-
-  html += `
     <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
       Warm regards (सादर),<br>
       <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
     </p>
   `;
-  return BaseTemplate("Your Order is Ready / आपका ऑर्डर तैयार है", "Your download links and delivery information.", html);
+  return BaseTemplate("Payment Confirmed / भुगतान प्राप्त हुआ", "We have received your payment.", html);
+}
+
+export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[]) {
+  let html = `
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Hello ${name},
+    </p>
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Your order #${orderId.slice(0, 8)} has been successfully processed.<br>
+      आपका ऑर्डर #${orderId.slice(0, 8)} सफलतापूर्वक पूरा कर दिया गया है।
+    </p>
+  `;
+
+  if (downloadLinks.length > 0) {
+    html += `
+    <p style="margin: 0 0 8px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">
+      Your Digital Download
+    </p>
+    `;
+    
+    downloadLinks.forEach(link => {
+      html += `
+      <p style="margin: 0 0 8px 0; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 600; line-height: 24px;">
+        ${link.title}
+      </p>
+      `;
+
+      if (link.summary) {
+        html += `
+        <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 22px;">
+          ${link.summary}
+        </p>
+        `;
+      }
+
+      html += `
+      <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+        Download Link:<br>
+        <a href="${link.url}" style="color: ${COLORS.primary}; font-weight: 500; text-decoration: underline;">[Download eBook]</a>
+      </p>
+      `;
+    });
+
+    html += `
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Link Validity:<br>
+      This secure download link will remain active for 7 days.<br>
+      यह सुरक्षित डाउनलोड लिंक 7 दिनों तक सक्रिय रहेगा।
+    </p>
+
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">
+      PDF Password
+    </p>
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Password: Your Registered Mobile Number
+    </p>
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      If a mobile number was not provided during purchase, please use your registered email address.<br>
+      यदि खरीद के समय मोबाइल नंबर उपलब्ध नहीं कराया गया था, तो कृपया अपना पंजीकृत ईमेल पता पासवर्ड के रूप में उपयोग करें।
+    </p>
+
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">
+      Security Notice
+    </p>
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      This eBook is a licensed copy generated exclusively for you and contains personalized ownership protection.<br>
+      यह ई-बुक केवल आपके उपयोग हेतु लाइसेंस प्राप्त प्रति है और इसमें व्यक्तिगत स्वामित्व सुरक्षा शामिल है।
+    </p>
+    `;
+  }
+
+  if (physicalItems.length > 0) {
+    html += `
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">
+      Physical Deliveries
+    </p>
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      The following items will be delivered to your address within 5-7 days:<br>
+      निम्नलिखित आइटम 5-7 दिनों के भीतर आपके पते पर वितरित किए जाएंगे:
+    </p>
+    <ul style="margin: 0 0 16px 0; padding-left: 20px; color: ${COLORS.textPrimary}; font-size: 14px; line-height: 24px;">
+    `;
+    physicalItems.forEach(item => {
+      html += `<li>${item.title}</li>`;
+    });
+    html += `</ul>`;
+  }
+
+  html += `
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      If you experience any issues accessing your download, please contact our support team.<br>
+      यदि डाउनलोड करने में कोई समस्या आती है, तो कृपया हमारी सहायता टीम से संपर्क करें।
+    </p>
+
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      Warm Regards,<br><br>
+      MediTonic Team<br>
+      "Healing Beyond Symptoms – Restoring Health, Hormones, and Happiness."<br>
+      care.meditonic@gmail.com
+    </p>
+    
+    <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 18px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+      This is an automated delivery email from MediTonic.<br>
+      Powered by GlowHomeo.
+    </p>
+  `;
+  return BaseTemplate(`Order #${orderId.slice(0, 8)} Delivered`, "Your order has been processed.", html);
 }
 
 export function Template_StoreAdminNotification(order: any, downloadLinks: any[], physicalItems: any[]) {
