@@ -113,14 +113,11 @@ export default function ReferralCodesPage() {
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-mt-text flex items-center gap-2">
-            <Ticket className="h-8 w-8 text-mt-primary" />
-            Referral Codes
-          </h1>
-          <p className="text-mt-text-secondary mt-1">Manage partner discount codes and usage limits.</p>
+          <h2 className="text-2xl font-bold tracking-tight">Tracking & Discount Codes</h2>
+          <p className="text-slate-500">Manage partner affiliate links and custom discount codes.</p>
         </div>
-        <Button onClick={() => setIsDrawerOpen(true)} className="w-full sm:w-auto h-11 sm:h-10 shrink-0">
-          <Plus className="w-4 h-4 mr-2" /> Create Code
+        <Button onClick={() => setIsDrawerOpen(true)} className="w-full sm:w-auto h-11 sm:h-10 shrink-0 bg-emerald-600 hover:bg-emerald-700">
+          <Plus className="w-4 h-4 mr-2" /> Create Tracking Code
         </Button>
       </div>
 
@@ -184,7 +181,7 @@ export default function ReferralCodesPage() {
           {/* Drawer Panel */}
           <div className="w-full max-w-md h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             <div className="px-6 py-4 border-b border-mt-border flex justify-between items-center bg-gray-50/50 shrink-0">
-              <h3 className="text-lg font-bold text-mt-text">Create Referral Code</h3>
+              <h3 className="font-semibold text-lg text-slate-900">Create Tracking Code</h3>
               <button onClick={() => setIsDrawerOpen(false)} className="p-2 -mr-2 text-mt-text-secondary hover:text-mt-text hover:bg-gray-100 rounded-full transition-colors">
                 <X className="w-5 h-5"/>
               </button>
@@ -207,15 +204,16 @@ export default function ReferralCodesPage() {
               </div>
               
               <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-mt-text">Code Name</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Code (Tracking ID) *</label>
                 <input 
                   required
                   type="text" 
                   value={formData.code} 
                   onChange={e => setFormData({...formData, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})}
                   className="w-full bg-gray-50 border border-mt-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-mt-primary/50 outline-none transition-all uppercase font-mono tracking-wider"
-                  placeholder="e.g. AMAN10"
+                  placeholder="e.g. KRISHNA10"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">This code will be automatically attached to their product links (e.g., ?ref=KRISHNA10).</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

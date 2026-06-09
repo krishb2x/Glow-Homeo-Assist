@@ -15,10 +15,21 @@ export async function saveProductAction(payload: any, productId?: string) {
       price: payload.price,
       original_price: payload.original_price || payload.price,
       image_url: payload.cover_image_path,
-      is_active: payload.status === 'PUBLISHED',
-      category: payload.category,
+      cover_image_path: payload.cover_image_path,
+      
+      // New Merchandising Columns
+      is_active: payload.is_active,
+      display_order: payload.display_order || 999,
+      is_featured: payload.is_featured || false,
+      is_bestseller: payload.is_bestseller || false,
+      is_new_release: payload.is_new_release || false,
+      is_bundle: payload.is_bundle || false,
+      category: payload.category || null,
+
+      // Legacy support mappings
       type: payload.product_type || 'EBOOK',
-      is_combo: payload.product_type === 'BUNDLE' || payload.is_combo,
+      is_combo: payload.product_type === 'BUNDLE' || payload.is_bundle,
+      
       metadata: {
         ...(payload.metadata || {}),
         gallery_image_paths: payload.gallery_image_paths || [],
@@ -30,22 +41,53 @@ export async function saveProductAction(payload: any, productId?: string) {
       }
     };
 
+    let targetProductId = productId;
+
     if (productId) {
       const { error } = await supabase
-        .from("mt_ebooks")
+        .from("mt_products")
         .update(commonFields)
         .eq("id", productId);
         
       if (error) throw error;
     } else {
-      const { error } = await supabase
-        .from("mt_ebooks")
+      const { data, error } = await supabase
+        .from("mt_products")
         .insert([{
           ...commonFields,
           clinic_id: BRAND.clinicId
-        }]);
+        }])
+        .select("id")
+        .single();
         
       if (error) throw error;
+      targetProductId = data.id;
+    }
+
+    // Handle Relationships (Upsells)
+    if (targetProductId) {
+      // First, clear existing upsells
+      await supabase
+        .from("mt_product_relationships")
+        .delete()
+        .eq("product_id", targetProductId)
+        .eq("relationship_type", "upsell");
+
+      // Then insert new ones
+      if (payload.related_product_ids && payload.related_product_ids.length > 0) {
+        const relationships = payload.related_product_ids.map((relId: string, idx: number) => ({
+          product_id: targetProductId,
+          related_product_id: relId,
+          relationship_type: "upsell",
+          sort_order: idx
+        }));
+
+        const { error: relError } = await supabase
+          .from("mt_product_relationships")
+          .insert(relationships);
+          
+        if (relError) console.error("Failed to save relationships", relError);
+      }
     }
 
     // Crucial: Clear storefront caches so changes are immediately visible
@@ -58,7 +100,7 @@ export async function saveProductAction(payload: any, productId?: string) {
 
     return { success: true };
   } catch (error: any) {
-    console.error("Save product error:", error);
+    console.error("Save Error:", error);
     return { success: false, error: error.message };
   }
 }

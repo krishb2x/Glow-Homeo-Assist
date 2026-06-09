@@ -12,7 +12,7 @@ export default async function YouTubeStoreLinkPage() {
   
   // Fetch top 3 converting products (Triple Bundle + 2 other bundles/books)
   const { data: products } = await supabase
-    .from("mt_ebooks") // Fallback table
+    .from("mt_products") // Fallback table
     .select("*")
     .eq("clinic_id", BRAND.clinicId)
     .eq("is_active", true)

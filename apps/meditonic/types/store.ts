@@ -25,7 +25,11 @@ export interface Product {
   preview_pdf_path?: string;
   final_pdf_path?: string;
   is_active: boolean;
-  sort_order: number;
+  display_order: number;
+  is_featured: boolean;
+  is_bestseller: boolean;
+  is_new_release: boolean;
+  is_bundle: boolean;
   is_combo: boolean;
   combo_includes?: any;
   stock_status?: string;
@@ -35,6 +39,7 @@ export interface Product {
   // Temporary legacy mapping to prevent breaking existing UI until they are fully migrated
   type?: string;
   image_url?: string;
+  related_product_ids?: string[];
 }
 
 export interface CartItem {

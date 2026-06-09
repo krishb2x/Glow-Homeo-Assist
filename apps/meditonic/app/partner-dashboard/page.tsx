@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { 
-  Copy, Check, LogOut, TrendingUp, DollarSign, 
-  ShoppingBag, Loader2, Sparkles, Share2, Target, Award 
+  Copy, Check, LogOut, DollarSign, 
+  ShoppingBag, Loader2, Sparkles, Target, Link as LinkIcon
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ export default function PartnerDashboard() {
   const router = useRouter();
   const [partner, setPartner] = useState<any>(null);
   const [codes, setCodes] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [attributions, setAttributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState("");
@@ -49,7 +50,8 @@ export default function PartnerDashboard() {
         const { data: codesData } = await supabase
           .from("mt_referral_codes")
           .select("*")
-          .eq("partner_id", partnerData.id);
+          .eq("partner_id", partnerData.id)
+          .eq("is_active", true);
 
         if (codesData) {
           setCodes(codesData);
@@ -65,6 +67,18 @@ export default function PartnerDashboard() {
           setAttributions(attrData);
         }
 
+        // Fetch Products for Marketing Marketplace
+        const { data: productsData } = await supabase
+          .from("mt_products")
+          .select("id, title, slug, price, cover_image_path, image_url")
+          .eq("clinic_id", "595cd444-e89c-4d1f-b31f-27f76f59e0d7") // BRAND.clinicId
+          .eq("is_active", true)
+          .order("display_order", { ascending: true });
+
+        if (productsData) {
+          setProducts(productsData);
+        }
+
       } catch (err) {
         console.error(err);
         router.push("/partner-login");
@@ -76,32 +90,9 @@ export default function PartnerDashboard() {
     fetchPartnerData();
   }, [router]);
 
-  const handleShare = async (code: any) => {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://meditonic.glowhomeo.com';
-    const path = code.landing_path || '';
-    const link = `${baseUrl}${path}?ref=${code.code}`;
-    
-    // Use Native Share API if available (Mobile devices)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'MediTonic Partner Link',
-          text: 'Book a consultation or purchase a program with my partner link!',
-          url: link,
-        });
-      } catch (err) {
-        // Fallback to copy if share was aborted or failed
-        copyToClipboard(code, link);
-      }
-    } else {
-      // Fallback for desktop/unsupported browsers
-      copyToClipboard(code, link);
-    }
-  };
-
-  const copyToClipboard = (code: string, link: string) => {
+  const copyToClipboard = (id: string, link: string) => {
     navigator.clipboard.writeText(link);
-    setCopied(code);
+    setCopied(id);
     setTimeout(() => setCopied(""), 2000);
   };
 
@@ -122,10 +113,12 @@ export default function PartnerDashboard() {
 
   const name = partner?.mt_partner_applications?.name || "Partner";
   const firstName = name.split(" ")[0];
-  const activeCodes = codes.filter(c => c.is_active);
   const revenue = partner.total_revenue || 0;
   
-  // Calculate specific metrics from attributions
+  // Use the first active code as the primary tracking ID
+  const primaryCode = codes.length > 0 ? codes[0].code : null;
+  const partnerCommission = codes.length > 0 && codes[0].commission_rate ? codes[0].commission_rate : partner.base_commission_rate;
+  
   const pendingCommission = attributions
     .filter(a => a.status === 'pending')
     .reduce((sum, a) => sum + (a.commission_amount || 0), 0);
@@ -163,81 +156,25 @@ export default function PartnerDashboard() {
         {/* Welcome Section */}
         <div className="mb-6">
           <p className="text-slate-500 text-sm mb-1">{greeting},</p>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            {firstName}
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
-              <Sparkles className="w-3 h-3" /> Partner
-            </span>
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              {firstName}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
+                <Sparkles className="w-3 h-3" /> Partner
+              </span>
+            </h1>
+            {primaryCode && (
+              <div className="hidden sm:flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                Tracking ID: <span className="font-mono text-emerald-400">{primaryCode}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* MY REFERRAL CODES (Mobile First Stack) */}
-        {activeCodes.length > 0 ? (
-          <div className="space-y-4 mb-8">
-            {activeCodes.map((code) => (
-              <div key={code.id} className="bg-slate-900 rounded-3xl p-5 md:p-6 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-emerald-500/30 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-                
-                <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-3">
-                    <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Referral Code</p>
-                    <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] uppercase font-bold tracking-wider rounded-md border border-emerald-500/30">
-                      Active
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 flex-1 flex items-center justify-between">
-                      <span className="font-mono text-xl md:text-2xl font-bold tracking-wider">{code.code}</span>
-                    </div>
-                    
-                    <button 
-                      onClick={() => handleShare(code)}
-                      className={`w-full sm:w-auto h-[52px] px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-                        copied === code.code 
-                          ? "bg-emerald-500 text-white" 
-                          : "bg-emerald-400 text-slate-900 hover:bg-emerald-300 active:scale-[0.98]"
-                      }`}
-                    >
-                      {copied === code.code ? (
-                        <><Check className="w-5 h-5" /> Copied!</>
-                      ) : (
-                        <><Share2 className="w-5 h-5" /> Share Link</>
-                      )}
-                    </button>
-                  </div>
-                  
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">Customer Gets</p>
-                      <p className="text-sm font-bold text-emerald-400">
-                        {code.discount_type === 'percentage' ? `${code.discount_value}% Off` : `₹${code.discount_value} Off`}
-                      </p>
-                    </div>
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">You Earn</p>
-                      <p className="text-sm font-bold text-white">
-                        {code.commission_rate ? `${code.commission_rate}%` : `${partner.base_commission_rate}%`} Commission
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-slate-50 border border-dashed border-slate-300 rounded-3xl p-6 mb-8 text-center">
-            <Award className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <h3 className="font-semibold text-slate-700">No Active Codes</h3>
-            <p className="text-sm text-slate-500 mt-1">Your referral code is being generated or pending approval.</p>
-          </div>
-        )}
-
-        {/* PERFORMANCE METRICS (Responsive Grid) */}
+        {/* PERFORMANCE METRICS */}
         <h2 className="text-lg font-bold text-slate-900 mb-4 px-1">Performance</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-10">
           
-          {/* Earnings */}
           <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-3 text-emerald-600">
               <div className="bg-emerald-50 p-2 rounded-lg">
@@ -250,7 +187,6 @@ export default function PartnerDashboard() {
             </h3>
           </div>
 
-          {/* Conversions */}
           <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm">
             <div className="flex items-center gap-2 mb-3 text-blue-600">
               <div className="bg-blue-50 p-2 rounded-lg">
@@ -264,7 +200,6 @@ export default function PartnerDashboard() {
             </h3>
           </div>
 
-          {/* Pending Commission */}
           <div className="bg-amber-50/50 rounded-2xl p-4 md:p-5 border border-amber-200/50 shadow-sm col-span-1">
             <div className="flex items-center gap-2 mb-3 text-amber-600">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Pending</span>
@@ -273,24 +208,81 @@ export default function PartnerDashboard() {
               {formatPrice(pendingCommission)}
             </h3>
           </div>
-
-          {/* Paid Commission */}
-          <div className="bg-emerald-50/50 rounded-2xl p-4 md:p-5 border border-emerald-200/50 shadow-sm col-span-1">
-            <div className="flex items-center gap-2 mb-3 text-emerald-600">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">Paid Out</span>
-            </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-              {formatPrice(paidCommission)}
-            </h3>
-          </div>
-
         </div>
 
+        {/* PRODUCTS TO PROMOTE (THE NEW MARKETPLACE) */}
+        <div className="mb-4 px-1 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Products to Promote</h2>
+          {primaryCode && (
+            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
+              Commission: {partnerCommission}%
+            </span>
+          )}
+        </div>
+        
+        {primaryCode ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+            {products.map((product) => {
+              const link = `https://meditonic.glowhomeo.com/ebooks/${product.slug}?ref=${primaryCode}`;
+              const estimatedEarnings = (product.price * partnerCommission) / 100;
+              const imageSrc = product.cover_image_path?.startsWith('http') 
+                ? product.cover_image_path 
+                : product.cover_image_path 
+                  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.cover_image_path}` 
+                  : product.image_url;
+
+              return (
+                <div key={product.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                  <div className="flex p-4 gap-4">
+                    <div className="w-20 h-24 shrink-0 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center">
+                      {imageSrc ? (
+                        <img src={imageSrc} alt={product.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <ShoppingBag className="w-8 h-8 text-slate-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <h3 className="font-bold text-slate-900 text-sm mb-1 leading-tight line-clamp-2" title={product.title}>
+                        {product.title}
+                      </h3>
+                      <div className="text-slate-500 text-xs mb-2">Retail: {formatPrice(product.price)}</div>
+                      <div className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded w-fit">
+                        Earn {formatPrice(estimatedEarnings)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-100 p-3 bg-slate-50 mt-auto">
+                    <button 
+                      onClick={() => copyToClipboard(product.id, link)}
+                      className={`w-full py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                        copied === product.id 
+                          ? "bg-emerald-600 text-white" 
+                          : "bg-white border border-slate-300 text-slate-700 hover:border-emerald-500 hover:text-emerald-700"
+                      }`}
+                    >
+                      {copied === product.id ? (
+                        <><Check className="w-4 h-4" /> Link Copied!</>
+                      ) : (
+                        <><LinkIcon className="w-4 h-4" /> Copy Affiliate Link</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-10 text-center">
+            <h3 className="font-semibold text-amber-800 mb-1">Tracking ID Pending</h3>
+            <p className="text-sm text-amber-700">Your account is active, but your primary tracking code is still being generated. Please contact support if this persists.</p>
+          </div>
+        )}
+
         {/* TRANSPARENCY LEDGER */}
-        <h2 className="text-lg font-bold text-slate-900 mb-4 px-1 mt-8">Recent Sales</h2>
+        <h2 className="text-lg font-bold text-slate-900 mb-4 px-1 mt-4">Recent Sales</h2>
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
           {attributions.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-sm">No sales recorded yet.</div>
+            <div className="p-8 text-center text-slate-500 text-sm">No sales recorded yet. Start promoting your links!</div>
           ) : (
             <div className="divide-y divide-slate-100">
               {attributions.slice(0, 10).map((attr) => (
@@ -301,41 +293,12 @@ export default function PartnerDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-emerald-600">+{formatPrice(attr.commission_amount)}</p>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-0.5">
-                      {attr.status === 'paid' ? (
-                        <span className="text-emerald-500">Paid</span>
-                      ) : attr.status === 'approved' ? (
-                        <span className="text-blue-500">Approved</span>
-                      ) : (
-                        <span className="text-amber-500">Pending</span>
-                      )}
-                    </p>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">{attr.status}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
-
-        {/* COMPACT PROGRESS CARD */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-end mb-3">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <Target className="w-4 h-4 text-emerald-500"/> Next Milestone
-            </h3>
-            <span className="text-xs font-bold text-slate-500">{formatPrice(revenue)} / {formatPrice(targetRevenue)}</span>
-          </div>
-          <div className="h-3 bg-slate-100 rounded-full overflow-hidden mb-2">
-            <div 
-              className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out"
-              style={{ width: `${progressPercent}%` }}
-            ></div>
-          </div>
-          <p className="text-xs text-slate-500">
-            {progressPercent >= 100 
-              ? "Goal achieved! Excellent work." 
-              : `${formatPrice(targetRevenue - revenue)} remaining to unlock bonus tier.`}
-          </p>
         </div>
 
       </main>

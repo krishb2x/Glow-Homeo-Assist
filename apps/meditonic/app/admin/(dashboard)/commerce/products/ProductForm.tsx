@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { Product, ProductType, FulfillmentType, ProductStatus } from "@/types/store";
 import { BRAND } from "@/lib/constants";
@@ -17,27 +17,59 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [metaFields, setMetaFields] = useState<any>(initialData?.metadata || {});
-  const [isBestseller, setIsBestseller] = useState(initialData?.metadata?.bestseller || false);
   const [showPreview, setShowPreview] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  
+  // Available products for Upsell
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   
   const [formData, setFormData] = useState<Partial<Product>>({
     title: initialData?.title || "",
     slug: initialData?.slug || "",
     description: initialData?.description || "",
-    product_type: "EBOOK",
-    fulfillment_type: "DIGITAL_DOWNLOAD",
+    product_type: initialData?.product_type || "EBOOK",
+    fulfillment_type: initialData?.fulfillment_type || "DIGITAL_DOWNLOAD",
     price: initialData?.price || 0,
     original_price: (initialData as any)?.original_price || 0,
-    category: (initialData as any)?.category || "",
+    category: initialData?.category || "",
     meta_title: (initialData as any)?.meta_title || "",
     meta_description: (initialData as any)?.meta_description || "",
-    status: (initialData as any)?.is_active === false ? "DRAFT" : "PUBLISHED",
-    cover_image_path: (initialData as any)?.image_url || "",
-    gallery_image_paths: (initialData as any)?.gallery_image_paths || [],
-    preview_pdf_path: (initialData as any)?.preview_pdf_path || "",
-    final_pdf_path: (initialData as any)?.final_pdf_path || "",
+    
+    // Legacy support
+    status: (initialData as any)?.status || "PUBLISHED",
+    type: (initialData as any)?.type || "EBOOK",
+    
+    // Merchandising flags
+    is_active: initialData?.is_active ?? true,
+    display_order: initialData?.display_order ?? 999,
+    is_featured: initialData?.is_featured ?? false,
+    is_bestseller: initialData?.is_bestseller ?? false,
+    is_new_release: initialData?.is_new_release ?? false,
+    is_bundle: initialData?.is_bundle ?? false,
+    
+    cover_image_path: initialData?.cover_image_path || (initialData as any)?.image_url || "",
+    gallery_image_paths: initialData?.gallery_image_paths || [],
+    preview_pdf_path: initialData?.preview_pdf_path || "",
+    final_pdf_path: initialData?.final_pdf_path || "",
+    
+    // Relationships
+    related_product_ids: (initialData as any)?.related_product_ids || [],
   });
+
+  useEffect(() => {
+    // Fetch products for Upsell selection
+    const fetchProducts = async () => {
+      const supabase = getSupabaseBrowser();
+      const { data } = await supabase
+        .from("mt_products")
+        .select("id, title, price")
+        .eq("is_active", true)
+        .neq("id", initialData?.id || '00000000-0000-0000-0000-000000000000') // Don't allow upselling to self
+        .order("title");
+      if (data) setAvailableProducts(data as Product[]);
+    };
+    fetchProducts();
+  }, [initialData?.id]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'cover_image_path' | 'preview_pdf_path' | 'final_pdf_path', bucket: 'meditonic-public' | 'meditonic-private') => {
     const file = e.target.files?.[0];
@@ -57,8 +89,6 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
         .upload(filePath, file);
 
       if (error) throw error;
-      
-      // Store the bucket/filepath format so we can construct URLs later
       setFormData(prev => ({ ...prev, [field]: `${bucket}/${filePath}` }));
       
     } catch (err: any) {
@@ -114,31 +144,11 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     });
   };
 
-  const handlePreviewPdf = async (path: string, bucket: string) => {
-    if (!path) return;
-    const supabase = getSupabaseBrowser();
-    const filePath = path.replace(`${bucket}/`, '');
-    
-    if (bucket === 'meditonic-public') {
-      const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      window.open(data.publicUrl, '_blank');
-    } else {
-      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 60);
-      if (error) {
-        alert("Could not generate preview link");
-      } else {
-        window.open(data.signedUrl, '_blank');
-      }
-    }
-  };
-
   const getPayload = () => ({
     ...formData,
     metadata: {
       ...metaFields,
-      bestseller: isBestseller
     },
-    is_active: formData.status === 'PUBLISHED',
     clinic_id: BRAND.clinicId,
   });
 
@@ -170,10 +180,23 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: ['price', 'original_price'].includes(name) ? Number(value) : value 
+    const { name, value, type } = e.target as HTMLInputElement;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: ['price', 'original_price', 'display_order'].includes(name) ? Number(value) : value 
+      }));
+    }
+  };
+
+  const handleUpsellChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      related_product_ids: val ? [val] : [] // Store as array with one primary upsell for now
     }));
   };
 
@@ -184,7 +207,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
           <h2 className="text-2xl font-bold tracking-tight text-slate-800">
             {initialData ? "Edit Product" : "New Product"}
           </h2>
-          <p className="text-sm text-slate-500">Configure your commerce listing.</p>
+          <p className="text-sm text-slate-500">Configure your commerce listing and merchandising.</p>
         </div>
         {!showPreview && (
           <div className="flex gap-3">
@@ -222,23 +245,31 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Title</label>
-                <input required type="text" name="title" value={formData.title} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+                <input required type="text" name="title" value={formData.title} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Slug (URL)</label>
-                <input required type="text" name="slug" value={formData.slug} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-mono text-xs" />
+                <input required type="text" name="slug" value={formData.slug} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 font-mono text-xs" />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-              <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+              <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Category</label>
-                <input type="text" name="category" value={formData.category} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. diagnostic" />
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Collection / Category</label>
+                <select name="category" value={formData.category} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                  <option value="">No Category</option>
+                  <option value="Diagnostics">Diagnostics</option>
+                  <option value="Women's Health">Women's Health</option>
+                  <option value="Thyroid">Thyroid</option>
+                  <option value="PCOS">PCOS</option>
+                  <option value="Homeopathy Basics">Homeopathy Basics</option>
+                  <option value="Exam Preparation">Exam Preparation</option>
+                </select>
               </div>
             </div>
           </div>
@@ -254,7 +285,6 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                   <div className="flex flex-col gap-4">
                     <img src={formData.cover_image_path.startsWith('http') ? formData.cover_image_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${formData.cover_image_path}`} alt="Cover" className="h-32 object-contain rounded border bg-slate-50" />
                     <div className="flex items-center gap-4">
-                      <button type="button" onClick={() => window.open(formData.cover_image_path?.startsWith('http') ? formData.cover_image_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${formData.cover_image_path}`, '_blank')} className="text-emerald-600 text-xs font-semibold flex items-center gap-1"><ExternalLink className="w-3 h-3"/> View Full</button>
                       <button type="button" onClick={() => setFormData(p => ({...p, cover_image_path: ""}))} className="text-red-500 text-xs font-semibold flex items-center gap-1"><X className="w-3 h-3"/> Remove</button>
                     </div>
                   </div>
@@ -262,15 +292,15 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                   <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors">
                     <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'cover_image_path', 'meditonic-public')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     {uploadingImage ? <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" /> : <UploadCloud className="w-6 h-6 text-slate-400 mb-2" />}
-                    <span className="text-sm font-medium text-slate-600">Click or drag image to upload</span>
+                    <span className="text-sm font-medium text-slate-600">Upload Cover</span>
                   </div>
                 )}
               </div>
 
               {/* Gallery Images */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Gallery Images (Optional)</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Gallery Images</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                   {(formData.gallery_image_paths || []).map((path, idx) => (
                     <div key={idx} className="relative aspect-square border border-slate-200 rounded-lg overflow-hidden group">
                       <img src={path.startsWith('http') ? path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${path}`} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
@@ -283,165 +313,140 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                   <div className="relative border-2 border-dashed border-slate-300 rounded-lg aspect-square flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors">
                     <input type="file" accept="image/*" multiple onChange={handleGalleryUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     {uploadingGallery ? <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" /> : <UploadCloud className="w-5 h-5 text-slate-400 mb-1" />}
-                    <span className="text-[10px] font-medium text-slate-600">Add Images</span>
+                    <span className="text-[10px] font-medium text-slate-600">Add Image</span>
                   </div>
                 </div>
               </div>
 
-              {/* Sample/Preview PDF */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Sample PDF (meditonic-public) - Free Preview</label>
-                {formData.preview_pdf_path ? (
-                  <div className="flex items-center gap-4 bg-slate-50 p-3 rounded border">
-                    <span className="text-sm font-mono truncate flex-1">{formData.preview_pdf_path}</span>
-                    <button type="button" onClick={() => handlePreviewPdf(formData.preview_pdf_path || '', 'meditonic-public')} className="text-emerald-600 text-xs font-semibold flex items-center gap-1"><ExternalLink className="w-3 h-3"/> View</button>
-                    <button type="button" onClick={() => setFormData(p => ({...p, preview_pdf_path: ""}))} className="text-red-500 text-xs font-semibold flex items-center gap-1"><X className="w-3 h-3"/> Remove</button>
-                  </div>
-                ) : (
-                  <div className="relative border border-slate-300 rounded-lg p-3 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors">
-                    <input type="file" accept="application/pdf" onChange={(e) => handleFileUpload(e, 'preview_pdf_path', 'meditonic-public')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    {uploadingPdf ? <span className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Uploading...</span> : <span className="text-sm font-medium text-slate-600 flex items-center gap-2"><UploadCloud className="w-4 h-4"/> Upload Sample PDF</span>}
-                  </div>
-                )}
+              {/* PDF Uploads */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded-lg bg-slate-50">
+                  <label className="block text-xs font-bold text-slate-700 mb-2">Sample PDF (Public)</label>
+                  {formData.preview_pdf_path ? (
+                    <div className="flex items-center justify-between bg-white border p-2 rounded">
+                      <span className="text-xs truncate max-w-[150px]">{formData.preview_pdf_path}</span>
+                      <button type="button" onClick={() => setFormData(p => ({...p, preview_pdf_path: ""}))} className="text-red-500"><X className="w-4 h-4"/></button>
+                    </div>
+                  ) : (
+                    <div className="relative border-2 border-dashed border-slate-300 p-2 rounded text-center bg-white cursor-pointer hover:bg-slate-50">
+                      <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, 'preview_pdf_path', 'meditonic-public')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <span className="text-xs text-slate-500">Upload Sample PDF</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-4 border rounded-lg bg-emerald-50 border-emerald-100">
+                  <label className="block text-xs font-bold text-emerald-800 mb-2">Final Product PDF (Private)</label>
+                  {formData.final_pdf_path ? (
+                    <div className="flex items-center justify-between bg-white border border-emerald-200 p-2 rounded">
+                      <span className="text-xs truncate max-w-[150px]">{formData.final_pdf_path}</span>
+                      <button type="button" onClick={() => setFormData(p => ({...p, final_pdf_path: ""}))} className="text-red-500"><X className="w-4 h-4"/></button>
+                    </div>
+                  ) : (
+                    <div className="relative border-2 border-dashed border-emerald-300 p-2 rounded text-center bg-white cursor-pointer hover:bg-emerald-50">
+                      <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, 'final_pdf_path', 'meditonic-private')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <span className="text-xs text-emerald-600 font-semibold">Upload Full PDF</span>
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {/* Private PDF */}
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Marketing Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Final PDF (meditonic-private) - Sent to buyer</label>
-                {formData.final_pdf_path ? (
-                  <div className="flex items-center gap-4 bg-slate-50 p-3 rounded border">
-                    <span className="text-sm font-mono truncate flex-1">{formData.final_pdf_path}</span>
-                    <button type="button" onClick={() => handlePreviewPdf(formData.final_pdf_path || '', 'meditonic-private')} className="text-emerald-600 text-xs font-semibold flex items-center gap-1"><ExternalLink className="w-3 h-3"/> Preview</button>
-                    <button type="button" onClick={() => setFormData(p => ({...p, final_pdf_path: ""}))} className="text-red-500 text-xs font-semibold flex items-center gap-1"><X className="w-3 h-3"/> Remove</button>
-                  </div>
-                ) : (
-                  <div className="relative border border-slate-300 rounded-lg p-3 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors">
-                    <input type="file" accept="application/pdf" onChange={(e) => handleFileUpload(e, 'final_pdf_path', 'meditonic-private')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    {uploadingPdf ? <span className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Uploading...</span> : <span className="text-sm font-medium text-slate-600 flex items-center gap-2"><UploadCloud className="w-4 h-4"/> Upload Private PDF</span>}
-                  </div>
-                )}
+                <label className="block text-xs font-semibold text-slate-600 mb-1">YouTube Preview Video URL</label>
+                <input type="text" value={metaFields.preview_video_url || ''} onChange={(e) => setMetaFields((p: any) => ({...p, preview_video_url: e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="https://youtu.be/..." />
               </div>
+            </div>
+            
+            <div className="mt-6">
+              <VerifiedReviewsManager 
+                reviews={metaFields.verified_reviews || []} 
+                onChange={(reviews: VerifiedReview[]) => setMetaFields((p: any) => ({ ...p, verified_reviews: reviews }))} 
+              />
             </div>
           </div>
         </div>
 
-        {/* Right Column - Organization & Pricing */}
+        {/* Right Column - Merchandising & Pricing */}
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Metadata & Attributes</h3>
+            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Visibility & Ranking</h3>
             
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 pt-2">
-              <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-lg hover:bg-slate-50 transition-colors w-full sm:w-auto">
-                <input type="checkbox" checked={isBestseller} onChange={(e) => setIsBestseller(e.target.checked)} className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500" />
-                <div>
-                  <span className="text-sm font-semibold text-slate-800 block">Mark as Bestseller</span>
-                  <span className="text-xs text-slate-500 block">Shows up in the featured section</span>
-                </div>
-              </label>
-
-              <div className="w-full sm:w-auto flex-1">
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Custom Highlight Badge (Optional)</label>
-                <input type="text" value={metaFields.custom_badge || ''} onChange={e => setMetaFields((p: any) => ({...p, custom_badge: e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. New Edition, Limited Time Offer" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Pages / Length</label>
-                <input type="number" value={metaFields.pages || ''} onChange={e => setMetaFields((p: any) => ({...p, pages: Number(e.target.value)}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. 150" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Language</label>
-                <input type="text" value={metaFields.language || ''} onChange={e => setMetaFields((p: any) => ({...p, language: e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. English" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Format</label>
-                <input type="text" value={metaFields.format || ''} onChange={e => setMetaFields((p: any) => ({...p, format: e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. PDF" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Books Included</label>
-                <input type="number" value={metaFields.books || ''} onChange={e => setMetaFields((p: any) => ({...p, books: Number(e.target.value)}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. 3 (For Combos)" />
-              </div>
-            </div>
+            <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50 cursor-pointer">
+              <span className="text-sm font-semibold text-slate-700">Active (Public)</span>
+              <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} className="w-4 h-4 accent-emerald-600" />
+            </label>
             
-            <div className="pt-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Preview Video URL (YouTube)</label>
-              <input type="url" value={metaFields.preview_video_url || ''} onChange={e => setMetaFields((p: any) => ({...p, preview_video_url: e.target.value}))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="https://youtube.com/watch?v=..." />
-              <p className="text-xs text-slate-500 mt-1">Add a YouTube link to feature a preview video in the product gallery.</p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Display Order (1 = Highest)</label>
+              <input type="number" name="display_order" value={formData.display_order} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+              <p className="text-[10px] text-slate-500 mt-1">Products are sorted by this number ascending.</p>
             </div>
           </div>
           
-          {/* Verified Reviews Manager */}
-          <VerifiedReviewsManager 
-            reviews={metaFields.verified_reviews || []} 
-            onChange={(reviews: VerifiedReview[]) => setMetaFields((p: any) => ({ ...p, verified_reviews: reviews }))} 
-          />
-
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Configuration</h3>
+            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Merchandising Flags</h3>
+            
+            <div className="space-y-2">
+              <label className="flex items-center gap-3">
+                <input type="checkbox" name="is_featured" checked={formData.is_featured} onChange={handleChange} className="w-4 h-4 accent-emerald-600" />
+                <span className="text-sm text-slate-700">Featured Product</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" name="is_bestseller" checked={formData.is_bestseller} onChange={handleChange} className="w-4 h-4 accent-emerald-600" />
+                <span className="text-sm text-slate-700">Best Seller</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" name="is_new_release" checked={formData.is_new_release} onChange={handleChange} className="w-4 h-4 accent-emerald-600" />
+                <span className="text-sm text-slate-700">New Release</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" name="is_bundle" checked={formData.is_bundle} onChange={handleChange} className="w-4 h-4 accent-emerald-600" />
+                <span className="text-sm text-slate-700">Premium Bundle</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm p-6 space-y-4">
+            <h3 className="font-semibold text-emerald-800 border-b border-emerald-200 pb-2 mb-4">Upsell Engine</h3>
             
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Status</label>
-              <select name="status" value={formData.status} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
-                <option value="DRAFT">Draft</option>
-                <option value="PUBLISHED">Published</option>
-                <option value="ARCHIVED">Archived</option>
+              <label className="block text-xs font-semibold text-emerald-700 mb-1">Primary Upsell Recommendation</label>
+              <select 
+                value={(formData.related_product_ids && formData.related_product_ids.length > 0) ? formData.related_product_ids[0] : ""} 
+                onChange={handleUpsellChange} 
+                className="w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white"
+              >
+                <option value="">No Upsell (Standalone)</option>
+                {availableProducts.map(p => (
+                  <option key={p.id} value={p.id}>{p.title} (₹{p.price})</option>
+                ))}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Product Type</label>
-              <select name="product_type" value={formData.product_type} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
-                <option value="EBOOK">eBook (PDF)</option>
-                <option value="PHYSICAL_BOOK">Physical Book</option>
-                <option value="PROGRAM">Program</option>
-                <option value="COURSE">Course</option>
-                <option value="CONSULTATION">Consultation</option>
-                <option value="MEMBERSHIP">Membership</option>
-                <option value="BUNDLE">Bundle</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Fulfillment Type</label>
-              <select name="fulfillment_type" value={formData.fulfillment_type} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
-                <option value="DIGITAL_DOWNLOAD">Digital Download</option>
-                <option value="PHYSICAL_SHIPPING">Physical Shipping</option>
-                <option value="LMS_ACCESS">LMS Access</option>
-                <option value="BOOKING">Booking / Calendar</option>
-              </select>
+              <p className="text-[10px] text-emerald-600 mt-2 leading-relaxed">
+                Selecting a product here will automatically render an "Upgrade to Bundle & Save" card directly above the Buy button on this product's page.
+              </p>
             </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
             <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Pricing</h3>
-            
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Price (₹)</label>
-              <input required type="number" name="price" value={formData.price} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 font-mono" />
-            </div>
-            
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Original Price (₹) - Strike through</label>
-              <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 font-mono" />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Selling Price (₹)</label>
+                <input required type="number" name="price" value={formData.price} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-emerald-600" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Original Price (₹)</label>
+                <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-500" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">SEO</h3>
-            
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Meta Title</label>
-              <input type="text" name="meta_title" value={formData.meta_title} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
-            </div>
-            
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Meta Description</label>
-              <textarea name="meta_description" value={formData.meta_description} onChange={handleChange} rows={3} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
-            </div>
-          </div>
         </div>
-
       </div>
       )}
     </form>

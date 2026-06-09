@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const supabase = createPublicClient();
   
   const { data: product } = await supabase
-    .from("mt_ebooks")
+    .from("mt_products")
     .select("title, description, image_url")
     .eq("slug", resolvedParams.slug)
     .single();
@@ -52,7 +52,7 @@ export default async function StoreProductPage({
   const supabase = createPublicClient();
 
   const { data: product, error } = await supabase
-    .from("mt_ebooks")
+    .from("mt_products")
     .select("*")
     .eq("slug", resolvedParams.slug)
     .eq("clinic_id", BRAND.clinicId)
@@ -61,6 +61,22 @@ export default async function StoreProductPage({
   if (error || !product) {
     notFound();
   }
+
+  // Fetch Upsell Relationship
+  const { data: relationships } = await supabase
+    .from("mt_product_relationships")
+    .select(`
+      related_product_id,
+      related_product:mt_products!related_product_id (
+        id, title, price, original_price, cover_image_path, image_url, slug, is_bundle
+      )
+    `)
+    .eq("product_id", product.id)
+    .eq("relationship_type", "upsell")
+    .order("sort_order", { ascending: true })
+    .limit(1);
+
+  const upsell = relationships?.[0]?.related_product as any;
 
   let metadata: any = {};
   if (product.metadata) {
@@ -161,6 +177,34 @@ export default async function StoreProductPage({
 
               {/* 5. Buy Now Button & PDF Preview (Above the fold) */}
               <div className="flex flex-col gap-3 w-full mb-8">
+                
+                {/* UPSELL CARD */}
+                {upsell && (
+                  <div className="mb-2 w-full bg-emerald-50 border-2 border-emerald-500 rounded-xl p-4 relative overflow-hidden shadow-sm">
+                    <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
+                      Highly Recommended
+                    </div>
+                    <h4 className="font-bold text-emerald-900 mb-1 pr-24">Upgrade & Save!</h4>
+                    <p className="text-sm text-emerald-700 mb-3">
+                      Add the <span className="font-semibold">{upsell.title}</span> to your order and save instantly.
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-900 text-lg">{formatPrice(upsell.price)}</span>
+                        {upsell.original_price && upsell.original_price > upsell.price && (
+                          <span className="text-xs text-emerald-600 line-through">{formatPrice(upsell.original_price)}</span>
+                        )}
+                      </div>
+                      <Link 
+                        href={`/ebooks/${upsell.slug}`}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-4 rounded-lg transition-colors"
+                      >
+                        View Bundle
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 <LandingBuyButton product={product as any} />
                 
                 {metadata.preview_pdf_path && (
@@ -198,6 +242,13 @@ export default async function StoreProductPage({
                 </div>
               </div>
               
+              {/* 7. Dedicated Preview Video (Moved Above Description) */}
+              {metadata.preview_video_url && (
+                <div className="mb-10">
+                  <PreviewVideo videoUrl={metadata.preview_video_url} title={product.title} />
+                </div>
+              )}
+
               {/* Description */}
               <div className="prose prose-mt-primary text-mt-text-secondary mb-12 max-w-none">
                 <div className="text-base leading-relaxed space-y-4">
@@ -206,11 +257,6 @@ export default async function StoreProductPage({
                   ))}
                 </div>
               </div>
-
-              {/* 7. Dedicated Preview Video */}
-              {metadata.preview_video_url && (
-                <PreviewVideo videoUrl={metadata.preview_video_url} title={product.title} />
-              )}
               
               {/* Format Details */}
               <div className="grid grid-cols-2 gap-4 mb-12">

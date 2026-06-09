@@ -4,18 +4,31 @@ import { BRAND } from "@/lib/constants";
 import { ProductCard, ComboCard } from "@/components/store/ProductCard";
 import { Users, PlaySquare, ShieldCheck } from "lucide-react";
 
-export const revalidate = 60; // Revalidate every minute
+export const dynamic = "force-dynamic";
 
-export default async function StorefrontPage() {
+export default async function StorefrontPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const resolvedParams = await searchParams;
+  const activeCategory = resolvedParams.category;
+
   const supabase = createPublicClient();
   
-  // Single Source of Truth: ONLY query mt_ebooks
-  const { data, error } = await supabase
-    .from("mt_ebooks")
+  let query = supabase
+    .from("mt_products")
     .select("*")
     .eq("clinic_id", BRAND.clinicId)
     .eq("is_active", true)
-    .order("created_at", { ascending: true });
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (activeCategory) {
+    query = query.eq("category", activeCategory);
+  }
+
+  const { data, error } = await query;
     
   if (error) {
     console.error("Failed to fetch products:", error);
@@ -23,23 +36,28 @@ export default async function StorefrontPage() {
 
   const catalog = data || [];
   
-  // Categorization
-  // Assuming 'slug' or 'title' determines combos if is_combo column is not present. But mt_ebooks does not have is_combo.
-  // Wait, let me just pass all of them as individual for now, or check if they have a 'bundle' in the title.
-  const combos = catalog.filter(e => e.title.toLowerCase().includes('bundle') || e.title.toLowerCase().includes('combo'));
-  const bestSellers = catalog.filter(e => e.price > 500 && !combos.find(c => c.id === e.id));
-  const individual = catalog.filter(e => !combos.find(c => c.id === e.id));
-  
-  const diagnosticBooks = individual.filter(e => e.title.toLowerCase().includes('diagnos') || e.title.toLowerCase().includes('test'));
-  const medicineBooks = individual.filter(e => e.title.toLowerCase().includes('medicine') || e.title.toLowerCase().includes('materia'));
-  const gynePediaBooks = individual.filter(e => e.title.toLowerCase().includes('gyne') || e.title.toLowerCase().includes('pedia'));
+  // Extract all available categories for the sidebar/filter menu
+  // Using a separate query or just extracting from all products if we don't filter in DB.
+  // Actually, let's fetch all categories so the menu is always full.
+  const { data: allProducts } = await supabase
+    .from("mt_products")
+    .select("category")
+    .eq("clinic_id", BRAND.clinicId)
+    .eq("is_active", true);
+    
+  const categories = Array.from(new Set((allProducts || []).map(p => p.category).filter(Boolean)));
+
+  // Categorization via proper flags
+  const bundles = catalog.filter(e => e.is_bundle);
+  const bestSellers = catalog.filter(e => e.is_bestseller && !e.is_bundle);
+  const newReleases = catalog.filter(e => e.is_new_release && !e.is_bundle);
+  const featured = catalog.filter(e => e.is_featured && !e.is_bundle && !e.is_bestseller && !e.is_new_release);
+  const others = catalog.filter(e => !e.is_bundle && !e.is_bestseller && !e.is_new_release && !e.is_featured);
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FDFDFD] pb-32 pt-[52px]">
       
-      {/* 
-        Minimalist Trust Strip (As requested by User) 
-      */}
+      {/* Minimalist Trust Strip */}
       <div className="bg-white border-b border-mt-border py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 text-sm">
           <div className="flex items-center gap-2 font-semibold text-mt-text">
@@ -59,72 +77,104 @@ export default async function StorefrontPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-10 md:pt-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-10 md:pt-12">
         
-        {/* Bundles / Combo Section (Featured Top) */}
-        {combos.length > 0 && (
-          <section className="mb-16 md:mb-24">
-            <h2 className="font-display text-2xl md:text-3xl text-mt-text font-bold mb-6">Complete Bundles</h2>
-            <div className="flex flex-col gap-8">
-              {combos.map(combo => <ComboCard key={combo.id} product={combo} />)}
+        <div className="flex flex-col lg:flex-row gap-10">
+          
+          {/* Sidebar / Categories */}
+          {categories.length > 0 && (
+            <div className="w-full lg:w-64 shrink-0">
+              <div className="sticky top-24 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h3 className="font-display text-lg font-bold text-slate-800 mb-4">Collections</h3>
+                <ul className="space-y-2">
+                  <li>
+                    <a href="/ebooks" className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!activeCategory ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                      All Resources
+                    </a>
+                  </li>
+                  {categories.map(cat => (
+                    <li key={cat}>
+                      <a href={`/ebooks?category=${encodeURIComponent(cat)}`} className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeCategory === cat ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        {cat}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          </section>
-        )}
+          )}
 
-        {/* Best Sellers */}
-        {bestSellers.length > 0 && (
-          <section className="mb-16 md:mb-20">
-            <h2 className="font-display text-2xl text-mt-text font-bold mb-6">Best Sellers</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-              {bestSellers.map(book => <ProductCard key={book.id} product={book} />)}
-            </div>
-          </section>
-        )}
+          {/* Main Feed */}
+          <div className="flex-1 min-w-0">
+            {catalog.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-xl border border-slate-100">
+                <p className="text-slate-500 font-medium">No resources found for this collection.</p>
+              </div>
+            ) : (
+              <>
+                {/* Bundles */}
+                {bundles.length > 0 && (
+                  <section className="mb-16">
+                    <h2 className="font-display text-2xl md:text-3xl text-mt-text font-bold mb-6 flex items-center gap-2">
+                      💎 Premium Bundles
+                    </h2>
+                    <div className="flex flex-col gap-6">
+                      {bundles.map(bundle => <ComboCard key={bundle.id} product={bundle} />)}
+                    </div>
+                  </section>
+                )}
 
-        {/* Diagnostic Series */}
-        {diagnosticBooks.length > 0 && (
-          <section className="mb-16 md:mb-20">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display text-2xl text-mt-text font-bold">Diagnostic Guides</h2>
-              <span className="text-sm font-semibold text-mt-text-tertiary hidden sm:block">
-                {diagnosticBooks.length} Products
-              </span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-              {diagnosticBooks.map(book => <ProductCard key={book.id} product={book} />)}
-            </div>
-          </section>
-        )}
+                {/* Best Sellers */}
+                {bestSellers.length > 0 && (
+                  <section className="mb-16">
+                    <h2 className="font-display text-2xl text-mt-text font-bold mb-6 flex items-center gap-2">
+                      🔥 Best Sellers
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                      {bestSellers.map(book => <ProductCard key={book.id} product={book} />)}
+                    </div>
+                  </section>
+                )}
 
-        {/* Medicine Series */}
-        {medicineBooks.length > 0 && (
-          <section className="mb-16 md:mb-20">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display text-2xl text-mt-text font-bold">Medicine Notes</h2>
-              <span className="text-sm font-semibold text-mt-text-tertiary hidden sm:block">
-                {medicineBooks.length} Products
-              </span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-              {medicineBooks.map(book => <ProductCard key={book.id} product={book} />)}
-            </div>
-          </section>
-        )}
+                {/* New Releases */}
+                {newReleases.length > 0 && (
+                  <section className="mb-16">
+                    <h2 className="font-display text-2xl text-mt-text font-bold mb-6 flex items-center gap-2">
+                      ✨ New Releases
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                      {newReleases.map(book => <ProductCard key={book.id} product={book} />)}
+                    </div>
+                  </section>
+                )}
 
-        {/* Gyne & Pedia Series */}
-        {gynePediaBooks.length > 0 && (
-          <section className="mb-16 md:mb-20">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display text-2xl text-mt-text font-bold">Gynecology & Pediatrics</h2>
-              <span className="text-sm font-semibold text-mt-text-tertiary hidden sm:block">
-                {gynePediaBooks.length} Products
-              </span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-              {gynePediaBooks.map(book => <ProductCard key={book.id} product={book} />)}
-            </div>
-          </section>
-        )}
+                {/* Featured */}
+                {featured.length > 0 && (
+                  <section className="mb-16">
+                    <h2 className="font-display text-2xl text-mt-text font-bold mb-6 flex items-center gap-2">
+                      ⭐ Featured Books
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                      {featured.map(book => <ProductCard key={book.id} product={book} />)}
+                    </div>
+                  </section>
+                )}
+
+                {/* All Others (If active category is set, or just the rest) */}
+                {others.length > 0 && (
+                  <section className="mb-16">
+                    <h2 className="font-display text-2xl text-mt-text font-bold mb-6 flex items-center gap-2">
+                      {activeCategory ? `${activeCategory} Collection` : 'More Resources'}
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                      {others.map(book => <ProductCard key={book.id} product={book} />)}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+          </div>
+        </div>
 
       </div>
     </div>

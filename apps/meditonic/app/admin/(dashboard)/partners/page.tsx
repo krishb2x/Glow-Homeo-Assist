@@ -17,6 +17,9 @@ export default async function PartnersPage() {
         email,
         mobile,
         profession
+      ),
+      mt_referral_codes (
+        code
       )
     `)
     .eq("clinic_id", BRAND.clinicId)
@@ -43,6 +46,7 @@ export default async function PartnersPage() {
               <tr>
                 <th className="px-6 py-4">Partner Details</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Tracking Code</th>
                 <th className="px-6 py-4">Commission Rate</th>
                 <th className="px-6 py-4">Total Revenue</th>
                 <th className="px-6 py-4">Joined Date</th>
@@ -70,6 +74,15 @@ export default async function PartnersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none capitalize">{p.status}</Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        {p.mt_referral_codes && p.mt_referral_codes.length > 0 ? (
+                          <div className="font-mono text-sm font-bold bg-slate-100 px-2 py-1 rounded w-fit text-slate-700 border border-slate-200">
+                            {p.mt_referral_codes[0].code}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100 font-medium">Missing</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 font-medium">{p.base_commission_rate}%</td>
                       <td className="px-6 py-4 text-slate-600">₹{p.total_revenue || 0}</td>

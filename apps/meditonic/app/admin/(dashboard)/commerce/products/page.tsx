@@ -16,7 +16,7 @@ export default function ProductsPage() {
       const supabase = getSupabaseBrowser();
       try {
         const { data, error } = await supabase
-          .from("mt_ebooks")
+          .from("mt_products")
           .select("*")
           .order("sort_order", { ascending: true });
           
