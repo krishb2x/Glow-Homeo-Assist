@@ -11,28 +11,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
 
     // 1. Authenticate Admin
-    const cookieStore = await cookies();
-    const authSupabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll() },
-          setAll(cookiesToSet) {
-            try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
-          },
-        },
-      }
-    );
-
-    const { data: { session } } = await authSupabase.auth.getSession();
+    const supabase = createAdminClient();
     
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      req.headers.get('Authorization')?.replace('Bearer ', '') || ''
+    );
+    
+    if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    // Use admin client for database writes to bypass RLS since we verified admin session
-    const supabase = createAdminClient();
 
     // 2. Fetch Order
     const { data: order, error } = await supabase
@@ -124,7 +111,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     // 6. Update Audit Log
-    const adminUser = session.user.user_metadata?.first_name || session.user.email || "Admin";
+    const adminUser = user.user_metadata?.first_name || user.email || "Admin";
     const auditEntry = {
       action: "Resent Delivery Email",
       timestamp: new Date().toISOString(),

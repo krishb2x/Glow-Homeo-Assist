@@ -61,10 +61,15 @@ export async function POST(req: Request) {
     if (items && items.length > 0 && referralCode.mt_referral_products && referralCode.mt_referral_products.length > 0) {
       // Find at least one eligible item
       const isApplicable = items.some((item: any) => {
-        const itemType = item.product.category; // e.g. 'ebooks', 'consultation', 'program'
-        return referralCode.mt_referral_products.some(
-          (p: any) => p.product_type === 'all' || p.product_type === itemType || p.product_id === item.product.id
-        );
+        const productType = item.product.product_type; // e.g. 'EBOOK', 'COURSE', 'BUNDLE'
+        return referralCode.mt_referral_products.some((p: any) => {
+          if (p.product_type === 'all') return true;
+          if (p.product_type === 'ebooks' && (productType === 'EBOOK' || productType === 'BUNDLE')) return true;
+          if (p.product_type === 'consultation' && productType === 'CONSULTATION') return true;
+          if (p.product_type === 'programs' && (productType === 'PROGRAM' || productType === 'COURSE')) return true;
+          if (p.product_id === item.product.id) return true;
+          return false;
+        });
       });
       
       if (!isApplicable) {

@@ -74,9 +74,17 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
     if (!order) return;
     if (!confirm("This will regenerate all PDFs for this order and send a new delivery email. Continue?")) return;
     
+    const supabase = getSupabaseBrowser();
+    const { data: { session } } = await supabase.auth.getSession();
+    
     setResending(true);
     try {
-      const res = await fetch(`/api/admin/orders/${order.id}/resend`, { method: "POST" });
+      const res = await fetch(`/api/admin/orders/${order.id}/resend`, { 
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        }
+      });
       const data = await res.json();
       
       if (!res.ok) {

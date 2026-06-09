@@ -92,9 +92,13 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
         }
         
         // 1. Get Presigned URL
+        const { data: { session } } = await supabase.auth.getSession();
         const presignRes = await fetch('/api/admin/s3-presign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          },
           body: JSON.stringify({ slug: formData.slug, contentType: file.type })
         });
         const presignData = await presignRes.json();

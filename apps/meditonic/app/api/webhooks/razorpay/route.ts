@@ -4,6 +4,69 @@ import { createAdminClient } from "@/lib/supabase";
 import { sendConfirmationEmail } from "@/lib/email";
 import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased, Template_StorePaymentConfirmed } from "@/lib/email-templates";
 
+async function handleReferralCommission(
+  supabase: any,
+  referralCodeId: string,
+  clinicId: string,
+  patientId: string | null,
+  referenceId: string,
+  purpose: string,
+  amount: number,
+  originalAmount: number,
+  discountApplied: number
+) {
+  const { data: referralData, error: referralError } = await supabase
+    .from("mt_referral_codes")
+    .select("id, partner_id, current_usage, commission_rate, mt_partners(id, base_commission_rate)")
+    .eq("id", referralCodeId)
+    .single();
+    
+  if (!referralError && referralData && referralData.mt_partners) {
+    const partner: any = Array.isArray(referralData.mt_partners) ? referralData.mt_partners[0] : referralData.mt_partners;
+    const commissionRate = referralData.commission_rate ?? (partner?.base_commission_rate || 10);
+    const revenueAfterDiscount = amount || 0;
+    const commissionAmount = (revenueAfterDiscount * commissionRate) / 100;
+
+    const { error: attrError } = await supabase.from("mt_order_attributions").insert({
+      clinic_id: clinicId,
+      partner_id: referralData.partner_id,
+      referral_code_id: referralCodeId,
+      order_id: referenceId,
+      customer_id: patientId,
+      product_type: purpose,
+      revenue_before_discount: originalAmount || revenueAfterDiscount,
+      discount_applied: discountApplied || 0,
+      revenue_after_discount: revenueAfterDiscount,
+      commission_percentage: commissionRate,
+      commission_amount: commissionAmount,
+      status: "pending"
+    });
+    if (attrError) console.error("Failed to insert attribution:", attrError);
+
+    const { data: partnerState } = await supabase
+      .from("mt_partners")
+      .select("total_revenue, total_orders, total_commission")
+      .eq("id", referralData.partner_id)
+      .single();
+      
+    if (partnerState) {
+      await supabase
+        .from("mt_partners")
+        .update({
+          total_revenue: Number(partnerState.total_revenue) + Number(revenueAfterDiscount),
+          total_orders: Number(partnerState.total_orders) + 1,
+          total_commission: Number(partnerState.total_commission) + Number(commissionAmount)
+        })
+        .eq("id", referralData.partner_id);
+    }
+    
+    await supabase
+      .from("mt_referral_codes")
+      .update({ current_usage: (referralData.current_usage || 0) + 1 })
+      .eq("id", referralData.id);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.text(); // Need raw body for signature verification
@@ -40,7 +103,7 @@ export async function POST(req: Request) {
       // 0. Check if this is a Store Order in mt_orders
       const { data: storeOrder } = await supabase
         .from("mt_orders")
-        .select("id, status, customer_name, customer_email")
+        .select("id, status, customer_name, customer_email, clinic_id, audit_log")
         .eq("razorpay_order_id", orderId)
         .single();
 
@@ -58,6 +121,32 @@ export async function POST(req: Request) {
             updated_at: new Date().toISOString()
           })
           .eq("id", storeOrder.id);
+
+        // Handle Referral Commission if applied
+        if (storeOrder.audit_log && Array.isArray(storeOrder.audit_log)) {
+          const referralLog = storeOrder.audit_log.find((log: any) => log.action === 'applied_referral');
+          if (referralLog && referralLog.code) {
+             const { data: refCodeData } = await supabase
+               .from("mt_referral_codes")
+               .select("id")
+               .eq("code", referralLog.code)
+               .single();
+               
+             if (refCodeData) {
+               await handleReferralCommission(
+                 supabase,
+                 refCodeData.id,
+                 storeOrder.clinic_id || '595cd444-e89c-4d1f-b31f-27f76f59e0d7',
+                 null,
+                 storeOrder.id,
+                 'store_order',
+                 payment.amount / 100,
+                 payment.amount / 100,
+                 0
+               );
+             }
+          }
+        }
 
         // Send Payment Confirmation Email (Email #1)
         if (storeOrder.customer_email) {
@@ -237,66 +326,17 @@ export async function POST(req: Request) {
       
       // 3. Handle Referral Commission Attribution
       if (paymentRecord.referral_code_id) {
-        // Fetch the referral code and partner info
-        const { data: referralData, error: referralError } = await supabase
-          .from("mt_referral_codes")
-          .select("id, partner_id, current_usage, commission_rate, mt_partners(id, base_commission_rate)")
-          .eq("id", paymentRecord.referral_code_id)
-          .single();
-          
-        if (!referralError && referralData && referralData.mt_partners) {
-          const partner: any = Array.isArray(referralData.mt_partners) ? referralData.mt_partners[0] : referralData.mt_partners;
-          // Use code-specific override if it exists, otherwise fall back to base rate
-          const commissionRate = referralData.commission_rate ?? (partner?.base_commission_rate || 10);
-          const revenueAfterDiscount = paymentRecord.amount || 0;
-          const commissionAmount = (revenueAfterDiscount * commissionRate) / 100;
-
-          // Create Attribution
-          const { error: attrError } = await supabase.from("mt_order_attributions").insert({
-            clinic_id: paymentRecord.clinic_id,
-            partner_id: referralData.partner_id,
-            referral_code_id: paymentRecord.referral_code_id,
-            order_id: paymentRecord.reference_id,
-            customer_id: paymentRecord.patient_id,
-            product_type: paymentRecord.purpose,
-            revenue_before_discount: paymentRecord.original_amount || revenueAfterDiscount,
-            discount_applied: paymentRecord.discount_applied || 0,
-            revenue_after_discount: revenueAfterDiscount,
-            commission_percentage: commissionRate,
-            commission_amount: commissionAmount,
-            status: "pending"
-          });
-          if (attrError) {
-            console.error("Failed to insert attribution:", attrError);
-          }
-
-          // Update Partner Total Revenue & Commissions
-          // Need to call a Supabase RPC or do a select and update if no RPC exists
-          const { data: partnerState } = await supabase
-            .from("mt_partners")
-            .select("total_revenue, total_orders, total_commission")
-            .eq("id", referralData.partner_id)
-            .single();
-            
-          if (partnerState) {
-            await supabase
-              .from("mt_partners")
-              .update({
-                total_revenue: Number(partnerState.total_revenue) + Number(revenueAfterDiscount),
-                total_orders: Number(partnerState.total_orders) + 1,
-                total_commission: Number(partnerState.total_commission) + Number(commissionAmount)
-              })
-              .eq("id", referralData.partner_id);
-          }
-          
-          // Increment usage limit on code
-          await supabase
-            .from("mt_referral_codes")
-            .update({
-              current_usage: (referralData.current_usage || 0) + 1
-            })
-            .eq("id", referralData.id);
-        }
+        await handleReferralCommission(
+          supabase,
+          paymentRecord.referral_code_id,
+          paymentRecord.clinic_id,
+          paymentRecord.patient_id,
+          paymentRecord.reference_id,
+          paymentRecord.purpose,
+          paymentRecord.amount || 0,
+          paymentRecord.original_amount || paymentRecord.amount || 0,
+          paymentRecord.discount_applied || 0
+        );
       }
     }
 
