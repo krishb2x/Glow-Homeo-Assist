@@ -77,7 +77,7 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
     const originalBuffer = await s3ToBuffer(originalKey);
 
     // 3. Watermark
-    let finalBuffer: Buffer;
+    let finalBuffer: Uint8Array;
     try {
       finalBuffer = await addWatermark(originalBuffer, {
         name: buyer.name,
