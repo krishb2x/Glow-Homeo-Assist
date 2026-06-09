@@ -53,7 +53,7 @@ export default function ProductGallery({
         <img
           src={activeMedia.url}
           alt={`${title} - view ${activeIndex + 1}`}
-          className="w-full h-full object-cover transition-opacity duration-300"
+          className="w-full h-full object-contain bg-white transition-opacity duration-300"
         />
       </div>
 
@@ -71,7 +71,7 @@ export default function ProductGallery({
               <img
                 src={item.thumbnail}
                 alt={`Thumbnail ${idx + 1}`}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain bg-white"
               />
             </button>
           ))}

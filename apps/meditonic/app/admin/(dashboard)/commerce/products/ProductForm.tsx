@@ -144,6 +144,18 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     });
   };
 
+  const moveGalleryImage = (index: number, direction: 'left' | 'right') => {
+    setFormData(prev => {
+      const newPaths = [...(prev.gallery_image_paths || [])];
+      if (direction === 'left' && index > 0) {
+        [newPaths[index - 1], newPaths[index]] = [newPaths[index], newPaths[index - 1]];
+      } else if (direction === 'right' && index < newPaths.length - 1) {
+        [newPaths[index + 1], newPaths[index]] = [newPaths[index], newPaths[index + 1]];
+      }
+      return { ...prev, gallery_image_paths: newPaths };
+    });
+  };
+
   const getPayload = () => ({
     ...formData,
     metadata: {
@@ -263,7 +275,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Collection / Category</label>
                 <select name="category" value={formData.category} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
                   <option value="">No Category</option>
-                  <option value="Diagnostics">Diagnostics</option>
+                  <option value="Diagnosis">Diagnosis</option>
                   <option value="Women's Health">Women's Health</option>
                   <option value="Thyroid">Thyroid</option>
                   <option value="PCOS">PCOS</option>
@@ -304,9 +316,25 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                   {(formData.gallery_image_paths || []).map((path, idx) => (
                     <div key={idx} className="relative aspect-square border border-slate-200 rounded-lg overflow-hidden group">
                       <img src={path.startsWith('http') ? path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${path}`} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => removeGalleryImage(idx)} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                      
+                      {/* Top Right: Remove */}
+                      <button type="button" onClick={() => removeGalleryImage(idx)} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-red-600">
                         <X className="w-3 h-3" />
                       </button>
+
+                      {/* Bottom Controls: Reorder */}
+                      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        {idx > 0 && (
+                          <button type="button" onClick={() => moveGalleryImage(idx, 'left')} className="bg-slate-800/80 backdrop-blur text-white px-2 py-1 rounded text-xs hover:bg-slate-900 transition-colors">
+                            &larr; Move
+                          </button>
+                        )}
+                        {idx < (formData.gallery_image_paths?.length || 0) - 1 && (
+                          <button type="button" onClick={() => moveGalleryImage(idx, 'right')} className="bg-slate-800/80 backdrop-blur text-white px-2 py-1 rounded text-xs hover:bg-slate-900 transition-colors">
+                            Move &rarr;
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                   

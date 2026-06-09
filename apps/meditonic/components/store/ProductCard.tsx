@@ -34,7 +34,7 @@ export const ProductCard = ({ product }: { product: Product }) => {
           <img 
             src={imageSrc} 
             alt={product.title} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 bg-white"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#1B6B5C] to-[#0A3D33] flex items-center justify-center p-4">
@@ -130,7 +130,7 @@ export const ComboCard = ({ product }: { product: Product }) => {
             <img 
               src={imageSrc} 
               alt={product.title} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90"
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 opacity-90 bg-[#0A3D33]"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
