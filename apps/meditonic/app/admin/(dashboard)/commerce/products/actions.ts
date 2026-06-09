@@ -25,8 +25,8 @@ export async function saveProductAction(payload: any, productId?: string) {
       is_bundle: payload.is_bundle || false,
       category: payload.category || null,
 
-      // Legacy support mappings
-      type: payload.product_type || 'EBOOK',
+      // Core Classification
+      product_type: payload.product_type || 'EBOOK',
       is_combo: payload.product_type === 'BUNDLE' || payload.is_bundle,
       
       metadata: {
