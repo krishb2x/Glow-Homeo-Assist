@@ -49,6 +49,8 @@ export async function saveProductAction(payload: any, productId?: string) {
     }
 
     // Crucial: Clear storefront caches so changes are immediately visible
+    revalidatePath(`/ebooks/${commonFields.slug}`, "page");
+    revalidatePath(`/store/${commonFields.slug}`, "page");
     revalidatePath("/ebooks", "layout");
     revalidatePath("/store", "layout");
     revalidatePath("/", "layout");
