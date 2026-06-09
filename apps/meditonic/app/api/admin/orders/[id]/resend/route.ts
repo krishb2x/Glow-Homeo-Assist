@@ -108,14 +108,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     try {
       const hasFailedDigitalItems = digitalItems.length > 0 && deliveredPdfs.length < digitalItems.length;
 
-      await sendConfirmationEmail(
+      const emailResult = await sendConfirmationEmail(
         order.customer_email,
         `Your MediTonic Order #${order.id.slice(0, 8)}`,
         Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems, hasFailedDigitalItems)
       );
-    } catch (emailErr) {
+      
+      if (!emailResult.success) {
+        throw new Error(typeof emailResult.error === 'string' ? emailResult.error : JSON.stringify(emailResult.error));
+      }
+    } catch (emailErr: any) {
       console.error("Failed to send product delivery email:", emailErr);
-      return NextResponse.json({ error: "Failed to send email, but PDFs were generated." }, { status: 500 });
+      return NextResponse.json({ error: `Failed to send email: ${emailErr.message}` }, { status: 500 });
     }
 
     // 6. Update Audit Log
