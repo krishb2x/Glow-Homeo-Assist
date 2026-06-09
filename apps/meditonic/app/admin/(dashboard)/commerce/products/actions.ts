@@ -87,6 +87,30 @@ export async function saveProductAction(payload: any, productId?: string) {
           
         if (relError) console.error("Failed to save relationships", relError);
       }
+
+      // Handle Bundle Items
+      if (commonFields.is_combo) {
+        await supabase
+          .from("mt_product_relationships")
+          .delete()
+          .eq("product_id", targetProductId)
+          .eq("relationship_type", "bundle_item");
+
+        if (payload.bundle_item_ids && payload.bundle_item_ids.length > 0) {
+          const bundleRels = payload.bundle_item_ids.map((relId: string, idx: number) => ({
+            product_id: targetProductId,
+            related_product_id: relId,
+            relationship_type: "bundle_item",
+            sort_order: idx
+          }));
+
+          const { error: bundleError } = await supabase
+            .from("mt_product_relationships")
+            .insert(bundleRels);
+            
+          if (bundleError) console.error("Failed to save bundle items", bundleError);
+        }
+      }
     }
 
     // Crucial: Clear storefront caches so changes are immediately visible

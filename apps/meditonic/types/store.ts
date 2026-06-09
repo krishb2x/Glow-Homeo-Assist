@@ -40,6 +40,7 @@ export interface Product {
   type?: string;
   image_url?: string;
   related_product_ids?: string[];
+  bundle_item_ids?: string[];
 }
 
 export interface CartItem {

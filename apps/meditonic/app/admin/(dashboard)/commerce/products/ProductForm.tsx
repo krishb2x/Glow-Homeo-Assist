@@ -54,6 +54,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     
     // Relationships
     related_product_ids: (initialData as any)?.related_product_ids || [],
+    bundle_item_ids: initialData?.bundle_item_ids || [],
   });
 
   useEffect(() => {
@@ -84,12 +85,42 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     const filePath = `products/${fileName}`;
 
     try {
-      const { error } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
+      if (field === 'final_pdf_path') {
+        if (!formData.slug) {
+          alert("Please enter a Slug (URL) first before uploading the Final Product PDF.");
+          return;
+        }
+        
+        // 1. Get Presigned URL
+        const presignRes = await fetch('/api/admin/s3-presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: formData.slug, contentType: file.type })
+        });
+        const presignData = await presignRes.json();
+        
+        if (!presignRes.ok) throw new Error(presignData.error || "Failed to get upload URL");
 
-      if (error) throw error;
-      setFormData(prev => ({ ...prev, [field]: `${bucket}/${filePath}` }));
+        // 2. Upload to S3
+        const uploadRes = await fetch(presignData.url, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type }
+        });
+
+        if (!uploadRes.ok) throw new Error("Failed to upload file to S3");
+        
+        // 3. Save pseudo-path (delivery system auto-resolves using slug)
+        setFormData(prev => ({ ...prev, [field]: `aws-s3-managed` }));
+      } else {
+        // Upload to Supabase Storage
+        const { error } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, file);
+
+        if (error) throw error;
+        setFormData(prev => ({ ...prev, [field]: `${bucket}/${filePath}` }));
+      }
       
     } catch (err: any) {
       console.error(err);
@@ -210,6 +241,17 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
       ...prev,
       related_product_ids: val ? [val] : [] // Store as array with one primary upsell for now
     }));
+  };
+
+  const handleBundleItemChange = (productId: string) => {
+    setFormData(prev => {
+      const current = prev.bundle_item_ids || [];
+      if (current.includes(productId)) {
+        return { ...prev, bundle_item_ids: current.filter(id => id !== productId) };
+      } else {
+        return { ...prev, bundle_item_ids: [...current, productId] };
+      }
+    });
   };
 
   return (
@@ -459,6 +501,35 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
               </p>
             </div>
           </div>
+
+          {(formData.is_bundle || formData.product_type === 'BUNDLE') && (
+            <div className="bg-purple-50 border border-purple-100 rounded-xl shadow-sm p-6 space-y-4">
+              <h3 className="font-semibold text-purple-800 border-b border-purple-200 pb-2 mb-4">Bundle Contents</h3>
+              <p className="text-xs text-purple-700 leading-relaxed">
+                Select the individual Ebooks that are included in this bundle. When a customer purchases this bundle, the system will automatically deliver all selected Ebooks.
+              </p>
+              
+              <div className="max-h-64 overflow-y-auto space-y-2 bg-white rounded-lg border border-purple-200 p-3">
+                {availableProducts.map(p => {
+                  const isSelected = formData.bundle_item_ids?.includes(p.id);
+                  return (
+                    <label key={p.id} className="flex items-start gap-3 p-2 rounded hover:bg-slate-50 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected}
+                        onChange={() => handleBundleItemChange(p.id)}
+                        className="mt-1 w-4 h-4 accent-purple-600"
+                      />
+                      <div>
+                        <span className="text-sm font-semibold text-slate-800 block">{p.title}</span>
+                        <span className="text-xs text-slate-500 block">₹{p.price}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
             <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Pricing</h3>

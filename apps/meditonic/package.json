@@ -9,6 +9,8 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1064.0",
+    "@aws-sdk/s3-request-presigner": "^3.1064.0",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-slot": "^1.2.5",
     "@supabase/supabase-js": "^2.104.1",
@@ -19,6 +21,7 @@
     "googleapis": "^173.0.0",
     "lucide-react": "^1.8.0",
     "next": "15.5.15",
+    "pdf-lib": "^1.17.1",
     "razorpay": "^2.9.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
