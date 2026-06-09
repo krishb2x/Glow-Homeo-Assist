@@ -21,6 +21,7 @@
     "framer-motion": "^11.18.2",
     "googleapis": "^173.0.0",
     "lucide-react": "^1.8.0",
+    "muhammara": "^6.0.5",
     "next": "15.5.15",
     "pdf-lib": "^1.17.1",
     "razorpay": "^2.9.6",

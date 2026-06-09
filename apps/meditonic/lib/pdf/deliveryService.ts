@@ -78,7 +78,9 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
     const watermarked = await addWatermark(originalBuffer, {
       name: buyer.name,
       email: buyer.email,
+      phone: buyer.phone,
       orderRef: buyer.orderRef,
+      date: buyer.date,
     });
 
     // 4. Build watermarked key
@@ -93,6 +95,7 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
       Metadata: {
         'buyer-name': buyer.name,
         'buyer-email': buyer.email,
+        'buyer-phone': buyer.phone || '',
         'order-ref': buyer.orderRef,
       },
     }));
@@ -123,7 +126,9 @@ export async function deliverPdfs(order: any, items: DeliveryItem[]): Promise<De
   const buyer: BuyerDetails = {
     name: order.customer_name || 'Valued Customer',
     email: order.customer_email || '',
+    phone: order.customer_phone || '',
     orderRef: order.id,
+    date: new Date(order.created_at || Date.now()).toLocaleDateString(),
   };
 
   const ebookItems = items.filter(i => i.stock_status !== 'out_of_stock');

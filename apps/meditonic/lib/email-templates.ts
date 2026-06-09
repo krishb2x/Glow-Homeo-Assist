@@ -160,29 +160,31 @@ export function Template_EbookPurchased(
   ` : "";
 
   const html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Order Confirmed!</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Order Confirmed! (ऑर्डर कन्फर्म हो गया!)</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Dear ${name},
+      Dear / प्रिय ${name},
     </p>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Thank you for your eBook purchase from MediTonic. We have successfully received your payment.
+      Thank you for your eBook purchase from MediTonic. We have successfully received your payment.<br>
+      MediTonic से ई-बुक खरीदने के लिए धन्यवाद। हमें आपका भुगतान सफलतापूर्वक प्राप्त हो गया है।
     </p>
     
     ${detailsHtml}
 
     <div style="background-color: #f0fdf4; border-left: 4px solid ${COLORS.secondary}; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Next Steps</h3>
+      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Next Steps (अगला कदम)</h3>
       <p style="margin: 0; color: #15803d; font-size: 14px; line-height: 22px;">
-        You will receive your eBook download link or a direct copy from our team shortly via WhatsApp/Email.
+        You will receive your eBook download link or a direct copy from our team shortly via WhatsApp/Email.<br>
+        आपको जल्द ही हमारी टीम से व्हाट्सएप/ईमेल के माध्यम से अपनी ई-बुक का डाउनलोड लिंक या कॉपी प्राप्त होगी।
       </p>
     </div>
 
     <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Warm regards,<br>
+      Warm regards (सादर),<br>
       <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
     </p>
   `;
-  return BaseTemplate("eBook Purchase Confirmed", "Your eBook purchase was successful.", html);
+  return BaseTemplate("eBook Purchase Confirmed / ई-बुक की खरीदारी कन्फर्म हो गई", "Your eBook purchase was successful.", html);
 }
 
 export function Template_PartnerApplication(name: string) {
@@ -323,29 +325,36 @@ export function Template_StorePaymentConfirmed(name: string, orderId: string) {
 
 export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[]) {
   let html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Your Order is Ready!</h2>
+    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Your Order is Ready! (आपका ऑर्डर तैयार है!)</h2>
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Hi ${name},
+      Hi / नमस्ते ${name},
     </p>
     <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Your order #${orderId.slice(0, 8)} has been successfully fulfilled.
+      Your order #${orderId.slice(0, 8)} has been successfully fulfilled.<br>
+      आपका ऑर्डर #${orderId.slice(0, 8)} सफलतापूर्वक पूरा हो गया है।
     </p>
   `;
 
   if (downloadLinks.length > 0) {
     html += `<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">`;
-    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 16px; font-weight: 600;">Your Digital Downloads</h3>`;
+    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 16px; font-weight: 600;">Your Digital Downloads (आपके डिजिटल डाउनलोड)</h3>`;
+    
+    html += `<div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 16px; border-radius: 4px;">`;
+    html += `<p style="margin: 0 0 8px 0; color: #b45309; font-size: 14px; line-height: 20px;"><strong>Security Notice:</strong> Your eBooks are securely locked. Please use your <strong>Phone Number</strong> as the password to open them. (If your phone number is missing, use your email address).</p>`;
+    html += `<p style="margin: 0; color: #b45309; font-size: 14px; line-height: 20px;"><strong>सुरक्षा सूचना:</strong> आपकी ई-बुक सुरक्षित रूप से लॉक की गई हैं। कृपया उन्हें खोलने के लिए अपने <strong>फ़ोन नंबर</strong> का पासवर्ड के रूप में उपयोग करें। (यदि फ़ोन नंबर नहीं है, तो अपने ईमेल पते का उपयोग करें)।</p>`;
+    html += `</div>`;
+    
     html += `<ul style="margin: 0; padding-left: 20px; color: ${COLORS.textPrimary}; font-size: 14px; line-height: 24px;">`;
     downloadLinks.forEach(link => {
-      html += `<li style="margin-bottom: 8px;"><a href="${link.url}" style="color: ${COLORS.primary}; font-weight: 500;">${link.title}</a> <span style="color: #94a3b8; font-size: 12px;">(Expires in 7 days)</span></li>`;
+      html += `<li style="margin-bottom: 8px;"><a href="${link.url}" style="color: ${COLORS.primary}; font-weight: 500;">${link.title}</a> <span style="color: #94a3b8; font-size: 12px;">(Expires in 7 days / 7 दिनों में समाप्त)</span></li>`;
     });
     html += `</ul></div>`;
   }
 
   if (physicalItems.length > 0) {
     html += `<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">`;
-    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">Physical Deliveries</h3>`;
-    html += `<p style="margin: 0 0 12px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 20px;">The following items will be delivered to your address within 5-7 days:</p>`;
+    html += `<h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">Physical Deliveries (फिजिकल डिलीवरी)</h3>`;
+    html += `<p style="margin: 0 0 12px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 20px;">The following items will be delivered to your address within 5-7 days:<br>निम्नलिखित आइटम 5-7 दिनों के भीतर आपके पते पर वितरित किए जाएंगे:</p>`;
     html += `<ul style="margin: 0; padding-left: 20px; color: ${COLORS.textPrimary}; font-size: 14px; line-height: 24px;">`;
     physicalItems.forEach(item => {
       html += `<li>${item.title}</li>`;
@@ -355,11 +364,11 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
 
   html += `
     <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Warm regards,<br>
+      Warm regards (सादर),<br>
       <strong style="color: ${COLORS.textPrimary};">The MediTonic Team</strong>
     </p>
   `;
-  return BaseTemplate("Your Order is Ready", "Your download links and delivery information.", html);
+  return BaseTemplate("Your Order is Ready / आपका ऑर्डर तैयार है", "Your download links and delivery information.", html);
 }
 
 export function Template_StoreAdminNotification(order: any, downloadLinks: any[], physicalItems: any[]) {

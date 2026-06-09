@@ -28,6 +28,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
+  serverExternalPackages: ["muhammara"],
 };
 
 export default nextConfig;
