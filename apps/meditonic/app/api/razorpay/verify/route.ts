@@ -59,7 +59,10 @@ export async function POST(req: Request) {
     try {
       await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://meditonic.glowhomeo.com'}/api/orders/fulfill`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-internal-secret": process.env.INTERNAL_API_SECRET || ""
+        },
         body: JSON.stringify({ mtOrderId })
       });
     } catch (e) {

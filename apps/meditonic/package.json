@@ -13,6 +13,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1064.0",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-slot": "^1.2.5",
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.104.1",
     "@tailwindcss/typography": "^0.5.19",
     "class-variance-authority": "^0.7.1",

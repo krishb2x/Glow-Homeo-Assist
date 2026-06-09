@@ -5,7 +5,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { Product, ProductType, FulfillmentType, ProductStatus } from "@/types/store";
 import { BRAND } from "@/lib/constants";
 import { useRouter } from "next/navigation";
-import { UploadCloud, Loader2, Save, X, ExternalLink } from "lucide-react";
+import { UploadCloud, Loader2, Save, X, ExternalLink, CheckCircle2 } from "lucide-react";
 import { saveProductAction } from "./actions";
 import VerifiedReviewsManager, { VerifiedReview } from "./VerifiedReviewsManager";
 import MobilePreview from "./MobilePreview";
@@ -406,16 +406,33 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                 </div>
                 
                 <div className="p-4 border rounded-lg bg-emerald-50 border-emerald-100">
-                  <label className="block text-xs font-bold text-emerald-800 mb-2">Final Product PDF (Private)</label>
-                  {formData.final_pdf_path ? (
-                    <div className="flex items-center justify-between bg-white border border-emerald-200 p-2 rounded">
-                      <span className="text-xs truncate max-w-[150px]">{formData.final_pdf_path}</span>
-                      <button type="button" onClick={() => setFormData(p => ({...p, final_pdf_path: ""}))} className="text-red-500"><X className="w-4 h-4"/></button>
+                  <label className="block text-sm font-bold text-emerald-800 mb-1">Final Product PDF (Private)</label>
+                  <p className="text-[10px] text-emerald-600 mb-3 leading-tight">Securely stored in AWS S3. Uploading a new file will overwrite the existing one for future deliveries.</p>
+                  
+                  {uploadingPdf ? (
+                    <div className="flex items-center justify-center p-4 border-2 border-dashed border-emerald-300 rounded bg-white">
+                      <Loader2 className="w-5 h-5 text-emerald-500 animate-spin mr-2" />
+                      <span className="text-xs text-emerald-600 font-semibold">Uploading to S3...</span>
+                    </div>
+                  ) : formData.final_pdf_path ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-white border border-emerald-200 p-2 rounded">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          <span className="text-xs font-semibold text-slate-700">Stored in AWS S3</span>
+                        </div>
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded">Ready</span>
+                      </div>
+                      <div className="relative border border-dashed border-emerald-300 p-2 rounded text-center bg-white cursor-pointer hover:bg-emerald-50 transition-colors">
+                        <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, 'final_pdf_path', 'meditonic-private')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <span className="text-[11px] text-emerald-600 font-medium flex items-center justify-center gap-1"><UploadCloud className="w-3 h-3"/> Replace File in S3</span>
+                      </div>
                     </div>
                   ) : (
-                    <div className="relative border-2 border-dashed border-emerald-300 p-2 rounded text-center bg-white cursor-pointer hover:bg-emerald-50">
+                    <div className="relative border-2 border-dashed border-emerald-300 p-4 rounded text-center bg-white cursor-pointer hover:bg-emerald-50 transition-colors">
                       <input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, 'final_pdf_path', 'meditonic-private')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                      <span className="text-xs text-emerald-600 font-semibold">Upload Full PDF</span>
+                      <UploadCloud className="w-6 h-6 text-emerald-400 mx-auto mb-1" />
+                      <span className="text-xs text-emerald-600 font-semibold">Upload to AWS S3</span>
                     </div>
                   )}
                 </div>

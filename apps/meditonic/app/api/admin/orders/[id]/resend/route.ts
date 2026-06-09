@@ -1,44 +1,54 @@
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase";
 import { sendConfirmationEmail } from "@/lib/email";
-import { Template_StoreProductDelivery, Template_StoreAdminNotification } from "@/lib/email-templates";
+import { Template_StoreProductDelivery } from "@/lib/email-templates";
 import { deliverPdfs, DeliveryItem } from "@/lib/pdf/deliveryService";
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { mtOrderId } = await req.json();
+    const { id } = await params;
 
-    if (!mtOrderId) {
-      return NextResponse.json({ error: "Missing order ID" }, { status: 400 });
-    }
+    // 1. Authenticate Admin
+    const cookieStore = await cookies();
+    const authSupabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
+          },
+        },
+      }
+    );
 
-    const internalSecret = req.headers.get("x-internal-secret");
-    if (internalSecret !== process.env.INTERNAL_API_SECRET) {
+    const { data: { session } } = await authSupabase.auth.getSession();
+    
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Use admin client for database writes to bypass RLS since we verified admin session
     const supabase = createAdminClient();
-    
-    // Fetch order
+
+    // 2. Fetch Order
     const { data: order, error } = await supabase
       .from("mt_orders")
       .select("*")
-      .eq("id", mtOrderId)
+      .eq("id", id)
       .single();
 
     if (error || !order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    if (order.status !== 'paid') {
-      return NextResponse.json({ error: "Order is not paid" }, { status: 400 });
-    }
-
     const items = order.items || [];
-    
-    // Extract digital items
     let digitalItems: DeliveryItem[] = [];
 
+    // 3. Extract digital items and bundle children
     for (const item of items) {
       const p = item.product;
       if (p.product_type === 'EBOOK' || p.product_type === 'COURSE') {
@@ -49,7 +59,6 @@ export async function POST(req: Request) {
           stock_status: p.stock_status
         });
       } else if (p.product_type === 'BUNDLE' || p.is_bundle) {
-        // Fetch bundle items from relationships
         const { data: bundleRels } = await supabase
           .from("mt_product_relationships")
           .select(`
@@ -77,63 +86,60 @@ export async function POST(req: Request) {
       }
     }
 
-    // Deliver PDFs
+    if (digitalItems.length === 0) {
+      return NextResponse.json({ error: "Order does not contain any digital items" }, { status: 400 });
+    }
+
+    // 4. Regenerate and Deliver PDFs
     const deliveredPdfs = await deliverPdfs(order, digitalItems);
 
-    // Map to the format expected by the email template
     const downloadLinks = deliveredPdfs.map(pdf => ({
       title: pdf.title,
       url: pdf.downloadUrl
     }));
 
-    // Update database with delivery URLs
     if (deliveredPdfs.length > 0) {
+      // Update URLs in database
       await supabase
         .from("mt_orders")
         .update({ 
           pdf_delivered: true, 
           pdf_urls: deliveredPdfs.map(i => ({ title: i.title, url: i.downloadUrl, s3Key: i.s3Key }))
         })
-        .eq("id", mtOrderId);
+        .eq("id", id);
     }
 
     const physicalItems = items.filter((item: any) => item.product.product_type === 'PHYSICAL_BOOK' || item.product.product_type === 'TREATMENT_KIT');
 
-    // Send Email #2: Product Delivery to Customer
+    // 5. Send Email
     try {
       await sendConfirmationEmail(
         order.customer_email,
-        "Your MediTonic Order is Ready!",
+        "Your Resent MediTonic Order Links",
         Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems)
       );
     } catch (emailErr) {
       console.error("Failed to send product delivery email:", emailErr);
+      return NextResponse.json({ error: "Failed to send email, but PDFs were generated." }, { status: 500 });
     }
 
-    // Send Email #3: Admin Notification
-    try {
-      // Send to both admin addresses
-      const adminEmails = ["care.meditonic@gmail.com", "aman.aga998@gmail.com"];
-      for (const adminEmail of adminEmails) {
-        await sendConfirmationEmail(
-          adminEmail,
-          `New Store Order: #${order.id.slice(0, 8)}`,
-          Template_StoreAdminNotification(order, downloadLinks, physicalItems)
-        );
-      }
-    } catch (adminErr) {
-      console.error("Failed to send admin notification email:", adminErr);
-    }
+    // 6. Update Audit Log
+    const adminUser = session.user.user_metadata?.first_name || session.user.email || "Admin";
+    const auditEntry = {
+      action: "Resent Delivery Email",
+      timestamp: new Date().toISOString(),
+      user: adminUser
+    };
+    const newAuditLog = [...(order.audit_log || []), auditEntry];
 
-    // Update status to fulfilled
     await supabase
       .from("mt_orders")
-      .update({ status: "fulfilled", updated_at: new Date().toISOString() })
-      .eq("id", mtOrderId);
+      .update({ audit_log: newAuditLog })
+      .eq("id", id);
 
-    return NextResponse.json({ success: true, fulfilled: true });
+    return NextResponse.json({ success: true, links: downloadLinks, audit_log: newAuditLog });
   } catch (error: any) {
-    console.error("Fulfillment Error:", error);
+    console.error("Resend Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

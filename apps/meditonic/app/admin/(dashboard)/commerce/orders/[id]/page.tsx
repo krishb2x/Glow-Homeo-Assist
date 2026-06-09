@@ -4,13 +4,14 @@ import React, { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { formatPrice, formatDate } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeft, User, CreditCard, Package, Truck, Calendar, MapPin, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, User, CreditCard, Package, Truck, Calendar, MapPin, ExternalLink, Loader2, CheckCircle2, Mail } from "lucide-react";
 import { Order } from "@/types/store";
 
 export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [id, setId] = useState<string>("");
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     params.then(p => setId(p.id));
@@ -66,6 +67,31 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
     } catch (err) {
       alert("Failed to update fulfillment status");
       console.error(err);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!order) return;
+    if (!confirm("This will regenerate all PDFs for this order and send a new delivery email. Continue?")) return;
+    
+    setResending(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}/resend`, { method: "POST" });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to resend email");
+      }
+      
+      alert("Delivery email resent successfully!");
+      if (data.audit_log) {
+        setOrder({ ...order, audit_log: data.audit_log });
+      }
+    } catch (err: any) {
+      alert(err.message);
+      console.error(err);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -182,6 +208,29 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                 }`}
               >
                 {order.fulfillment_status === 'fulfilled' ? 'Mark as Unfulfilled' : 'Mark as Fulfilled'}
+              </button>
+            </div>
+          )}
+
+          {/* Digital Fulfillment Action */}
+          {order.items?.some((i: any) => ['EBOOK', 'COURSE', 'BUNDLE'].includes(i.product?.product_type) || i.product?.is_bundle) && order.status === 'paid' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-5">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                <Mail className="w-4 h-4 text-slate-500" /> Digital Delivery
+              </h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Customer lost their email? You can regenerate the watermarked PDFs and send a fresh delivery email.
+              </p>
+              <button 
+                onClick={handleResend}
+                disabled={resending}
+                className="px-4 py-2 rounded-lg font-semibold text-sm transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {resending ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
+                ) : (
+                  <><Mail className="w-4 h-4" /> Resend Delivery Email</>
+                )}
               </button>
             </div>
           )}
