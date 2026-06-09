@@ -85,10 +85,16 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           'Authorization': `Bearer ${session?.access_token || ''}`
         }
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        const text = await res.text();
+        throw new Error(`Server returned an invalid response. This is usually caused by a timeout while processing a very large PDF. Error: ${text.slice(0, 100)}...`);
+      }
       
       if (!res.ok) {
-        throw new Error(data.error || "Failed to resend email");
+        throw new Error(data?.error || "Failed to resend email");
       }
       
       alert("Delivery email resent successfully!");
