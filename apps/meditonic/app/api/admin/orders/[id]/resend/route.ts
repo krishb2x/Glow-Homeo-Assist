@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { createAdminClient } from "@/lib/supabase";
+import { createAdminClient, createPublicClient } from "@/lib/supabase";
 import { sendConfirmationEmail } from "@/lib/email";
 import { Template_StoreProductDelivery } from "@/lib/email-templates";
 import { deliverPdfs, DeliveryItem } from "@/lib/pdf/deliveryService";
@@ -11,15 +11,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
 
     // 1. Authenticate Admin
-    const supabase = createAdminClient();
+    const authClient = createPublicClient();
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
+    const { data: { user }, error: authError } = await authClient.auth.getUser(
       req.headers.get('Authorization')?.replace('Bearer ', '') || ''
     );
     
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const supabase = createAdminClient();
 
     // 2. Fetch Order
     const { data: order, error } = await supabase
@@ -79,6 +81,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // 4. Regenerate and Deliver PDFs
     const deliveredPdfs = await deliverPdfs(order, digitalItems);
+
+    if (digitalItems.length > 0 && deliveredPdfs.length === 0) {
+      return NextResponse.json({ error: "Failed to process the PDF for delivery. The uploaded PDF might be corrupted or in an unsupported format. Please re-upload a valid PDF in the Products section." }, { status: 500 });
+    }
 
     const downloadLinks = deliveredPdfs.map(pdf => ({
       title: pdf.title,

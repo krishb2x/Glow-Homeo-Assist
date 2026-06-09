@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createAdminClient } from "@/lib/supabase";
+import { createAdminClient, createPublicClient } from "@/lib/supabase";
 
 const BUCKET = process.env.AWS_S3_BUCKET_NAME!;
 const REGION = process.env.AWS_REGION || 'eu-north-1';
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   try {
     const { slug, contentType, doctorName } = await req.json();
 
-    const supabase = createAdminClient();
+    const supabase = createPublicClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       req.headers.get('Authorization')?.replace('Bearer ', '') || ''
     );

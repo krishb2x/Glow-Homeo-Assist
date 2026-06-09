@@ -87,8 +87,8 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
         date: buyer.date,
       });
     } catch (wmError: any) {
-      console.error(`[PDF] WARNING: Failed to watermark ${item.title}. The PDF may be encrypted or use unsupported compression. Falling back to original unwatermarked PDF. Error: ${wmError.message}`);
-      finalBuffer = originalBuffer; // Fallback to original
+      console.error(`[PDF] ERROR: Failed to watermark ${item.title}. The PDF may be encrypted or use unsupported compression. Error: ${wmError.message}`);
+      throw new Error(`Watermark failed for ${item.title}`);
     }
 
     // 4. Build watermarked key

@@ -90,8 +90,21 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
           alert("Please enter a Slug (URL) first before uploading the Final Product PDF.");
           return;
         }
+        // 1. Validate PDF compatibility before uploading
+        let arrayBuffer: ArrayBuffer;
+        try {
+          const { PDFDocument } = await import('pdf-lib');
+          arrayBuffer = await file.arrayBuffer();
+          // This will throw if the PDF uses unsupported features (e.g. Object Streams in PDF 1.5+ or is Encrypted)
+          await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+        } catch (pdfErr: any) {
+          alert(`INVALID PDF FORMAT: This PDF is encrypted or uses unsupported compression. The delivery system cannot watermark it.\\n\\nPlease open the PDF on your computer and 'Print to PDF', then upload the new file.\\n\\nError: ${pdfErr.message}`);
+          if (bucket === 'meditonic-public') setUploadingImage(false);
+          else setUploadingPdf(false);
+          return;
+        }
         
-        // 1. Get Presigned URL
+        // 2. Get Presigned URL
         const { data: { session } } = await supabase.auth.getSession();
         const presignRes = await fetch('/api/admin/s3-presign', {
           method: 'POST',
@@ -108,7 +121,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
         // 2. Upload to S3
         const uploadRes = await fetch(presignData.url, {
           method: 'PUT',
-          body: file,
+          body: arrayBuffer,
           headers: { 'Content-Type': file.type }
         });
 
