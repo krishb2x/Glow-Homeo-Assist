@@ -14,7 +14,6 @@ export async function saveProductAction(payload: any, productId?: string) {
       description: payload.description,
       price: payload.price,
       original_price: payload.original_price || payload.price,
-      image_url: payload.cover_image_path,
       cover_image_path: payload.cover_image_path,
       
       // New Merchandising Columns
