@@ -77,13 +77,19 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
     const originalBuffer = await s3ToBuffer(originalKey);
 
     // 3. Watermark
-    const watermarked = await addWatermark(originalBuffer, {
-      name: buyer.name,
-      email: buyer.email,
-      phone: buyer.phone,
-      orderRef: buyer.orderRef,
-      date: buyer.date,
-    });
+    let finalBuffer: Buffer;
+    try {
+      finalBuffer = await addWatermark(originalBuffer, {
+        name: buyer.name,
+        email: buyer.email,
+        phone: buyer.phone,
+        orderRef: buyer.orderRef,
+        date: buyer.date,
+      });
+    } catch (wmError: any) {
+      console.error(`[PDF] WARNING: Failed to watermark ${item.title}. The PDF may be encrypted or use unsupported compression. Falling back to original unwatermarked PDF. Error: ${wmError.message}`);
+      finalBuffer = originalBuffer; // Fallback to original
+    }
 
     // 4. Build watermarked key
     const wKey = `store-items/by-doctor/${slugify(docName)}/ebooks/orders/${buyer.orderRef}/${slug}-watermarked.pdf`;
@@ -92,7 +98,7 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
     await s3.send(new PutObjectCommand({
       Bucket: BUCKET,
       Key: wKey,
-      Body: watermarked,
+      Body: finalBuffer,
       ContentType: 'application/pdf',
       Metadata: {
         'buyer-name': buyer.name,

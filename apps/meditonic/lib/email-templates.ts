@@ -428,18 +428,6 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
       If you experience any issues accessing your download, please contact our support team.<br>
       यदि डाउनलोड करने में कोई समस्या आती है, तो कृपया हमारी सहायता टीम से संपर्क करें।
     </p>
-
-    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Warm Regards,<br><br>
-      MediTonic Team<br>
-      "Healing Beyond Symptoms – Restoring Health, Hormones, and Happiness."<br>
-      care.meditonic@gmail.com
-    </p>
-    
-    <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 18px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-      This is an automated delivery email from MediTonic.<br>
-      Powered by GlowHomeo.
-    </p>
   `;
   return BaseTemplate(`Order #${orderId.slice(0, 8)} Delivered`, "Your order has been processed.", html);
 }
