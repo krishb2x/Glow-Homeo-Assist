@@ -48,9 +48,9 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     is_bundle: initialData?.is_bundle ?? false,
     
     cover_image_path: initialData?.cover_image_path || (initialData as any)?.image_url || "",
-    gallery_image_paths: initialData?.gallery_image_paths || [],
-    preview_pdf_path: initialData?.preview_pdf_path || "",
-    final_pdf_path: initialData?.final_pdf_path || "",
+    gallery_image_paths: initialData?.metadata?.gallery_image_paths || initialData?.gallery_image_paths || [],
+    preview_pdf_path: initialData?.metadata?.preview_pdf_path || initialData?.preview_pdf_path || "",
+    final_pdf_path: initialData?.metadata?.final_pdf_path || initialData?.final_pdf_path || "",
     
     // Relationships
     related_product_ids: (initialData as any)?.related_product_ids || [],
