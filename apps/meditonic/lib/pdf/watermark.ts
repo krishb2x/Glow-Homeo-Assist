@@ -33,7 +33,7 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
   const licensePage = doc.insertPage(0, [595.28, 841.89]); // A4 size
   const { width: lWidth, height: lHeight } = licensePage.getSize();
   
-  const licenseTextYStart = lHeight - 80;
+  const licenseTextYStart = lHeight - 60;
   
   licensePage.drawText("This eBook is licensed exclusively to the purchaser listed below", {
     x: 50, y: licenseTextYStart, size: 12, font, color: rgb(0, 0, 0)
@@ -54,16 +54,23 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
   licensePage.drawText("Purchase Date:", { x: 50, y: licenseTextYStart - 195, size: 10, font: boldFont, color: rgb(0, 0, 0) });
   licensePage.drawText(purchaseDate, { x: 50, y: licenseTextYStart - 210, size: 12, font, color: rgb(0, 0, 0) });
 
+  // --- Medical Disclaimer ---
+  licensePage.drawText("Medical Disclaimer", { x: 50, y: licenseTextYStart - 250, size: 11, font: boldFont, color: rgb(0.6, 0, 0) });
+  const disclaimerText = "This eBook is intended exclusively for doctors, medical students, and healthcare professionals for educational\nand informational purposes only.\n\nThe content provided in this publication is not intended for self-diagnosis, self-medication, treatment decisions,\nor independent medical practice by the general public.\n\nReaders are advised to exercise professional clinical judgment and refer to current medical guidelines, research,\nand regulatory requirements before applying any information contained herein.\n\nThe author, publisher, and MediTonic make no warranties regarding the completeness or accuracy of the information\nand shall not be held liable for any direct, indirect, incidental, or consequential damages arising from the use,\nmisuse, interpretation, or application of the content.";
+  licensePage.drawText(disclaimerText, { x: 50, y: licenseTextYStart - 265, size: 9, font, color: rgb(0.2, 0.2, 0.2), lineHeight: 12 });
+
+  // --- Copyright & Rules ---
+  const copyY = licenseTextYStart - 410;
   licensePage.drawText("Copyright © MediTonic. All Rights Reserved.", {
-    x: 50, y: licenseTextYStart - 260, size: 12, font: boldFont, color: rgb(0, 0, 0)
+    x: 50, y: copyY, size: 11, font: boldFont, color: rgb(0, 0, 0)
   });
 
   licensePage.drawText("This document is protected under the Copyright Act, 1957 (India) and applicable intellectual property laws.", {
-    x: 50, y: licenseTextYStart - 290, size: 10, font, color: rgb(0, 0, 0)
+    x: 50, y: copyY - 20, size: 9, font, color: rgb(0, 0, 0)
   });
 
   licensePage.drawText("The purchaser may not:", {
-    x: 50, y: licenseTextYStart - 320, size: 10, font: boldFont, color: rgb(0, 0, 0)
+    x: 50, y: copyY - 45, size: 10, font: boldFont, color: rgb(0, 0, 0)
   });
 
   const rules = [
@@ -73,30 +80,30 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
     "• Modify, remove, or alter copyright notices, watermarks, or ownership information."
   ];
 
-  let ruleY = licenseTextYStart - 340;
+  let ruleY = copyY - 65;
   for (const rule of rules) {
     licensePage.drawText(rule, { x: 50, y: ruleY, size: 9, font, color: rgb(0.2, 0.2, 0.2) });
-    ruleY -= 20;
+    ruleY -= 15;
   }
 
   licensePage.drawText("This copy contains personalized identification and security markings for audit and verification purposes.", {
-    x: 50, y: ruleY - 20, size: 10, font, color: rgb(0, 0, 0)
+    x: 50, y: ruleY - 15, size: 9, font, color: rgb(0, 0, 0)
   });
 
   const legalText = "Any unauthorized reproduction, distribution, or commercial use may result in civil and/or criminal\nproceedings under applicable Indian laws, including claims for damages, injunctions, legal costs,\nand other available remedies.";
   licensePage.drawText(legalText, {
-    x: 50, y: ruleY - 50, size: 9, font, color: rgb(0.5, 0, 0), lineHeight: 14
+    x: 50, y: ruleY - 40, size: 8, font, color: rgb(0.5, 0, 0), lineHeight: 12
   });
 
-  licensePage.drawText("By accessing this eBook, the purchaser agrees to these licensing terms.", {
-    x: 50, y: ruleY - 100, size: 10, font: boldFont, color: rgb(0, 0, 0)
+  licensePage.drawText("By accessing this eBook, the purchaser acknowledges and agrees to these terms.", {
+    x: 50, y: ruleY - 85, size: 10, font: boldFont, color: rgb(0, 0, 0)
   });
 
   licensePage.drawText("MediTonic", {
-    x: 50, y: ruleY - 130, size: 12, font: boldFont, color: rgb(0, 0.4, 0.2)
+    x: 50, y: ruleY - 110, size: 12, font: boldFont, color: rgb(0, 0.4, 0.2)
   });
   licensePage.drawText("https://meditonic.glowhomeo.com", {
-    x: 50, y: ruleY - 145, size: 10, font, color: rgb(0, 0.4, 0.8)
+    x: 50, y: ruleY - 125, size: 10, font, color: rgb(0, 0.4, 0.8)
   });
 
   // ── Apply Watermarks to ALL Pages (including license) ────────────

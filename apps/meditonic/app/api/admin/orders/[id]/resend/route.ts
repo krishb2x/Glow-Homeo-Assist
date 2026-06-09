@@ -104,12 +104,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const physicalItems = items.filter((item: any) => item.product.product_type === 'PHYSICAL_BOOK' || item.product.product_type === 'TREATMENT_KIT');
 
-    // 5. Send Email
+    // 8. Resend Email
     try {
+      const hasFailedDigitalItems = digitalItems.length > 0 && deliveredPdfs.length < digitalItems.length;
+
       await sendConfirmationEmail(
         order.customer_email,
-        "Your Resent MediTonic Order Links",
-        Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems)
+        `Your MediTonic Order #${order.id.slice(0, 8)}`,
+        Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems, hasFailedDigitalItems)
       );
     } catch (emailErr) {
       console.error("Failed to send product delivery email:", emailErr);

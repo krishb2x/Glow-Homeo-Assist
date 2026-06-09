@@ -337,7 +337,7 @@ export function Template_StorePaymentConfirmed(name: string, orderId: string) {
   return BaseTemplate("Payment Confirmed / भुगतान प्राप्त हुआ", "We have received your payment.", html);
 }
 
-export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[]) {
+export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[], hasFailedDigitalItems: boolean = false) {
   let html = `
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
       Hello ${name},
@@ -347,6 +347,26 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
       आपका ऑर्डर #${orderId.slice(0, 8)} सफलतापूर्वक पूरा कर दिया गया है।
     </p>
   `;
+
+  if (hasFailedDigitalItems) {
+    html += `
+    <div style="background-color: #fff1f2; border-left: 4px solid #e11d48; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 8px 0; color: #9f1239; font-size: 14px; font-weight: 700; text-transform: uppercase;">Technical Delay Notice (तकनीकी समस्या)</h3>
+      <p style="margin: 0 0 12px 0; color: #be123c; font-size: 14px; line-height: 22px;">
+        We apologize, but a technical error occurred while generating your digital download.<br>
+        हमें खेद है, लेकिन आपका डिजिटल डाउनलोड तैयार करते समय एक तकनीकी त्रुटि हुई है।
+      </p>
+      <p style="margin: 0 0 12px 0; color: #be123c; font-size: 14px; line-height: 22px;">
+        <strong>Our team will fulfill your order manually within the next 24 hours.</strong><br>
+        <strong>हमारी टीम अगले 24 घंटों के भीतर आपके आदेश को पूरा करेगी।</strong>
+      </p>
+      <p style="margin: 0; color: #be123c; font-size: 14px; line-height: 22px;">
+        For immediate action if required, please send your payment screenshot to our WhatsApp support: <strong>7599651592</strong><br>
+        तत्काल सहायता के लिए, कृपया अपना भुगतान स्क्रीनशॉट हमारे WhatsApp सपोर्ट पर भेजें: <strong>7599651592</strong>
+      </p>
+    </div>
+    `;
+  }
 
   if (downloadLinks.length > 0) {
     html += `
@@ -402,6 +422,14 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
       This eBook is a licensed copy generated exclusively for you and contains personalized ownership protection.<br>
       यह ई-बुक केवल आपके उपयोग हेतु लाइसेंस प्राप्त प्रति है और इसमें व्यक्तिगत स्वामित्व सुरक्षा शामिल है।
+    </p>
+
+    <p style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">
+      Educational Disclaimer
+    </p>
+    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      For educational use by doctors, medical students, and healthcare professionals only. Not intended for self-diagnosis or self-medication.<br>
+      केवल डॉक्टरों, मेडिकल विद्यार्थियों एवं स्वास्थ्य पेशेवरों के शैक्षणिक उपयोग हेतु। स्वयं रोग की पहचान या स्वयं दवा लेने के लिए नहीं।
     </p>
     `;
   }

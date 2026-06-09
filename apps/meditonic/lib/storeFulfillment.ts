@@ -91,10 +91,12 @@ export async function processStoreFulfillment(mtOrderId: string) {
 
   // Send Email #2: Product Delivery to Customer
   try {
+    const hasFailedDigitalItems = digitalItems.length > 0 && deliveredPdfs.length < digitalItems.length;
+
     await sendConfirmationEmail(
       order.customer_email,
-      "Your MediTonic Order is Ready!",
-      Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems)
+      `Your MediTonic Order #${order.id.slice(0, 8)}`,
+      Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems, hasFailedDigitalItems)
     );
   } catch (emailErr) {
     console.error("Failed to send product delivery email:", emailErr);
