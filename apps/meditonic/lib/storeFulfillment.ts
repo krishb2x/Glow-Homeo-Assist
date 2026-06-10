@@ -66,6 +66,8 @@ export async function processStoreFulfillment(mtOrderId: string) {
     }
   }
 
+  const physicalItems = items.filter((item: any) => item.product.product_type === 'PHYSICAL_BOOK' || item.product.product_type === 'TREATMENT_KIT');
+
   // Send request to Railway Background Worker
   if (digitalItems.length > 0) {
     const workerUrl = process.env.RAILWAY_WORKER_URL || "http://localhost:4000";
