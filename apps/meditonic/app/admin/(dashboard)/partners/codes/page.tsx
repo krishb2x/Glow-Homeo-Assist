@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { Loader2, Plus, Ban, CheckCircle2, Ticket, Users, Percent, X, Scissors } from "lucide-react";
-import { Button } from "../../../../../components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
 export default function ReferralCodesPage() {
   const [codes, setCodes] = useState<any[]>([]);

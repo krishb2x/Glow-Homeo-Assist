@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
-import { Button } from "../../../../../components/ui/Button";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { Button } from "@/components/ui/Button";
 import { Loader2, Stethoscope, CheckCircle2, XCircle } from "lucide-react";
-import { BRAND } from "../../../../../lib/constants";
+import { BRAND } from "@/lib/constants";
 
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<any[]>([]);

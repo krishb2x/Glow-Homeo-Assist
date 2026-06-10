@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getSupabaseBrowser } from "../../../lib/supabase-browser";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { LayoutDashboard, Users, UserPlus, Gift, IndianRupee, LogOut, Loader2, Workflow, FolderGit2, ShoppingCart, Package, UserCircle } from "lucide-react";
 

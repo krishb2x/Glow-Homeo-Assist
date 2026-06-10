@@ -1,8 +1,8 @@
-import { createAdminClient } from "../../../../lib/supabase";
-import { BRAND } from "../../../../lib/constants";
+import { createAdminClient } from "@/lib/supabase";
+import { BRAND } from "@/lib/constants";
 import { Mail, Phone, Calendar, Users, TrendingUp, CreditCard, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { formatPrice } from "../../../../lib/utils";
+import { formatPrice } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
