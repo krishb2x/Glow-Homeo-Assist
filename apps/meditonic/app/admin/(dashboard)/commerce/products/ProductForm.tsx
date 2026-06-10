@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { Product, ProductType, FulfillmentType, ProductStatus } from "@/types/store";
-import { BRAND } from "@/lib/constants";
+import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
+import { Product, ProductType, FulfillmentType, ProductStatus } from "../../../../../types/store";
+import { BRAND } from "../../../../../lib/constants";
 import { useRouter } from "next/navigation";
 import { UploadCloud, Loader2, Save, X, ExternalLink, CheckCircle2 } from "lucide-react";
 import { saveProductAction } from "./actions";
