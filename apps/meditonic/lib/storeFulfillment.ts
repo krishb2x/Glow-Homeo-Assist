@@ -70,7 +70,8 @@ export async function processStoreFulfillment(mtOrderId: string) {
 
   // Send request to Railway Background Worker
   if (digitalItems.length > 0) {
-    const workerUrl = process.env.RAILWAY_WORKER_URL || "http://localhost:4000";
+    let workerUrl = process.env.RAILWAY_WORKER_URL || "http://localhost:4000";
+    if (!workerUrl.startsWith("http")) workerUrl = `https://${workerUrl}`;
     try {
       await fetch(`${workerUrl}/internal/pdf-delivery`, {
         method: "POST",
