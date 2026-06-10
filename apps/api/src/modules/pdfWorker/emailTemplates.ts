@@ -393,7 +393,7 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
       html += `
       <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
         Download Link:<br>
-        <a href="${link.url}" style="color: ${COLORS.primary}; font-weight: 500; text-decoration: underline;">[Download eBook]</a>
+        <a href="${link.downloadUrl}" style="color: ${COLORS.primary}; font-weight: 500; text-decoration: underline;">[Download eBook]</a>
       </p>
       `;
     });
