@@ -168,19 +168,35 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
   const tmpId = crypto.randomUUID();
   const inFile = path.join(os.tmpdir(), `${tmpId}-in.pdf`);
   const outFile = path.join(os.tmpdir(), `${tmpId}-out.pdf`);
-  const scriptPath = path.join(__dirname, 'encrypt-pdf.js');
+
+  const scriptCode = `
+const muhammara = require('muhammara');
+try {
+  muhammara.recrypt(process.argv[1], process.argv[2], {
+    password: process.argv[3] === 'EMPTY' ? '' : process.argv[3],
+    ownerPassword: process.argv[4],
+    userPassword: process.argv[5],
+    userProtectionFlag: 4
+  });
+  process.exit(0);
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
+`;
 
   try {
     fs.writeFileSync(inFile, finalBufferToEncrypt);
 
     try {
       await execFileAsync('node', [
-        scriptPath,
+        '-e',
+        scriptCode,
         inFile,
         outFile,
-        'MEDITONIC', // password
-        'MEDITONIC_SECURE_OWNER', // ownerPassword
-        primaryPassword // userPassword
+        'MEDITONIC', // argv[3]
+        'MEDITONIC_SECURE_OWNER', // argv[4]
+        primaryPassword // argv[5]
       ], { timeout: 15000 });
     } catch (err: any) {
       if (err.killed) {
@@ -190,7 +206,8 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
       // Try again without password
       try {
         await execFileAsync('node', [
-          scriptPath,
+          '-e',
+          scriptCode,
           inFile,
           outFile,
           'EMPTY',
