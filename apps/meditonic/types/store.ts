@@ -19,7 +19,26 @@ export interface Product {
   meta_title?: string;
   meta_description?: string;
   status: ProductStatus;
-  metadata?: any;
+  metadata?: {
+    gallery_image_paths?: string[];
+    preview_pdf_path?: string;
+    final_pdf_path?: string;
+    preview_video_url?: string;
+    requires_watermark?: boolean;
+    pages?: number | string;
+    books?: number | string;
+    author?: string;
+    language?: string;
+    format?: string;
+    duration?: number | string;
+    modality?: string;
+    custom_badge?: string;
+    bestseller?: boolean;
+    rating?: number;
+    verified_reviews?: any[];
+    key_learnings?: string[];
+    [key: string]: any;
+  };
   cover_image_path?: string;
   gallery_image_paths?: string[];
   preview_pdf_path?: string;
@@ -41,6 +60,7 @@ export interface Product {
   image_url?: string;
   related_product_ids?: string[];
   bundle_item_ids?: string[];
+  fbt_product_ids?: string[];
 }
 
 export interface CartItem {

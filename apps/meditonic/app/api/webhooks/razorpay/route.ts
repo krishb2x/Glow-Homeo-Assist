@@ -162,13 +162,13 @@ export async function POST(req: Request) {
           }
         }
 
-        // Trigger fulfillment synchronously for serverless (must await)
-        try {
-          const { processStoreFulfillment } = require('@/lib/storeFulfillment');
-          await processStoreFulfillment(storeOrder.id);
-        } catch (e) {
-          console.error("Webhook store fulfillment trigger failed:", e);
-        }
+        // Enqueue Sync Job for Background Worker instead of blocking the webhook
+        await supabase.from("mt_sync_queue").insert({
+          target_system: "store_fulfillment",
+          operation: "process_order",
+          payload: { order_id: storeOrder.id },
+          status: "pending"
+        });
 
         return NextResponse.json({ status: "ok" });
       }

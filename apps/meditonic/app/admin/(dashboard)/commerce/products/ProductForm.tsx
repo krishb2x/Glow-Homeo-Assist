@@ -55,6 +55,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     // Relationships
     related_product_ids: (initialData as any)?.related_product_ids || [],
     bundle_item_ids: initialData?.bundle_item_ids || [],
+    fbt_product_ids: (initialData as any)?.fbt_product_ids || [],
   });
 
   useEffect(() => {
@@ -252,6 +253,14 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     }
   };
 
+  const handleMetaChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setMetaFields((prev: any) => ({
+      ...prev,
+      [name]: ['pages', 'books'].includes(name) ? Number(value) : value
+    }));
+  };
+
   const handleUpsellChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     setFormData(prev => ({
@@ -267,6 +276,17 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
         return { ...prev, bundle_item_ids: current.filter(id => id !== productId) };
       } else {
         return { ...prev, bundle_item_ids: [...current, productId] };
+      }
+    });
+  };
+
+  const handleFBTItemChange = (productId: string) => {
+    setFormData(prev => {
+      const current = (prev as any).fbt_product_ids || [];
+      if (current.includes(productId)) {
+        return { ...prev, fbt_product_ids: current.filter((id: string) => id !== productId) };
+      } else {
+        return { ...prev, fbt_product_ids: [...current, productId] };
       }
     });
   };
@@ -310,8 +330,29 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
         
         {/* Left Column - Main Details */}
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Basic Information</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4 border-t-4 border-t-indigo-500">
+            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4 flex items-center gap-2">Basic Information</h3>
+            
+            <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+              <label className="block text-xs font-bold text-indigo-900 mb-2">Product Architecture Type</label>
+              <select 
+                name="product_type" 
+                value={formData.product_type} 
+                onChange={handleChange} 
+                className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 bg-white font-semibold text-indigo-900 shadow-sm"
+              >
+                <option value="EBOOK">E-Book (Digital PDF)</option>
+                <option value="PHYSICAL_BOOK">Physical Book (Shipping)</option>
+                <option value="CONSULTATION">Medical Consultation (Clinical Triage)</option>
+                <option value="PROGRAM">Digital Program</option>
+                <option value="COURSE">Online Course</option>
+                <option value="MEMBERSHIP">Membership Access</option>
+                <option value="BUNDLE">Product Bundle</option>
+              </select>
+              <p className="text-[10px] text-indigo-700 mt-2">
+                This dictates how the system fulfills the order (e.g. S3 Watermarking vs Clinical Triage Queue).
+              </p>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -404,6 +445,38 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Book / Content Details Panel */}
+          {['EBOOK', 'PHYSICAL_BOOK', 'PROGRAM', 'COURSE'].includes(formData.product_type || '') && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4 border-l-4 border-l-amber-500">
+              <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Content Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Author / Creator</label>
+                  <input type="text" name="author" value={metaFields.author || ''} onChange={handleMetaChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. Dr. Aman Agrawal" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Format Type</label>
+                  <input type="text" name="format" value={metaFields.format || ''} onChange={handleMetaChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. PDF, Hardcover" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Total Pages</label>
+                  <input type="number" name="pages" value={metaFields.pages || ''} onChange={handleMetaChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Language</label>
+                  <input type="text" name="language" value={metaFields.language || ''} onChange={handleMetaChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. English, Hindi" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Digital Delivery Panel */}
+          {['EBOOK', 'PROGRAM', 'COURSE'].includes(formData.product_type || '') && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4 border-l-4 border-l-emerald-500">
+              <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Digital Delivery Files</h3>
 
               {/* PDF Uploads */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -472,7 +545,32 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                 </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Clinical Panel */}
+          {formData.product_type === 'CONSULTATION' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4 border-l-4 border-l-purple-500">
+              <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Clinical Operations</h3>
+              <p className="text-xs text-slate-600 mb-4">
+                Orders for this product will automatically generate a Case in the Clinical Triage queue. No files are delivered.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Consultation Duration (mins)</label>
+                  <input type="number" name="duration" value={metaFields.duration || ''} onChange={handleMetaChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. 30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Modality</label>
+                  <select name="modality" value={metaFields.modality || ''} onChange={handleMetaChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                    <option value="">Select Modality...</option>
+                    <option value="Video Call">Video Call</option>
+                    <option value="Voice Call">Voice Call</option>
+                    <option value="In-Clinic">In-Clinic</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
           
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Marketing Settings</h3>
@@ -550,6 +648,33 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
               <p className="text-[10px] text-emerald-600 mt-2 leading-relaxed">
                 Selecting a product here will automatically render an "Upgrade to Bundle & Save" card directly above the Buy button on this product's page.
               </p>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-100 rounded-xl shadow-sm p-6 space-y-4">
+            <h3 className="font-semibold text-blue-800 border-b border-blue-200 pb-2 mb-4">Frequently Bought Together</h3>
+            <p className="text-xs text-blue-700 leading-relaxed">
+              Select products that customers often purchase alongside this one. This will render a checklist on the product page allowing customers to add them all to the cart at once.
+            </p>
+            
+            <div className="max-h-64 overflow-y-auto space-y-2 bg-white rounded-lg border border-blue-200 p-3">
+              {availableProducts.map(p => {
+                const isSelected = (formData as any).fbt_product_ids?.includes(p.id);
+                return (
+                  <label key={`fbt-${p.id}`} className="flex items-start gap-3 p-2 rounded hover:bg-slate-50 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={isSelected}
+                      onChange={() => handleFBTItemChange(p.id)}
+                      className="mt-1 w-4 h-4 accent-blue-600"
+                    />
+                    <div>
+                      <span className="text-sm font-semibold text-slate-800 block">{p.title}</span>
+                      <span className="text-xs text-slate-500 block">₹{p.price}</span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

@@ -8,37 +8,58 @@ export async function saveProductAction(payload: any, productId?: string) {
   try {
     const supabase = createAdminClient();
 
-    const commonFields = {
-      title: payload.title,
-      slug: payload.slug || payload.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
-      description: payload.description,
-      price: payload.price,
-      original_price: payload.original_price || payload.price,
-      cover_image_path: payload.cover_image_path,
-      
-      // New Merchandising Columns
-      is_active: payload.is_active,
-      display_order: payload.display_order || 999,
-      is_featured: payload.is_featured || false,
-      is_bestseller: payload.is_bestseller || false,
-      is_new_release: payload.is_new_release || false,
-      is_bundle: payload.is_bundle || false,
-      category: payload.category || null,
+      // Determine if digital uploads apply
+      const hasDigitalUploads = ['EBOOK', 'PROGRAM', 'COURSE'].includes(payload.product_type || 'EBOOK');
 
-      // Core Classification
-      product_type: payload.product_type || 'EBOOK',
-      is_combo: payload.product_type === 'BUNDLE' || payload.is_bundle,
-      
-      metadata: {
+      const metadata: any = {
         ...(payload.metadata || {}),
         gallery_image_paths: payload.gallery_image_paths || [],
-        preview_pdf_path: payload.preview_pdf_path || "",
-        final_pdf_path: payload.final_pdf_path || "",
         meta_title: payload.meta_title || "",
         meta_description: payload.meta_description || "",
-        fulfillment_type: payload.fulfillment_type || "DIGITAL_DOWNLOAD"
+        fulfillment_type: payload.fulfillment_type || "DIGITAL_DOWNLOAD",
+        
+        // Recoverable Metadata
+        pages: payload.metadata?.pages || undefined,
+        books: payload.metadata?.books || undefined,
+        author: payload.metadata?.author || undefined,
+        language: payload.metadata?.language || undefined,
+        format: payload.metadata?.format || undefined,
+        duration: payload.metadata?.duration || undefined,
+        modality: payload.metadata?.modality || undefined,
+      };
+
+      if (hasDigitalUploads) {
+        metadata.preview_pdf_path = payload.preview_pdf_path || "";
+        metadata.final_pdf_path = payload.final_pdf_path || "";
+      } else {
+        delete metadata.preview_pdf_path;
+        delete metadata.final_pdf_path;
+        delete metadata.requires_watermark;
       }
-    };
+
+      const commonFields = {
+        title: payload.title,
+        slug: payload.slug || payload.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        description: payload.description,
+        price: payload.price,
+        original_price: payload.original_price || payload.price,
+        cover_image_path: payload.cover_image_path,
+        
+        // New Merchandising Columns
+        is_active: payload.is_active,
+        display_order: payload.display_order || 999,
+        is_featured: payload.is_featured || false,
+        is_bestseller: payload.is_bestseller || false,
+        is_new_release: payload.is_new_release || false,
+        is_bundle: payload.is_bundle || false,
+        category: payload.category || null,
+
+        // Core Classification
+        product_type: payload.product_type || 'EBOOK',
+        is_combo: payload.product_type === 'BUNDLE' || payload.is_bundle,
+        
+        metadata: metadata
+      };
 
     let targetProductId = productId;
 
@@ -110,6 +131,28 @@ export async function saveProductAction(payload: any, productId?: string) {
             
           if (bundleError) console.error("Failed to save bundle items", bundleError);
         }
+      }
+
+      // Handle FBT Items
+      await supabase
+        .from("mt_product_relationships")
+        .delete()
+        .eq("product_id", targetProductId)
+        .eq("relationship_type", "frequently_bought_together");
+
+      if (payload.fbt_product_ids && payload.fbt_product_ids.length > 0) {
+        const fbtRels = payload.fbt_product_ids.map((relId: string, idx: number) => ({
+          product_id: targetProductId,
+          related_product_id: relId,
+          relationship_type: "frequently_bought_together",
+          sort_order: idx
+        }));
+
+        const { error: fbtError } = await supabase
+          .from("mt_product_relationships")
+          .insert(fbtRels);
+          
+        if (fbtError) console.error("Failed to save FBT items", fbtError);
       }
     }
 

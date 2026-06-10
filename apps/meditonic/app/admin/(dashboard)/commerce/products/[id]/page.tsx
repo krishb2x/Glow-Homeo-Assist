@@ -31,6 +31,10 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     product.bundle_item_ids = relationships
       .filter((r: any) => r.relationship_type === 'bundle_item')
       .map((r: any) => r.related_product_id);
+
+    product.fbt_product_ids = relationships
+      .filter((r: any) => r.relationship_type === 'frequently_bought_together')
+      .map((r: any) => r.related_product_id);
   }
 
   return <ProductForm initialData={product} />;

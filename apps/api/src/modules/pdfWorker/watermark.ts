@@ -24,14 +24,13 @@ export interface BuyerDetails {
  * @returns - Watermarked PDF bytes
  */
 export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email, phone, orderRef, date }: BuyerDetails, requiresWatermark: boolean = true): Promise<Uint8Array> {
-  let finalBufferToEncrypt: Buffer | Uint8Array = pdfBuffer;
+  // Always load via pdf-lib to strip any existing encryption (e.g. MEDITONIC password on S3 files)
+  const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  const purchaseDate = date || new Date().toLocaleDateString();
 
   if (requiresWatermark) {
-    const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
-    const purchaseDate = date || new Date().toLocaleDateString();
-
     // ── Insert License Agreement Page (Page 0) ──────────────────────────
     const licensePage = doc.insertPage(0, [595.28, 841.89]); // A4 size
     const { width: lWidth, height: lHeight } = licensePage.getSize();
@@ -102,7 +101,7 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
     yPos -= 20;
     licensePage.drawText("https://meditonic.glowhomeo.com", { x: 50, y: yPos, size: 10, font, color: rgb(0, 0.4, 0.8) });
 
-    // ── Apply Watermarks to ALL Pages ────────────
+    // ── Apply Footer Watermarks to ALL Pages ────────────
     const pages = doc.getPages();
     const footerText = `Licensed Copy • ${name} • ${email} • Order ${orderRef}`;
 
@@ -128,10 +127,11 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
         opacity: 0.9,
       });
     }
-
-    const watermarkedBytes = await doc.save();
-    finalBufferToEncrypt = Buffer.from(watermarkedBytes);
   }
+
+  // Save via pdf-lib — this always produces a clean, unencrypted PDF
+  const cleanBytes = await doc.save();
+  const finalBufferToEncrypt = Buffer.from(cleanBytes);
 
   // ── 3. Apply 128-bit Encryption ─────────────────────────────
   const primaryPassword = phone && phone.trim().length >= 8 ? phone.trim() : email;
@@ -149,34 +149,16 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
 
   const scriptCode = `
 const muhammara = require('muhammara');
-const inFile = process.argv[1];
-const outFile = process.argv[2];
-const ownerPassword = process.argv[4];
-const userPassword = process.argv[5];
-
-const passwordsToTry = [process.argv[3], 'meditonic', 'Meditonic', ''];
-
-let success = false;
-for (const pw of passwordsToTry) {
-  try {
-    muhammara.recrypt(inFile, outFile, {
-      password: pw === 'EMPTY' ? '' : pw,
-      ownerPassword: ownerPassword,
-      userPassword: userPassword,
-      userProtectionFlag: 4
-    });
-    success = true;
-    break;
-  } catch (e) {
-    // Try next password
-  }
-}
-
-if (!success) {
-  console.error("Unable to recrypt files, check that input and output files are clear and arguments are coool");
-  process.exit(1);
-} else {
+try {
+  muhammara.recrypt(process.argv[1], process.argv[2], {
+    userPassword: process.argv[3],
+    ownerPassword: process.argv[4],
+    userProtectionFlag: 4
+  });
   process.exit(0);
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
 }
 `;
 
@@ -189,9 +171,8 @@ if (!success) {
         scriptCode,
         inFile,
         outFile,
-        'MEDITONIC', // argv[3]
-        'MEDITONIC_SECURE_OWNER', // argv[4]
-        primaryPassword // argv[5]
+        primaryPassword, // argv[3] = userPassword
+        'MEDITONIC_SECURE_OWNER' // argv[4] = ownerPassword
       ], { timeout: 15000 });
     } catch (err: any) {
       if (err.killed) {

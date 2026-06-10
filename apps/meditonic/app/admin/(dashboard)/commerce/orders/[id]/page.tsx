@@ -118,6 +118,9 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   }
 
   const hasPhysicalItems = order.items?.some((i: any) => i.product?.fulfillment_type === 'PHYSICAL_SHIPPING');
+  const hasConsultation = order.items?.some((i: any) => i.product?.product_type === 'CONSULTATION');
+  const hasDigitalDelivery = order.items?.some((i: any) => ['EBOOK', 'COURSE', 'BUNDLE', 'PROGRAM'].includes(i.product?.product_type) || i.product?.is_bundle);
+  const hasMembership = order.items?.some((i: any) => i.product?.product_type === 'MEMBERSHIP');
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -206,7 +209,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
 
           {/* Fulfillment Action */}
           {hasPhysicalItems && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-5">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-5 border-l-4 border-l-blue-500">
               <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
                 <Truck className="w-4 h-4 text-slate-500" /> Physical Fulfillment
               </h3>
@@ -227,8 +230,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           )}
 
           {/* Digital Fulfillment Action */}
-          {order.items?.some((i: any) => ['EBOOK', 'COURSE', 'BUNDLE'].includes(i.product?.product_type) || i.product?.is_bundle) && order.status === 'paid' && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-5">
+          {hasDigitalDelivery && order.status === 'paid' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-5 border-l-4 border-l-emerald-500">
               <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
                 <Mail className="w-4 h-4 text-slate-500" /> Digital Delivery
               </h3>
@@ -246,6 +249,36 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                   <><Mail className="w-4 h-4" /> Resend Delivery Email</>
                 )}
               </button>
+            </div>
+          )}
+
+          {/* Clinical Fulfillment Action */}
+          {hasConsultation && order.status === 'paid' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-5 border-l-4 border-l-indigo-500">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                <User className="w-4 h-4 text-slate-500" /> Clinical Operations
+              </h3>
+              <p className="text-sm text-slate-600 mb-4">
+                This order includes a medical consultation. The system has automatically generated a Case in the Clinical Triage Queue.
+              </p>
+              <Link 
+                href={`/admin/operations/cases?q=${order.id}`}
+                className="inline-flex px-4 py-2 rounded-lg font-semibold text-sm transition-colors bg-indigo-600 text-white hover:bg-indigo-700 items-center gap-2"
+              >
+                View Case Queue <ExternalLink className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
+
+          {/* Membership Fulfillment Action */}
+          {hasMembership && order.status === 'paid' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-5 border-l-4 border-l-purple-500">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                <CheckCircle2 className="w-4 h-4 text-slate-500" /> Membership Access
+              </h3>
+              <p className="text-sm text-slate-600">
+                Membership access has been automatically granted to the user's account. No manual fulfillment is required.
+              </p>
             </div>
           )}
 

@@ -18,6 +18,23 @@ function BaseTemplate(title: string, preheader: string, contentHtml: string) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
+  <style>
+    /* Mobile First Adjustments */
+    @media only screen and (max-width: 600px) {
+      .wrapper-table { padding: 0 !important; background-color: #ffffff !important; }
+      .card-table { width: 100% !important; border-radius: 0 !important; box-shadow: none !important; border-top: 6px solid ${COLORS.primary} !important; }
+      .body-cell { padding: 24px 16px !important; }
+      .footer-cell { padding: 24px 16px !important; }
+      .text-h2 { font-size: 20px !important; line-height: 28px !important; }
+      .text-h3 { font-size: 16px !important; line-height: 24px !important; }
+      .text-p { font-size: 15px !important; line-height: 24px !important; }
+      .data-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding-bottom: 4px !important; }
+      .data-label { padding-bottom: 2px !important; font-size: 13px !important; color: ${COLORS.textSecondary} !important; }
+      .data-value { padding-bottom: 12px !important; font-size: 15px !important; color: ${COLORS.textPrimary} !important; font-weight: 600 !important; border-bottom: 1px solid #f1f5f9 !important; margin-bottom: 12px !important; }
+      .data-value:last-child { border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+      .mobile-box { padding: 16px !important; }
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: ${COLORS.background}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   <!-- Preheader text for email clients -->
@@ -25,31 +42,31 @@ function BaseTemplate(title: string, preheader: string, contentHtml: string) {
     ${preheader}
   </span>
 
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${COLORS.background}; padding: 40px 20px;">
+  <table class="wrapper-table" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${COLORS.background}; padding: 40px 20px;">
     <tr>
       <td align="center">
         <!-- Main Card -->
-        <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: ${COLORS.card}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-top: 8px solid ${COLORS.primary};">
+        <table class="card-table" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: ${COLORS.card}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-top: 8px solid ${COLORS.primary};">
           
           <!-- Body Content -->
           <tr>
-            <td style="padding: 40px;">
+            <td class="body-cell" style="padding: 40px;">
               ${contentHtml}
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid ${COLORS.border};">
-              <p style="margin: 0 0 12px 0; color: ${COLORS.primary}; font-size: 14px; font-weight: 600; font-style: italic;">
+            <td class="footer-cell" style="background-color: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid ${COLORS.border};">
+              <p style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 15px; font-weight: 600; font-style: italic; line-height: 22px;">
                 "Healing Beyond Symptoms – Restoring Health, Hormones, and Happiness."
               </p>
-              <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 13px; line-height: 20px;">
+              <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 22px;">
                 <strong>MediTonic Team</strong><br>
                 <a href="mailto:care.meditonic@gmail.com" style="color: ${COLORS.primary}; text-decoration: none;">care.meditonic@gmail.com</a>
               </p>
-              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-              <p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 18px;">
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+              <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 18px;">
                 This is an automated confirmation email from MediTonic.<br>
                 <strong>Powered by GlowHomeo</strong>
               </p>
@@ -87,45 +104,45 @@ export function Template_ConsultationConfirmed(
       </div>
     </div>
 
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 24px; font-weight: 700; text-align: center;">Booking Confirmed! (बुकिंग कन्फर्म हो गई!)</h2>
-    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px; text-align: center;">
-      Thank you for choosing MediTonic. Your payment was successful and your consultation request has been received.<br>
-      MediTonic को चुनने के लिए धन्यवाद। आपका भुगतान सफल रहा और आपका परामर्श अनुरोध प्राप्त हो गया है।
+    <h2 class="text-h2" style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 24px; font-weight: 700; text-align: center;">Booking Confirmed! (बुकिंग कन्फर्म हो गई!)</h2>
+    <p class="text-p" style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px; text-align: center;">
+      Thank you for choosing MediTonic. Your payment was successful and your consultation request has been received.<br><br>
+      <span style="color: #94a3b8; font-size: 14px;">MediTonic को चुनने के लिए धन्यवाद। आपका भुगतान सफल रहा और आपका परामर्श अनुरोध प्राप्त हो गया है।</span>
     </p>
 
     <!-- What happens next card -->
-    <div style="background-color: #E5F1EE; border: 1px solid #cce3dc; padding: 24px; border-radius: 12px; margin-bottom: 32px;">
-      <h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 600;">What happens next? (आगे क्या होगा?)</h3>
+    <div class="mobile-box" style="background-color: #E5F1EE; border: 1px solid #cce3dc; padding: 24px; border-radius: 12px; margin-bottom: 32px;">
+      <h3 class="text-h3" style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">What happens next? (आगे क्या होगा?)</h3>
       
-      <ul style="margin: 0; padding-left: 20px; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 24px;">
-        <li>Our team will review your details.<br>(हमारी टीम आपके विवरण की समीक्षा करेगी।)</li>
-        <li>You will be contacted on your registered mobile number.<br>(आपके पंजीकृत मोबाइल नंबर पर आपसे संपर्क किया जाएगा।)</li>
-        <li>Consultation timing and further instructions will be shared shortly.<br>(परामर्श का समय और आगे के निर्देश जल्द ही साझा किए जाएंगे।)</li>
+      <ul style="margin: 0; padding-left: 20px; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+        <li style="margin-bottom: 12px;">Our team will review your details.<br><span style="color: #94a3b8; font-size: 13px;">(हमारी टीम आपके विवरण की समीक्षा करेगी।)</span></li>
+        <li style="margin-bottom: 12px;">You will be contacted on your registered mobile number.<br><span style="color: #94a3b8; font-size: 13px;">(आपके पंजीकृत मोबाइल नंबर पर आपसे संपर्क किया जाएगा।)</span></li>
+        <li>Consultation timing and further instructions will be shared shortly.<br><span style="color: #94a3b8; font-size: 13px;">(परामर्श का समय और आगे के निर्देश जल्द ही साझा किए जाएंगे।)</span></li>
       </ul>
     </div>
 
-    <h3 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600; border-bottom: 1px solid ${COLORS.border}; padding-bottom: 8px;">Booking Details (बुकिंग विवरण)</h3>
+    <h3 class="text-h3" style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 18px; font-weight: 600; border-bottom: 1px solid ${COLORS.border}; padding-bottom: 8px;">Booking Details (बुकिंग विवरण)</h3>
     
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+    <table class="data-table" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
       <tr>
-        <td style="padding: 8px 0; color: ${COLORS.textSecondary}; font-size: 14px; width: 120px;"><strong>Booking ID:</strong></td>
-        <td style="padding: 8px 0; color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 600;">${details?.bookingId || 'MT-Pending'}</td>
+        <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textSecondary}; font-size: 14px; width: 35%;"><strong>Booking ID:</strong></td>
+        <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 600;">${details?.bookingId || 'MT-Pending'}</td>
       </tr>
       <tr>
-        <td style="padding: 8px 0; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Patient:</strong></td>
-        <td style="padding: 8px 0; color: ${COLORS.textPrimary}; font-size: 14px;">${name}</td>
+        <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Patient:</strong></td>
+        <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 500;">${name}</td>
       </tr>
       <tr>
-        <td style="padding: 8px 0; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Mobile:</strong></td>
-        <td style="padding: 8px 0; color: ${COLORS.textPrimary}; font-size: 14px;">${details?.phone || 'Not Provided'}</td>
+        <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Mobile:</strong></td>
+        <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 500;">${details?.phone || 'Not Provided'}</td>
       </tr>
       <tr>
-        <td style="padding: 8px 0; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Consultation:</strong></td>
-        <td style="padding: 8px 0; color: ${COLORS.textPrimary}; font-size: 14px; text-transform: capitalize;">${(details?.type || 'Online Consultation').replace('-', ' ')}</td>
+        <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Consultation:</strong></td>
+        <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 500; text-transform: capitalize;">${(details?.type || 'Online Consultation').replace('-', ' ')}</td>
       </tr>
       <tr>
-        <td style="padding: 8px 0; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Concern:</strong></td>
-        <td style="padding: 8px 0; color: ${COLORS.textPrimary}; font-size: 14px; text-transform: capitalize;">${(details?.concernCategory || 'General').replace('-', ' ')}</td>
+        <td class="data-label" style="padding: 12px 0; color: ${COLORS.textSecondary}; font-size: 14px;"><strong>Concern:</strong></td>
+        <td class="data-value" style="padding: 12px 0; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 500; text-transform: capitalize;">${(details?.concernCategory || 'General').replace('-', ' ')}</td>
       </tr>
     </table>
   `;
@@ -138,22 +155,22 @@ export function Template_EbookPurchased(
 ) {
   const amountRow = details?.amount !== undefined ? `
     <tr>
-      <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px;">Amount Paid (भुगतान राशि):</td>
-      <td style="padding-bottom: 8px; color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500;">₹${details.amount}</td>
+      <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; color: ${COLORS.textSecondary}; font-size: 14px;">Amount Paid (भुगतान राशि):</td>
+      <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 600;">₹${details.amount}</td>
     </tr>
   ` : "";
 
   const phoneRow = details?.phone ? `
     <tr>
-      <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px; width: 150px;">Phone/WA (फ़ोन):</td>
-      <td style="padding-bottom: 8px; color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500;">${details.phone}</td>
+      <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; color: ${COLORS.textSecondary}; font-size: 14px; width: 40%;">Phone/WA (फ़ोन):</td>
+      <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; color: ${COLORS.textPrimary}; font-size: 15px; font-weight: 500;">${details.phone}</td>
     </tr>
   ` : "";
 
   const detailsHtml = (amountRow || phoneRow) ? `
-    <div style="background-color: #f8fafc; border: 1px solid ${COLORS.border}; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 12px 0; color: ${COLORS.primary}; font-size: 14px; font-weight: 600; text-transform: uppercase;">Order Details (ऑर्डर विवरण)</h3>
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <div class="mobile-box" style="background-color: #f8fafc; border: 1px solid ${COLORS.border}; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
+      <h3 class="text-h3" style="margin: 0 0 16px 0; color: ${COLORS.primary}; font-size: 15px; font-weight: 600; text-transform: uppercase;">Order Details (ऑर्डर विवरण)</h3>
+      <table class="data-table" width="100%" cellpadding="0" cellspacing="0" border="0">
         ${phoneRow}
         ${amountRow}
       </table>
@@ -161,22 +178,22 @@ export function Template_EbookPurchased(
   ` : "";
 
   const html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Order Confirmed! (ऑर्डर कन्फर्म हो गया!)</h2>
-    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Dear / प्रिय ${name},
+    <h2 class="text-h2" style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 22px; font-weight: 700;">Order Confirmed! (ऑर्डर कन्फर्म हो गया!)</h2>
+    <p class="text-p" style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 16px; line-height: 26px;">
+      Dear / प्रिय <strong>${name}</strong>,
     </p>
-    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Thank you for your eBook purchase from MediTonic. We have successfully received your payment.<br>
-      MediTonic से ई-बुक खरीदने के लिए धन्यवाद। हमें आपका भुगतान सफलतापूर्वक प्राप्त हो गया है।
+    <p class="text-p" style="margin: 0 0 32px 0; color: ${COLORS.textSecondary}; font-size: 16px; line-height: 26px;">
+      Thank you for your eBook purchase from MediTonic. We have successfully received your payment.<br><br>
+      <span style="color: #94a3b8; font-size: 14px;">MediTonic से ई-बुक खरीदने के लिए धन्यवाद। हमें आपका भुगतान सफलतापूर्वक प्राप्त हो गया है।</span>
     </p>
     
     ${detailsHtml}
 
-    <div style="background-color: #f0fdf4; border-left: 4px solid ${COLORS.secondary}; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Next Steps (अगला कदम)</h3>
-      <p style="margin: 0; color: #15803d; font-size: 14px; line-height: 22px;">
-        You will receive your eBook download link or a direct copy from our team shortly via WhatsApp/Email.<br>
-        आपको जल्द ही हमारी टीम से व्हाट्सएप/ईमेल के माध्यम से अपनी ई-बुक का डाउनलोड लिंक या कॉपी प्राप्त होगी।
+    <div class="mobile-box" style="background-color: #f0fdf4; border-left: 4px solid ${COLORS.secondary}; padding: 24px; border-radius: 0 8px 8px 0; margin-bottom: 32px;">
+      <h3 class="text-h3" style="margin: 0 0 12px 0; color: #166534; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Next Steps (अगला कदम)</h3>
+      <p class="text-p" style="margin: 0; color: #15803d; font-size: 15px; line-height: 24px;">
+        You will receive your eBook download link or a direct copy from our team shortly via WhatsApp/Email.<br><br>
+        <span style="opacity: 0.8; font-size: 13px;">आपको जल्द ही हमारी टीम से व्हाट्सएप/ईमेल के माध्यम से अपनी ई-बुक का डाउनलोड लिंक या कॉपी प्राप्त होगी।</span>
       </p>
     </div>
 
@@ -216,37 +233,37 @@ export function Template_PartnerApplication(name: string) {
 
 export function Template_PartnerApproved(name: string, loginUrl: string, tempPassword: string, email: string) {
   const html = `
-    <h2 style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 20px; font-weight: 600;">Welcome to the Program! (प्रोग्राम में आपका स्वागत है!)</h2>
-    <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      Hi / नमस्ते ${name},
+    <h2 class="text-h2" style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 22px; font-weight: 700;">Welcome to the Program! (प्रोग्राम में आपका स्वागत है!)</h2>
+    <p class="text-p" style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 16px; line-height: 26px;">
+      Hi / नमस्ते <strong>${name}</strong>,
     </p>
-    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
-      We are thrilled to welcome you to the <strong>MediTonic Partner Referral Program</strong>! Your application has been approved.<br>
-      हमें आपको <strong>MediTonic पार्टनर रेफरल प्रोग्राम</strong> में शामिल करने में खुशी हो रही है! आपका आवेदन स्वीकृत कर लिया गया है।
+    <p class="text-p" style="margin: 0 0 32px 0; color: ${COLORS.textSecondary}; font-size: 16px; line-height: 26px;">
+      We are thrilled to welcome you to the <strong>MediTonic Partner Referral Program</strong>! Your application has been approved.<br><br>
+      <span style="color: #94a3b8; font-size: 14px;">हमें आपको <strong>MediTonic पार्टनर रेफरल प्रोग्राम</strong> में शामिल करने में खुशी हो रही है! आपका आवेदन स्वीकृत कर लिया गया है।</span>
     </p>
     
-    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
-      <h3 style="margin: 0 0 12px 0; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Your Portal Credentials (आपके पोर्टल क्रेडेंशियल)</h3>
+    <div class="mobile-box" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
+      <h3 class="text-h3" style="margin: 0 0 16px 0; color: #166534; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Your Portal Credentials (आपके पोर्टल क्रेडेंशियल)</h3>
       
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <table class="data-table" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px; width: 100px;">Login URL:</td>
-          <td style="padding-bottom: 8px; font-size: 14px;"><a href="${loginUrl}" style="color: ${COLORS.primary}; font-weight: 500; text-decoration: none;">${loginUrl}</a></td>
+          <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #bbf7d0; color: #166534; font-size: 14px; width: 30%;">Login URL:</td>
+          <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #bbf7d0; font-size: 15px;"><a href="${loginUrl}" style="color: ${COLORS.primary}; font-weight: 600; text-decoration: underline; word-break: break-all;">${loginUrl}</a></td>
         </tr>
         <tr>
-          <td style="padding-bottom: 8px; color: ${COLORS.textSecondary}; font-size: 14px;">Email (ईमेल):</td>
-          <td style="padding-bottom: 8px; color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500;">${email}</td>
+          <td class="data-label" style="padding: 12px 0; border-bottom: 1px solid #bbf7d0; color: #166534; font-size: 14px;">Email (ईमेल):</td>
+          <td class="data-value" style="padding: 12px 0; border-bottom: 1px solid #bbf7d0; color: #166534; font-size: 15px; font-weight: 600; word-break: break-all;">${email}</td>
         </tr>
         <tr>
-          <td style="color: ${COLORS.textSecondary}; font-size: 14px;">Password (पासवर्ड):</td>
-          <td style="color: ${COLORS.textPrimary}; font-size: 14px; font-weight: 500; font-family: monospace; background: #dcfce7; padding: 2px 6px; border-radius: 4px; display: inline-block;">${tempPassword}</td>
+          <td class="data-label" style="padding: 12px 0; color: #166534; font-size: 14px;">Password (पासवर्ड):</td>
+          <td class="data-value" style="padding: 12px 0; color: #166534; font-size: 15px; font-weight: 600;"><span style="font-family: monospace; background: #dcfce7; padding: 4px 8px; border-radius: 4px; display: inline-block;">${tempPassword}</span></td>
         </tr>
       </table>
     </div>
 
-    <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 22px;">
-      <em>Please log in to your dashboard to change your password immediately and view your assigned referral codes.</em><br>
-      <em>कृपया अपना पासवर्ड तुरंत बदलने और अपने रेफरल कोड देखने के लिए अपने डैशबोर्ड में लॉग इन करें।</em>
+    <p class="text-p" style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
+      <em>Please log in to your dashboard to change your password immediately and view your assigned referral codes.</em><br><br>
+      <span style="color: #94a3b8; font-size: 13px;"><em>कृपया अपना पासवर्ड तुरंत बदलने और अपने रेफरल कोड देखने के लिए अपने डैशबोर्ड में लॉग इन करें।</em></span>
     </p>
 
     <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">

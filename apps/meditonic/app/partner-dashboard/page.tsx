@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { 
   Copy, Check, LogOut, DollarSign, 
-  ShoppingBag, Loader2, Sparkles, Target, Link as LinkIcon
+  ShoppingBag, Loader2, Sparkles, Target, Link as LinkIcon, Wallet, Activity, TrendingUp, Clock
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
@@ -105,8 +105,12 @@ export default function PartnerDashboard() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-slate-50">
-        <Loader2 className="w-10 h-10 animate-spin text-emerald-600 mb-4" />
-        <p className="text-slate-500 font-medium animate-pulse">Loading dashboard...</p>
+        <Loader2 className="w-12 h-12 animate-spin text-emerald-500 mb-6 drop-shadow-md" />
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
       </div>
     );
   }
@@ -126,24 +130,31 @@ export default function PartnerDashboard() {
   const paidCommission = attributions
     .filter(a => a.status === 'paid')
     .reduce((sum, a) => sum + (a.commission_amount || 0), 0);
-    
-  const targetRevenue = 50000;
-  const progressPercent = Math.min(100, (revenue / targetRevenue) * 100);
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC] pb-12 font-sans w-full overflow-x-hidden">
-      {/* Mobile-Friendly Header */}
-      <header className="bg-white sticky top-0 z-50 border-b border-slate-200 shadow-sm">
-        <div className="px-4 h-16 flex items-center justify-between max-w-lg mx-auto md:max-w-7xl">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-serif text-lg">M</div>
-            <span className="font-semibold text-slate-800 text-sm md:text-base truncate max-w-[120px] md:max-w-none">
-              MediTonic Partners
+    <div className="min-h-[100dvh] bg-[#F8FAFC] pb-16 font-sans w-full overflow-x-hidden relative">
+      
+      {/* Dynamic Background Elements for depth */}
+      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-emerald-900/5 to-transparent -z-10 pointer-events-none"></div>
+      <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-sm">
+        <div className="px-4 md:px-8 h-16 flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-md shadow-emerald-500/20 ring-1 ring-white/50">
+              M
+            </div>
+            <span className="font-bold text-slate-800 tracking-tight flex items-center gap-2">
+              Partner Hub
+              <span className="hidden sm:inline-flex px-2 py-0.5 bg-emerald-100/80 text-emerald-800 text-[10px] uppercase font-black tracking-widest rounded-full border border-emerald-200/50">
+                Beta
+              </span>
             </span>
           </div>
           <button 
             onClick={handleLogout} 
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-sm font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100/80 text-sm font-bold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-all active:scale-95"
           >
             <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Sign Out</span>
@@ -151,154 +162,204 @@ export default function PartnerDashboard() {
         </div>
       </header>
 
-      <main className="px-4 pt-6 max-w-lg mx-auto md:max-w-7xl">
+      <main className="px-4 pt-8 md:pt-12 max-w-7xl mx-auto space-y-12">
         
         {/* Welcome Section */}
-        <div className="mb-6">
-          <p className="text-slate-500 text-sm mb-1">{greeting},</p>
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-full shadow-sm mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{greeting}</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight animate-in fade-in slide-in-from-bottom-4 duration-700">
               {firstName}
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
-                <Sparkles className="w-3 h-3" /> Partner
-              </span>
             </h1>
-            {primaryCode && (
-              <div className="hidden sm:flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                Tracking ID: <span className="font-mono text-emerald-400">{primaryCode}</span>
-              </div>
-            )}
           </div>
-        </div>
-
-        {/* PERFORMANCE METRICS */}
-        <h2 className="text-lg font-bold text-slate-900 mb-4 px-1">Performance</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-10">
           
-          <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-3 text-emerald-600">
-              <div className="bg-emerald-50 p-2 rounded-lg">
-                <DollarSign className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Earnings</span>
-            </div>
-            <h3 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
-              {formatPrice(partner.total_commission)}
-            </h3>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-blue-600">
-              <div className="bg-blue-50 p-2 rounded-lg">
-                <ShoppingBag className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 hidden sm:inline">Conversions</span>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 sm:hidden">Orders</span>
-            </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-              {partner.total_orders}
-            </h3>
-          </div>
-
-          <div className="bg-amber-50/50 rounded-2xl p-4 md:p-5 border border-amber-200/50 shadow-sm col-span-1">
-            <div className="flex items-center gap-2 mb-3 text-amber-600">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Pending</span>
-            </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-              {formatPrice(pendingCommission)}
-            </h3>
-          </div>
-        </div>
-
-        {/* PRODUCTS TO PROMOTE (THE NEW MARKETPLACE) */}
-        <div className="mb-4 px-1 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">Products to Promote</h2>
           {primaryCode && (
-            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
-              Commission: {partnerCommission}%
-            </span>
+            <div className="flex items-center gap-3 bg-white p-2 pl-4 rounded-2xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-right-8 duration-700">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Tracking ID</span>
+                <span className="font-mono font-bold text-slate-800">{primaryCode}</span>
+              </div>
+              <div className="h-8 w-[1px] bg-slate-200 mx-1"></div>
+              <div className="flex flex-col pr-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base Rate</span>
+                <span className="font-bold text-emerald-600">{partnerCommission}%</span>
+              </div>
+            </div>
           )}
         </div>
-        
-        {primaryCode ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-            {products.map((product) => {
-              const link = `https://meditonic.glowhomeo.com/ebooks/${product.slug}?ref=${primaryCode}`;
-              const estimatedEarnings = (product.price * partnerCommission) / 100;
-              const imageSrc = product.cover_image_path?.startsWith('http') 
-                ? product.cover_image_path 
-                : product.cover_image_path 
-                  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.cover_image_path}` 
-                  : product.image_url;
 
-              return (
-                <div key={product.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
-                  <div className="flex p-4 gap-4">
-                    <div className="w-20 h-24 shrink-0 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center">
+        {/* PERFORMANCE METRICS (Glassmorphism & Gradients) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-6 relative overflow-hidden shadow-xl shadow-slate-900/10 group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-blue-500/20 rounded-full blur-xl"></div>
+            
+            <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/10 p-2.5 rounded-xl backdrop-blur-sm border border-white/10 text-emerald-400">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Total Earnings</span>
+              </div>
+              <div>
+                <h3 className="text-4xl md:text-5xl font-black text-white tracking-tight drop-shadow-sm">
+                  {formatPrice(partner.total_commission)}
+                </h3>
+                <div className="flex items-center gap-2 mt-2 text-sm font-medium text-emerald-400">
+                  <TrendingUp className="w-4 h-4" /> Lifetime generated
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm relative overflow-hidden group hover:border-slate-300 transition-colors">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[100px] -z-0 transition-transform group-hover:scale-110 duration-500"></div>
+            <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Conversions</span>
+              </div>
+              <div>
+                <h3 className="text-4xl font-black text-slate-900 tracking-tight">
+                  {partner.total_orders}
+                </h3>
+                <div className="text-sm font-semibold text-slate-400 mt-2">Successful sales</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl p-6 border border-amber-200/60 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/60 rounded-bl-[100px] -z-0"></div>
+            <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+              <div className="flex items-center gap-3 text-amber-700">
+                <div className="bg-white/80 p-2.5 rounded-xl shadow-sm border border-amber-100">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest">Pending Payout</span>
+              </div>
+              <div>
+                <h3 className="text-4xl font-black text-amber-900 tracking-tight">
+                  {formatPrice(pendingCommission)}
+                </h3>
+                <div className="text-sm font-bold text-amber-700/60 mt-2">Awaiting next cycle</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* PRODUCTS MARKETPLACE */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Promote Products</h2>
+          </div>
+          
+          {primaryCode ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {products.map((product) => {
+                const link = `https://meditonic.glowhomeo.com/ebooks/${product.slug}?ref=${primaryCode}`;
+                const estimatedEarnings = (product.price * partnerCommission) / 100;
+                const imageSrc = product.cover_image_path?.startsWith('http') 
+                  ? product.cover_image_path 
+                  : product.cover_image_path 
+                    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.cover_image_path}` 
+                    : product.image_url;
+
+                return (
+                  <div key={product.id} className="bg-white rounded-[24px] border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group">
+                    <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
                       {imageSrc ? (
-                        <img src={imageSrc} alt={product.title} className="w-full h-full object-cover" />
+                        <img src={imageSrc} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                       ) : (
-                        <ShoppingBag className="w-8 h-8 text-slate-300" />
+                        <div className="w-full h-full flex items-center justify-center text-slate-300"><ShoppingBag className="w-12 h-12" /></div>
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <h3 className="font-bold text-slate-900 text-sm mb-1 leading-tight line-clamp-2" title={product.title}>
-                        {product.title}
-                      </h3>
-                      <div className="text-slate-500 text-xs mb-2">Retail: {formatPrice(product.price)}</div>
-                      <div className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded w-fit">
-                        Earn {formatPrice(estimatedEarnings)}
+                      
+                      {/* Commission Badge overlay */}
+                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/50 shadow-sm flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="font-bold text-emerald-700 text-sm">{formatPrice(estimatedEarnings)} <span className="text-slate-400 text-xs">/sale</span></span>
                       </div>
                     </div>
-                  </div>
-                  <div className="border-t border-slate-100 p-3 bg-slate-50 mt-auto">
-                    <button 
-                      onClick={() => copyToClipboard(product.id, link)}
-                      className={`w-full py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                        copied === product.id 
-                          ? "bg-emerald-600 text-white" 
-                          : "bg-white border border-slate-300 text-slate-700 hover:border-emerald-500 hover:text-emerald-700"
-                      }`}
-                    >
-                      {copied === product.id ? (
-                        <><Check className="w-4 h-4" /> Link Copied!</>
-                      ) : (
-                        <><LinkIcon className="w-4 h-4" /> Copy Affiliate Link</>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-10 text-center">
-            <h3 className="font-semibold text-amber-800 mb-1">Tracking ID Pending</h3>
-            <p className="text-sm text-amber-700">Your account is active, but your primary tracking code is still being generated. Please contact support if this persists.</p>
-          </div>
-        )}
 
-        {/* TRANSPARENCY LEDGER */}
-        <h2 className="text-lg font-bold text-slate-900 mb-4 px-1 mt-4">Recent Sales</h2>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
-          {attributions.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-sm">No sales recorded yet. Start promoting your links!</div>
+                    <div className="p-5 flex-1 flex flex-col justify-between gap-6">
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight" title={product.title}>
+                          {product.title}
+                        </h3>
+                        <div className="text-slate-500 font-semibold text-sm">Retail: {formatPrice(product.price)}</div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => copyToClipboard(product.id, link)}
+                        className={`w-full h-12 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                          copied === product.id 
+                            ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25" 
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white"
+                        }`}
+                      >
+                        {copied === product.id ? (
+                          <><Check className="w-4 h-4" /> Link Copied!</>
+                        ) : (
+                          <><LinkIcon className="w-4 h-4" /> Copy Affiliate Link</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {attributions.slice(0, 10).map((attr) => (
-                <div key={attr.id} className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{attr.product_type ? attr.product_type.replace('_', ' ') : 'Product Sale'}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{new Date(attr.created_at).toLocaleDateString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-emerald-600">+{formatPrice(attr.commission_amount)}</p>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">{attr.status}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="bg-amber-50/80 backdrop-blur-sm border border-amber-200/80 rounded-3xl p-8 text-center shadow-sm max-w-2xl mx-auto">
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+              <h3 className="text-xl font-bold text-amber-900 mb-2">Generating Tracking ID</h3>
+              <p className="text-amber-700/80 font-medium">Your account is active. The system is securely generating your unique tracking code. This usually takes a few minutes.</p>
             </div>
           )}
+
+          {/* TRANSPARENCY LEDGER */}
+          <div className="pt-8">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-6">Recent Activity</h2>
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              {attributions.length === 0 ? (
+                <div className="p-12 text-center flex flex-col items-center">
+                  <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4">
+                    <Target className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">No sales recorded yet</h3>
+                  <p className="text-slate-500">Share your links above to start earning commissions!</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {attributions.slice(0, 10).map((attr) => (
+                    <div key={attr.id} className="p-5 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${
+                          attr.status === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                        }`}>
+                          {attr.status === 'paid' ? <Check className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{attr.product_type ? attr.product_type.replace('_', ' ').toUpperCase() : 'PRODUCT SALE'}</p>
+                          <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">{new Date(attr.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-black text-emerald-600">+{formatPrice(attr.commission_amount)}</p>
+                        <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mt-1">{attr.status}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
       </main>
