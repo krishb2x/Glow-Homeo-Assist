@@ -35,6 +35,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
         slug: p.slug,
         stock_status: p.stock_status,
         summary: p.summary || p.description,
+        requires_watermark: p.metadata?.requires_watermark !== false,
       });
     } else if (p.product_type === 'BUNDLE' || p.is_bundle) {
       // Fetch bundle items from relationships
@@ -59,6 +60,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
               slug: childProduct.slug,
               stock_status: childProduct.stock_status,
               summary: childProduct.summary || childProduct.description,
+              requires_watermark: childProduct.metadata?.requires_watermark !== false,
             });
           }
         }

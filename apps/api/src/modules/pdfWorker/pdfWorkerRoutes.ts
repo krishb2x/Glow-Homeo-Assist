@@ -38,6 +38,10 @@ pdfWorkerRoutes.post("/pdf-delivery", async (req, res) => {
 
   // 1. Respond immediately so the caller (Vercel) doesn't wait
   jsonSuccess(res, 202, { message: "Accepted for background processing" });
+  
+  // Force the TCP socket to close immediately so Vercel's fetch resolves instantly, 
+  // bypassing any PaaS keep-alive proxy buffering.
+  req.socket.destroy();
 
   // 2. Guarantee the HTTP response is flushed to the OS before starting heavy CPU tasks
   setTimeout(() => {

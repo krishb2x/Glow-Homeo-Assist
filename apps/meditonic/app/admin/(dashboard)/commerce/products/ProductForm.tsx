@@ -452,6 +452,23 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                       <span className="text-xs text-emerald-600 font-semibold">Upload to AWS S3</span>
                     </div>
                   )}
+                  
+                  <div className="mt-4 pt-4 border-t border-emerald-200">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <div className="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={metaFields.requires_watermark !== false}
+                          onChange={(e) => setMetaFields((p: any) => ({ ...p, requires_watermark: e.target.checked }))}
+                          className="w-4 h-4 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-emerald-800">Visual Watermarking</span>
+                        <span className="text-[10px] text-emerald-600">Draws buyer name/email diagonally across pages. If disabled, PDF is delivered 15x faster with password protection only.</span>
+                      </div>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

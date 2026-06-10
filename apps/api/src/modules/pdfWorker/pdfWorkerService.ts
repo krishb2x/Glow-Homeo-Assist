@@ -28,6 +28,7 @@ export interface DeliveryItem {
   doctor_id?: string;
   stock_status?: string;
   summary?: string;
+  requires_watermark?: boolean;
 }
 
 export interface DeliveredPdf {
@@ -64,7 +65,7 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
 
     let finalBuffer: Uint8Array;
     try {
-      finalBuffer = await addWatermark(originalBuffer, buyer);
+      finalBuffer = await addWatermark(originalBuffer, buyer, item.requires_watermark !== false);
     } catch (wmError: any) {
       logger.error(`[PDF Worker] Failed to watermark ${item.title}. Error: ${wmError.message}`);
       throw new Error(`Watermark failed for ${item.title}`);

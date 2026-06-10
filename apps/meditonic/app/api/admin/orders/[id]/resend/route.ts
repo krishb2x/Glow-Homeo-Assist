@@ -46,7 +46,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           product_id: p.id,
           title: p.title,
           slug: p.slug,
-          stock_status: p.stock_status
+          stock_status: p.stock_status,
+          requires_watermark: p.metadata?.requires_watermark !== false,
         });
       } else if (p.product_type === 'BUNDLE' || p.is_bundle) {
         const { data: bundleRels } = await supabase
@@ -68,7 +69,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
                 product_id: childProduct.id,
                 title: childProduct.title,
                 slug: childProduct.slug,
-                stock_status: childProduct.stock_status
+                stock_status: childProduct.stock_status,
+                requires_watermark: childProduct.metadata?.requires_watermark !== false,
               });
             }
           }
