@@ -28,6 +28,7 @@ export interface DeliveryItem {
   doctor_id?: string;
   stock_status?: string;
   summary?: string;
+  requires_watermark?: boolean;
 }
 
 export interface DeliveredPdf {

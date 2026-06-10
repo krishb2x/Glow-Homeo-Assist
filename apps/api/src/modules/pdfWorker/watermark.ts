@@ -27,7 +27,7 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
   let finalBufferToEncrypt: Buffer | Uint8Array = pdfBuffer;
 
   if (requiresWatermark) {
-    const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+    const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true, password: 'MEDITONIC' });
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
     const purchaseDate = date || new Date().toLocaleDateString();
@@ -168,7 +168,7 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
   const primaryPassword = phone && phone.trim().length >= 8 ? phone.trim() : email;
 
   muhammara.recrypt(inStream, outStream, {
-    password: '', 
+    password: 'MEDITONIC', 
     userPassword: primaryPassword,
     ownerPassword: 'MEDITONIC_SECURE_OWNER',
     userProtectionFlag: 4
