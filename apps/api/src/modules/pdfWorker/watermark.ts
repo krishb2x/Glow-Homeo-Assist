@@ -27,7 +27,7 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
   let finalBufferToEncrypt: Buffer | Uint8Array = pdfBuffer;
 
   if (requiresWatermark) {
-    const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true, password: 'MEDITONIC' });
+    const doc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
     const purchaseDate = date || new Date().toLocaleDateString();
