@@ -86,10 +86,10 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         }
       });
       let data;
+      const text = await res.text();
       try {
-        data = await res.json();
+        data = JSON.parse(text);
       } catch (parseErr) {
-        const text = await res.text();
         throw new Error(`Server returned an invalid response. This is usually caused by a timeout while processing a very large PDF. Error: ${text.slice(0, 100)}...`);
       }
       
