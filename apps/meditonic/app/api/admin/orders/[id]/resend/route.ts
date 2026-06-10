@@ -104,8 +104,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           }),
         });
         if (!workerRes.ok) {
-          console.error("Railway worker returned error:", await workerRes.text());
+          const errText = await workerRes.text();
+          console.error(`[Railway Worker Error] Status: ${workerRes.status}, Body: ${errText}`);
+          return NextResponse.json({ error: `Railway background worker rejected the request (Status ${workerRes.status}). Ensure WORKER_SECRET matches. Details: ${errText.slice(0, 100)}` }, { status: 500 });
         }
+        
+        console.log("[Railway Worker] Successfully triggered PDF background generation.");
       } catch (e: any) {
         console.error("Failed to trigger background PDF worker:", e);
         return NextResponse.json({ error: `Failed to connect to the background PDF worker: ${e.message}. (URL used: ${workerUrl})` }, { status: 500 });

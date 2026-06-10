@@ -73,7 +73,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
     let workerUrl = process.env.RAILWAY_WORKER_URL || "http://localhost:4000";
     if (!workerUrl.startsWith("http")) workerUrl = `https://${workerUrl}`;
     try {
-      await fetch(`${workerUrl}/internal/pdf-delivery`, {
+      const workerRes = await fetch(`${workerUrl}/internal/pdf-delivery`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -89,8 +89,14 @@ export async function processStoreFulfillment(mtOrderId: string) {
           date: order.created_at,
         }),
       });
-    } catch (e) {
-      console.error("Failed to trigger background PDF worker:", e);
+      if (!workerRes.ok) {
+        const errText = await workerRes.text();
+        console.error(`[Railway Worker Error] Status: ${workerRes.status}, Body: ${errText}`);
+      } else {
+        console.log(`[Railway Worker] Successfully triggered PDF background generation for order ${order.id}.`);
+      }
+    } catch (e: any) {
+      console.error(`Failed to trigger background PDF worker for order ${order.id}:`, e.message);
     }
   } else {
     // If no digital items, send confirmation email immediately
