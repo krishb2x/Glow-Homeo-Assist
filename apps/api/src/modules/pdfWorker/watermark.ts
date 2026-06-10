@@ -156,38 +156,59 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
   }
 
   // ── 3. Apply 128-bit Encryption ─────────────────────────────
-  const muhammara = require('muhammara');
-  let inStream;
-  if (Buffer.isBuffer(finalBufferToEncrypt)) {
-    inStream = new muhammara.PDFRStreamForBuffer(finalBufferToEncrypt);
-  } else {
-    inStream = new muhammara.PDFRStreamForBuffer(Buffer.from(finalBufferToEncrypt));
-  }
-  const outStream = new muhammara.PDFWStreamForBuffer();
-
   const primaryPassword = phone && phone.trim().length >= 8 ? phone.trim() : email;
+  const crypto = require('crypto');
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+  const { execFile } = require('child_process');
+  const util = require('util');
+  const execFileAsync = util.promisify(execFile);
+
+  const tmpId = crypto.randomUUID();
+  const inFile = path.join(os.tmpdir(), `${tmpId}-in.pdf`);
+  const outFile = path.join(os.tmpdir(), `${tmpId}-out.pdf`);
+  const scriptPath = path.join(__dirname, 'encrypt-pdf.js');
 
   try {
-    muhammara.recrypt(inStream, outStream, {
-      password: 'MEDITONIC', 
-      userPassword: primaryPassword,
-      ownerPassword: 'MEDITONIC_SECURE_OWNER',
-      userProtectionFlag: 4
-    });
-  } catch (err: any) {
-    // If it failed, it might be because the PDF wasn't encrypted and muhammara rejected the password argument
-    // Re-create the stream because it might have been partially read
-    inStream = Buffer.isBuffer(finalBufferToEncrypt) 
-      ? new muhammara.PDFRStreamForBuffer(finalBufferToEncrypt)
-      : new muhammara.PDFRStreamForBuffer(Buffer.from(finalBufferToEncrypt));
-      
-    muhammara.recrypt(inStream, outStream, {
-      password: '', 
-      userPassword: primaryPassword,
-      ownerPassword: 'MEDITONIC_SECURE_OWNER',
-      userProtectionFlag: 4
-    });
-  }
+    fs.writeFileSync(inFile, finalBufferToEncrypt);
 
-  return outStream.buffer;
+    try {
+      await execFileAsync('node', [
+        scriptPath,
+        inFile,
+        outFile,
+        'MEDITONIC', // password
+        'MEDITONIC_SECURE_OWNER', // ownerPassword
+        primaryPassword // userPassword
+      ], { timeout: 15000 });
+    } catch (err: any) {
+      if (err.killed) {
+        throw new Error("Encryption timed out (infinite loop detected on this PDF)");
+      }
+      
+      // Try again without password
+      try {
+        await execFileAsync('node', [
+          scriptPath,
+          inFile,
+          outFile,
+          'EMPTY',
+          'MEDITONIC_SECURE_OWNER',
+          primaryPassword
+        ], { timeout: 15000 });
+      } catch (err2: any) {
+        if (err2.killed) {
+          throw new Error("Encryption timed out (infinite loop detected on this PDF)");
+        }
+        throw new Error(err2.stderr || err2.message || "Failed to encrypt PDF");
+      }
+    }
+
+    const encryptedBuffer = fs.readFileSync(outFile);
+    return encryptedBuffer;
+  } finally {
+    if (fs.existsSync(inFile)) fs.unlinkSync(inFile);
+    if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
+  }
 }
