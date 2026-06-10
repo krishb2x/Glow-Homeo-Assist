@@ -167,12 +167,27 @@ export async function addWatermark(pdfBuffer: Buffer | Uint8Array, { name, email
 
   const primaryPassword = phone && phone.trim().length >= 8 ? phone.trim() : email;
 
-  muhammara.recrypt(inStream, outStream, {
-    password: 'MEDITONIC', 
-    userPassword: primaryPassword,
-    ownerPassword: 'MEDITONIC_SECURE_OWNER',
-    userProtectionFlag: 4
-  });
+  try {
+    muhammara.recrypt(inStream, outStream, {
+      password: 'MEDITONIC', 
+      userPassword: primaryPassword,
+      ownerPassword: 'MEDITONIC_SECURE_OWNER',
+      userProtectionFlag: 4
+    });
+  } catch (err: any) {
+    // If it failed, it might be because the PDF wasn't encrypted and muhammara rejected the password argument
+    // Re-create the stream because it might have been partially read
+    inStream = Buffer.isBuffer(finalBufferToEncrypt) 
+      ? new muhammara.PDFRStreamForBuffer(finalBufferToEncrypt)
+      : new muhammara.PDFRStreamForBuffer(Buffer.from(finalBufferToEncrypt));
+      
+    muhammara.recrypt(inStream, outStream, {
+      password: '', 
+      userPassword: primaryPassword,
+      ownerPassword: 'MEDITONIC_SECURE_OWNER',
+      userProtectionFlag: 4
+    });
+  }
 
   return outStream.buffer;
 }

@@ -42,12 +42,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     for (const item of items) {
       const p = item.product;
       if (p.product_type === 'EBOOK' || p.product_type === 'COURSE') {
+        const { data: latestProduct } = await supabase
+          .from("mt_products")
+          .select("metadata")
+          .eq("id", p.id)
+          .single();
+
         digitalItems.push({
           product_id: p.id,
           title: p.title,
           slug: p.slug,
           stock_status: p.stock_status,
-          requires_watermark: p.metadata?.requires_watermark !== false,
+          requires_watermark: latestProduct?.metadata?.requires_watermark !== false,
         });
       } else if (p.product_type === 'BUNDLE' || p.is_bundle) {
         const { data: bundleRels } = await supabase
@@ -55,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           .select(`
             related_product_id,
             mt_products!mt_product_relationships_related_product_id_fkey (
-              id, title, slug, stock_status
+              id, title, slug, stock_status, metadata
             )
           `)
           .eq("product_id", p.id)

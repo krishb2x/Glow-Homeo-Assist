@@ -68,7 +68,7 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
       finalBuffer = await addWatermark(originalBuffer, buyer, item.requires_watermark !== false);
     } catch (wmError: any) {
       logger.error(`[PDF Worker] Failed to watermark ${item.title}. Error: ${wmError.message}`);
-      throw new Error(`Watermark failed for ${item.title}`);
+      throw new Error(`Encryption failed: ${wmError.message}`);
     }
 
     const wKey = `store-items/by-doctor/${slugify(docName)}/ebooks/orders/${buyer.orderRef}/${slug}-watermarked.pdf`;

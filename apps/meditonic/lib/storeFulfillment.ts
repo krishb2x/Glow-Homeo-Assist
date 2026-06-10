@@ -29,13 +29,19 @@ export async function processStoreFulfillment(mtOrderId: string) {
   for (const item of items) {
     const p = item.product;
     if (p.product_type === 'EBOOK' || p.product_type === 'COURSE') {
+      const { data: latestProduct } = await supabase
+        .from("mt_products")
+        .select("metadata")
+        .eq("id", p.id)
+        .single();
+        
       digitalItems.push({
         product_id: p.id,
         title: p.title,
         slug: p.slug,
         stock_status: p.stock_status,
         summary: p.summary || p.description,
-        requires_watermark: p.metadata?.requires_watermark !== false,
+        requires_watermark: latestProduct?.metadata?.requires_watermark !== false,
       });
     } else if (p.product_type === 'BUNDLE' || p.is_bundle) {
       // Fetch bundle items from relationships
@@ -44,7 +50,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
         .select(`
           related_product_id,
           mt_products!mt_product_relationships_related_product_id_fkey (
-            id, title, slug, stock_status, summary, description
+            id, title, slug, stock_status, summary, description, metadata
           )
         `)
         .eq("product_id", p.id)
