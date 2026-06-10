@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { Button } from "@/components/ui/Button";
+import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
+import { Button } from "../../../../../components/ui/Button";
 import { Loader2, RefreshCw, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 
 export default function SyncMonitoringPage() {

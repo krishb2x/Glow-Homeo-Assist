@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { Button } from "@/components/ui/Button";
+import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
+import { Button } from "../../../../../components/ui/Button";
 import { Loader2, ArrowRight, Filter, Search, CheckCircle2, Clock, XCircle, AlertCircle, CalendarClock } from "lucide-react";
 import Link from "next/link";
-import { BRAND } from "@/lib/constants";
+import { BRAND } from "../../../../../lib/constants";
 
 export default function CasesPage() {
   const [cases, setCases] = useState<any[]>([]);
