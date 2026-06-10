@@ -105,9 +105,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         if (!workerRes.ok) {
           console.error("Railway worker returned error:", await workerRes.text());
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to trigger background PDF worker:", e);
-        return NextResponse.json({ error: "Failed to connect to the background PDF worker." }, { status: 500 });
+        return NextResponse.json({ error: `Failed to connect to the background PDF worker: ${e.message}. (URL used: ${workerUrl})` }, { status: 500 });
       }
     } else {
       // 5. If no digital items, send confirmation email immediately
