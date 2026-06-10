@@ -66,40 +66,40 @@ export async function processStoreFulfillment(mtOrderId: string) {
     }
   }
 
-  // Deliver PDFs
-  const deliveredPdfs = await deliverPdfs(order, digitalItems);
-
-  // Map to the format expected by the email template
-  const downloadLinks = deliveredPdfs.map(pdf => ({
-    title: pdf.title,
-    url: pdf.downloadUrl,
-    summary: pdf.summary
-  }));
-
-  // Update database with delivery URLs
-  if (deliveredPdfs.length > 0) {
-    await supabase
-      .from("mt_orders")
-      .update({ 
-        pdf_delivered: true, 
-        pdf_urls: deliveredPdfs.map(i => ({ title: i.title, url: i.downloadUrl, s3Key: i.s3Key }))
-      })
-      .eq("id", mtOrderId);
-  }
-
-  const physicalItems = items.filter((item: any) => item.product.product_type === 'PHYSICAL_BOOK' || item.product.product_type === 'TREATMENT_KIT');
-
-  // Send Email #2: Product Delivery to Customer
-  try {
-    const hasFailedDigitalItems = digitalItems.length > 0 && deliveredPdfs.length < digitalItems.length;
-
-    await sendConfirmationEmail(
-      order.customer_email,
-      `Your MediTonic Order #${order.id.slice(0, 8)}`,
-      Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems, hasFailedDigitalItems)
-    );
-  } catch (emailErr) {
-    console.error("Failed to send product delivery email:", emailErr);
+  // Send request to Railway Background Worker
+  if (digitalItems.length > 0) {
+    const workerUrl = process.env.RAILWAY_WORKER_URL || "http://localhost:4000";
+    try {
+      await fetch(`${workerUrl}/internal/pdf-delivery`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-worker-secret": process.env.WORKER_SECRET || "",
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          customerName: order.customer_name,
+          customerEmail: order.customer_email,
+          customerPhone: order.customer_phone,
+          digitalItems,
+          physicalItems,
+          date: order.created_at,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to trigger background PDF worker:", e);
+    }
+  } else {
+    // If no digital items, send confirmation email immediately
+    try {
+      await sendConfirmationEmail(
+        order.customer_email,
+        `Your MediTonic Order #${order.id.slice(0, 8)}`,
+        Template_StoreProductDelivery(order.customer_name, order.id, [], physicalItems, false)
+      );
+    } catch (emailErr) {
+      console.error("Failed to send product delivery email:", emailErr);
+    }
   }
 
   // Send Email #3: Admin Notification
@@ -110,7 +110,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
       await sendConfirmationEmail(
         adminEmail,
         `New Store Order: #${order.id.slice(0, 8)}`,
-        Template_StoreAdminNotification(order, downloadLinks, physicalItems)
+        Template_StoreAdminNotification(order, [], physicalItems) // digital links will be sent later
       );
     }
   } catch (adminErr) {

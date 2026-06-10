@@ -38,6 +38,7 @@ import { registerOfficialTemplateRoutes } from "./modules/carePlans/officialTemp
 import { registerContentRoutes } from "./modules/contentLibrary/contentRoutes";
 import { registerScribeRoutes } from "./modules/scribe/scribeRoutes";
 import { registerTreatmentProgramRoutes } from "./modules/treatmentPrograms/tpRoutes";
+import { pdfWorkerRoutes } from "./modules/pdfWorker/pdfWorkerRoutes";
 import { provisionVideoSession } from "./modules/telemedicine/meetingService";
 import { listPatients } from "./modules/patients/patientListService";
 import { buildPatientTimeline } from "./modules/patients/timelineService";
@@ -2766,6 +2767,8 @@ app.get("/storage/presign-download", authRequired, requireAppRoles(["DOCTOR", "S
     jsonError(res, 503, "Download is not available. Please try again later.", { code: "STORAGE_UNAVAILABLE" });
   }
 });
+
+app.use("/internal", pdfWorkerRoutes);
 
 app.get("/health", (_req, res) => {
   jsonSuccess(res, 200, { ok: true, service: "homeosync-api", storage: "supabase+s3" });

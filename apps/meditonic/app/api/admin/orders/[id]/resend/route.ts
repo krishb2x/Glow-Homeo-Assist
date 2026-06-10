@@ -80,47 +80,51 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Order does not contain any digital items" }, { status: 400 });
     }
 
-    // 4. Regenerate and Deliver PDFs
-    const deliveredPdfs = await deliverPdfs(order, digitalItems);
-
-    if (digitalItems.length > 0 && deliveredPdfs.length === 0) {
-      return NextResponse.json({ error: "Failed to process the PDF for delivery. The uploaded PDF might be corrupted or in an unsupported format. Please re-upload a valid PDF in the Products section." }, { status: 500 });
-    }
-
-    const downloadLinks = deliveredPdfs.map(pdf => ({
-      title: pdf.title,
-      url: pdf.downloadUrl
-    }));
-
-    if (deliveredPdfs.length > 0) {
-      // Update URLs in database
-      await supabase
-        .from("mt_orders")
-        .update({ 
-          pdf_delivered: true, 
-          pdf_urls: deliveredPdfs.map(i => ({ title: i.title, url: i.downloadUrl, s3Key: i.s3Key }))
-        })
-        .eq("id", id);
-    }
-
     const physicalItems = items.filter((item: any) => item.product.product_type === 'PHYSICAL_BOOK' || item.product.product_type === 'TREATMENT_KIT');
 
-    // 8. Resend Email
-    try {
-      const hasFailedDigitalItems = digitalItems.length > 0 && deliveredPdfs.length < digitalItems.length;
-
-      const emailResult = await sendConfirmationEmail(
-        order.customer_email,
-        `Your MediTonic Order #${order.id.slice(0, 8)}`,
-        Template_StoreProductDelivery(order.customer_name, order.id, downloadLinks, physicalItems, hasFailedDigitalItems)
-      );
-      
-      if (!emailResult.success) {
-        throw new Error(typeof emailResult.error === 'string' ? emailResult.error : JSON.stringify(emailResult.error));
+    // 4. Send request to Railway Background Worker
+    if (digitalItems.length > 0) {
+      const workerUrl = process.env.RAILWAY_WORKER_URL || "http://localhost:4000";
+      try {
+        const workerRes = await fetch(`${workerUrl}/internal/pdf-delivery`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-worker-secret": process.env.WORKER_SECRET || "",
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+            customerName: order.customer_name,
+            customerEmail: order.customer_email,
+            customerPhone: order.customer_phone,
+            digitalItems,
+            physicalItems,
+            date: order.created_at,
+          }),
+        });
+        if (!workerRes.ok) {
+          console.error("Railway worker returned error:", await workerRes.text());
+        }
+      } catch (e) {
+        console.error("Failed to trigger background PDF worker:", e);
+        return NextResponse.json({ error: "Failed to connect to the background PDF worker." }, { status: 500 });
       }
-    } catch (emailErr: any) {
-      console.error("Failed to send product delivery email:", emailErr);
-      return NextResponse.json({ error: `Failed to send email: ${emailErr.message}` }, { status: 500 });
+    } else {
+      // 5. If no digital items, send confirmation email immediately
+      try {
+        const emailResult = await sendConfirmationEmail(
+          order.customer_email,
+          `Your MediTonic Order #${order.id.slice(0, 8)}`,
+          Template_StoreProductDelivery(order.customer_name, order.id, [], physicalItems, false)
+        );
+        
+        if (!emailResult.success) {
+          throw new Error(typeof emailResult.error === 'string' ? emailResult.error : JSON.stringify(emailResult.error));
+        }
+      } catch (emailErr: any) {
+        console.error("Failed to send product delivery email:", emailErr);
+        return NextResponse.json({ error: `Failed to send email: ${emailErr.message}` }, { status: 500 });
+      }
     }
 
     // 6. Update Audit Log
@@ -137,7 +141,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .update({ audit_log: newAuditLog })
       .eq("id", id);
 
-    return NextResponse.json({ success: true, links: downloadLinks, audit_log: newAuditLog });
+    return NextResponse.json({ success: true, message: digitalItems.length > 0 ? "Background processing started" : "Email sent", audit_log: newAuditLog });
   } catch (error: any) {
     console.error("Resend Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
