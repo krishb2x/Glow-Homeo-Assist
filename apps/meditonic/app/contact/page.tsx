@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { Mail, MapPin, Phone, MessageCircle, Send } from "lucide-react";
-import { BRAND } from "../../lib/constants";
-import ScrollReveal from "../../components/ui/ScrollReveal";
-import { Card, CardContent } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
-import { Input, Textarea } from "../../components/ui/Input";
+import { BRAND } from "@/lib/constants";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/Input";
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);

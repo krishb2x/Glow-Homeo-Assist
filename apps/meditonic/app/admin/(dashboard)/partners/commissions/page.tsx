@@ -1,6 +1,6 @@
-import { createAdminClient } from "../../../../../lib/supabase";
+import { createAdminClient } from "@/lib/supabase";
 import { MarkPaidButton } from "./MarkPaidButton";
-import { formatPrice } from "../../../../../lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { Wallet, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 
 // Revalidate data on every request for this admin page to ensure fresh data

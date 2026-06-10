@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { BRAND } from "../../lib/constants";
-import ScrollReveal from "../../components/ui/ScrollReveal";
-import CTABand from "../../components/sections/CTABand";
+import { BRAND } from "@/lib/constants";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import CTABand from "@/components/sections/CTABand";
 
 export default function TermsPage() {
   const lastUpdated = "June 6, 2026";

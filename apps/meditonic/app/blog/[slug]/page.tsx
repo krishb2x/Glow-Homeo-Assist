@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, Share2 } from "lucide-react";
-import { BRAND } from "../../../lib/constants";
-import { DUMMY_BLOG_POSTS } from "../../../lib/dummy-data";
-import ScrollReveal from "../../../components/ui/ScrollReveal";
-import { Badge } from "../../../components/ui/Badge";
-import CTABand from "../../../components/sections/CTABand";
+import { BRAND } from "@/lib/constants";
+import { DUMMY_BLOG_POSTS } from "@/lib/dummy-data";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import { Badge } from "@/components/ui/Badge";
+import CTABand from "@/components/sections/CTABand";
 
 /* Inline social SVGs — lucide-react dropped social icons */
 const TwitterIcon = (props: React.SVGProps<SVGSVGElement>) => (

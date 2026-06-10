@@ -1,12 +1,12 @@
-import { createAdminClient } from "../../../../lib/supabase";
-import { BRAND } from "../../../../lib/constants";
+import { createAdminClient } from "@/lib/supabase";
+import { BRAND } from "@/lib/constants";
 import Link from "next/link";
 import { 
   AlertCircle, CheckCircle2, Clock, Activity, 
   RefreshCw, ArrowRight, FileText, Stethoscope, 
   UserPlus, UserCog, CalendarClock
 } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
 export const dynamic = "force-dynamic";
 

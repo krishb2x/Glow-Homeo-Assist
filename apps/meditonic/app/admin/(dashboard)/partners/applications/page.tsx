@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { Loader2, CheckCircle2, XCircle, Users, Mail, Phone, Calendar, ArrowRight, ShieldCheck, UserPlus } from "lucide-react";
-import { Button } from "../../../../../components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
 export default function PartnerApplicationsPage() {
   const [apps, setApps] = useState<any[]>([]);

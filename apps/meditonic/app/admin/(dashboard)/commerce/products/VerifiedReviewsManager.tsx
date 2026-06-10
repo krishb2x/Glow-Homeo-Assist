@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { UploadCloud, Loader2, X, Plus, Star, ShieldCheck } from "lucide-react";
 
 export interface VerifiedReview {

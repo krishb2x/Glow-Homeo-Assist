@@ -4,10 +4,10 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Calendar, FileText, ArrowRight } from "lucide-react";
-import ScrollReveal from "../../components/ui/ScrollReveal";
-import { Card, CardContent } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
-import { BRAND } from "../../lib/constants";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { BRAND } from "@/lib/constants";
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();

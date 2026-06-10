@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { Star, Filter, HeartHandshake } from "lucide-react";
-import { DUMMY_TESTIMONIALS } from "../../lib/dummy-data";
-import ScrollReveal from "../../components/ui/ScrollReveal";
-import { Card, CardContent } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
-import CTABand from "../../components/sections/CTABand";
+import { DUMMY_TESTIMONIALS } from "@/lib/dummy-data";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import CTABand from "@/components/sections/CTABand";
 
 export default function SuccessStoriesPage() {
   const [activeCategory, setActiveCategory] = useState("All");

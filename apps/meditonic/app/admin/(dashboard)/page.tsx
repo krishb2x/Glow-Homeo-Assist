@@ -1,12 +1,12 @@
-import { createAdminClient } from "../../../lib/supabase";
-import { BRAND } from "../../../lib/constants";
+import { createAdminClient } from "@/lib/supabase";
+import { BRAND } from "@/lib/constants";
 import Link from "next/link";
 import { 
   Activity, Calendar, DollarSign, 
   FileText, ShoppingBag, Users, AlertCircle, 
   CheckCircle2, ArrowRight, Package
 } from "lucide-react";
-import { formatPrice } from "../../../lib/utils";
+import { formatPrice } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 

@@ -1,13 +1,13 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Clock, Search } from "lucide-react";
-import { BLOG_CATEGORIES } from "../../../../lib/constants";
-import { DUMMY_BLOG_POSTS } from "../../../../lib/dummy-data";
-import ScrollReveal from "../../../../components/ui/ScrollReveal";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../../components/ui/Card";
-import { Badge } from "../../../../components/ui/Badge";
-import { Input } from "../../../../components/ui/Input";
-import CTABand from "../../../../components/sections/CTABand";
+import { BLOG_CATEGORIES } from "@/lib/constants";
+import { DUMMY_BLOG_POSTS } from "@/lib/dummy-data";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
+import CTABand from "@/components/sections/CTABand";
 
 export function generateStaticParams() {
   return BLOG_CATEGORIES.map((cat) => ({

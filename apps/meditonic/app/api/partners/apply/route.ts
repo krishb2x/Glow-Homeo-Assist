@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../../lib/supabase";
-import { sendConfirmationEmail } from "../../../../lib/email";
-import { Template_PartnerApplication } from "../../../../lib/email-templates";
-import { BRAND } from "../../../../lib/constants";
+import { createAdminClient } from "@/lib/supabase";
+import { sendConfirmationEmail } from "@/lib/email";
+import { Template_PartnerApplication } from "@/lib/email-templates";
+import { BRAND } from "@/lib/constants";
 
 export async function POST(req: Request) {
   try {

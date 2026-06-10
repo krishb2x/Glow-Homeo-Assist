@@ -1,9 +1,9 @@
 import React from "react";
-import { createPublicClient } from "../../lib/supabase";
-import { BRAND } from "../../lib/constants";
+import { createPublicClient } from "@/lib/supabase";
+import { BRAND } from "@/lib/constants";
 import Link from "next/link";
 import { Sparkles, ArrowRight } from "lucide-react";
-import { formatPrice } from "../../lib/utils";
+import { formatPrice } from "@/lib/utils";
 
 export const revalidate = 60;
 

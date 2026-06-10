@@ -1,9 +1,9 @@
-import { TREATMENT_CATEGORIES } from "../../lib/constants";
-import { DUMMY_FAQS } from "../../lib/dummy-data";
-import { SimpleAccordion } from "../../components/ui/Accordion";
-import TreatmentGrid from "../../components/sections/TreatmentGrid";
-import ScrollReveal from "../../components/ui/ScrollReveal";
-import CTABand from "../../components/sections/CTABand";
+import { TREATMENT_CATEGORIES } from "@/lib/constants";
+import { DUMMY_FAQS } from "@/lib/dummy-data";
+import { SimpleAccordion } from "@/components/ui/Accordion";
+import TreatmentGrid from "@/components/sections/TreatmentGrid";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import CTABand from "@/components/sections/CTABand";
 
 export default function TreatmentsPage() {
   return (

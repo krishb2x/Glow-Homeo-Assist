@@ -1,6 +1,6 @@
 export const maxDuration = 300; // Allow up to 5 minutes for large PDF processing
 import { NextResponse } from "next/server";
-import { processStoreFulfillment } from "../../../../lib/storeFulfillment";
+import { processStoreFulfillment } from "@/lib/storeFulfillment";
 
 export async function POST(req: Request) {
   try {

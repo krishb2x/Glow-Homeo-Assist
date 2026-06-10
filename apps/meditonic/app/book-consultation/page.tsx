@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import Script from "next/script";
 import BookingFormWrapper from "./BookingFormWrapper";
-import ScrollReveal from "../../components/ui/ScrollReveal";
-import { Card } from "../../components/ui/Card";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import { Card } from "@/components/ui/Card";
 import { ShieldCheck, CheckCircle2 } from "lucide-react";
-import { BRAND } from "../../lib/constants";
+import { BRAND } from "@/lib/constants";
 import { createClient } from "@supabase/supabase-js";
 
 import { Metadata } from "next";

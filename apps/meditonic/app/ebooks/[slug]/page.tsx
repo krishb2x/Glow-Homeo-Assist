@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, FileText, Layers, Truck, Star, ShieldCheck, Zap, Lock, BookOpen } from "lucide-react";
-import { formatPrice } from "../../../lib/utils";
-import { createPublicClient } from "../../../lib/supabase";
-import { BRAND } from "../../../lib/constants";
-import LandingBuyButton from "../../../components/store/LandingBuyButton";
-import ProductGallery from "../../../components/store/ProductGallery";
+import { formatPrice } from "@/lib/utils";
+import { createPublicClient } from "@/lib/supabase";
+import { BRAND } from "@/lib/constants";
+import LandingBuyButton from "@/components/store/LandingBuyButton";
+import ProductGallery from "@/components/store/ProductGallery";
 import VerifiedReviewsGallery from "./VerifiedReviewsGallery";
 import PreviewVideo from "./PreviewVideo";
 import { Metadata } from "next";

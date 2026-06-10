@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { createAdminClient } from "../../../lib/supabase";
-import { bookingFormSchema } from "../../../lib/validations";
-import { BRAND } from "../../../lib/constants";
+import { createAdminClient } from "@/lib/supabase";
+import { bookingFormSchema } from "@/lib/validations";
+import { BRAND } from "@/lib/constants";
 
 function getRazorpay() {
   return new Razorpay({

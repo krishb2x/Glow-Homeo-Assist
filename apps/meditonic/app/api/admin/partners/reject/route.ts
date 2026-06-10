@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../../../lib/supabase";
-import { sendConfirmationEmail } from "../../../../../lib/email";
-import { Template_PartnerRejected } from "../../../../../lib/email-templates";
+import { createAdminClient } from "@/lib/supabase";
+import { sendConfirmationEmail } from "@/lib/email";
+import { Template_PartnerRejected } from "@/lib/email-templates";
 
 export async function POST(req: Request) {
   try {

@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
-import { BRAND } from "../lib/constants";
-import Header from "../components/layout/Header";
-import Footer from "../components/layout/Footer";
-import { StoreProvider } from "../components/store/StoreProvider";
-import { CartDrawer } from "../components/store/CartDrawer";
+import { BRAND } from "@/lib/constants";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import { StoreProvider } from "@/components/store/StoreProvider";
+import { CartDrawer } from "@/components/store/CartDrawer";
 import Script from "next/script";
 import { Suspense } from "react";
 

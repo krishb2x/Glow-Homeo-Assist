@@ -3,12 +3,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import { PlayCircle, Search, Filter } from "lucide-react";
-import { VIDEO_CATEGORIES } from "../../lib/constants";
-import ScrollReveal from "../../components/ui/ScrollReveal";
-import { Card, CardContent } from "../../components/ui/Card";
-import { Input } from "../../components/ui/Input";
-import { Badge } from "../../components/ui/Badge";
-import CTABand from "../../components/sections/CTABand";
+import { VIDEO_CATEGORIES } from "@/lib/constants";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import CTABand from "@/components/sections/CTABand";
 
 // In Phase 4 we will connect this to mt_videos, using dummy data for now
 const DUMMY_VIDEOS = [

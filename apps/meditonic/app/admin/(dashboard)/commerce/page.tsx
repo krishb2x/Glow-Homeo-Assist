@@ -1,8 +1,8 @@
-import { createAdminClient } from "../../../../lib/supabase";
+import { createAdminClient } from "@/lib/supabase";
 import { IndianRupee, ShoppingCart, TrendingUp, PackageOpen, Tag, BarChart3, ArrowRight } from "lucide-react";
-import { formatPrice } from "../../../../lib/utils";
+import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
-import { Button } from "../../../../components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
 export const dynamic = "force-dynamic";
 
