@@ -17,36 +17,47 @@ function BaseTemplate(title: string, preheader: string, contentHtml: string) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>\${title}</title>
+  <style>
+    @media screen and (max-width: 600px) {
+      .outer-table { padding: 20px 10px !important; }
+      .main-card { border-radius: 8px !important; }
+      .content-cell { padding: 24px 16px !important; }
+      .footer-cell { padding: 20px 16px !important; }
+      .header-title { font-size: 20px !important; }
+      .body-text { font-size: 14px !important; }
+      .responsive-button { width: 100% !important; display: block !important; box-sizing: border-box !important; }
+    }
+  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: ${COLORS.background}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+<body style="margin: 0; padding: 0; background-color: \${COLORS.background}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   <!-- Preheader text for email clients -->
   <span style="display: none; max-height: 0px; overflow: hidden;">
-    ${preheader}
+    \${preheader}
   </span>
 
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${COLORS.background}; padding: 40px 20px;">
+  <table class="outer-table" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: \${COLORS.background}; padding: 40px 20px;">
     <tr>
       <td align="center">
         <!-- Main Card -->
-        <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: ${COLORS.card}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-top: 8px solid ${COLORS.primary};">
+        <table class="main-card" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: \${COLORS.card}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-top: 8px solid \${COLORS.primary}; margin: 0 auto;">
           
           <!-- Body Content -->
           <tr>
-            <td style="padding: 40px;">
-              ${contentHtml}
+            <td class="content-cell" style="padding: 40px;">
+              \${contentHtml}
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid ${COLORS.border};">
-              <p style="margin: 0 0 12px 0; color: ${COLORS.primary}; font-size: 14px; font-weight: 600; font-style: italic;">
+            <td class="footer-cell" style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid \${COLORS.border};">
+              <p style="margin: 0 0 12px 0; color: \${COLORS.primary}; font-size: 14px; font-weight: 600; font-style: italic;">
                 "Healing Beyond Symptoms – Restoring Health, Hormones, and Happiness."
               </p>
-              <p style="margin: 0; color: ${COLORS.textSecondary}; font-size: 13px; line-height: 20px;">
+              <p style="margin: 0; color: \${COLORS.textSecondary}; font-size: 13px; line-height: 20px;">
                 <strong>MediTonic Team</strong><br>
-                <a href="mailto:care.meditonic@gmail.com" style="color: ${COLORS.primary}; text-decoration: none;">care.meditonic@gmail.com</a>
+                <a href="mailto:care.meditonic@gmail.com" style="color: \${COLORS.primary}; text-decoration: none;">care.meditonic@gmail.com</a>
               </p>
               <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
               <p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 18px;">
