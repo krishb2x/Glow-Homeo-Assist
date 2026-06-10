@@ -117,6 +117,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           return NextResponse.json({ error: `Railway background worker rejected the request (Status ${workerRes.status}). Ensure WORKER_SECRET matches. Details: ${errText.slice(0, 100)}` }, { status: 500 });
         }
         
+        // Consume the response body to ensure the fetch stream is closed and Lambda doesn't hang
+        await workerRes.text();
         console.log("[Railway Worker] Successfully triggered PDF background generation.");
       } catch (e: any) {
         console.error("Failed to trigger background PDF worker:", e);
