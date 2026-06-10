@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Download, Mail, ArrowRight, ShieldCheck } from "lucide-react";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { Card, CardContent } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 
 export default function EbookSuccessPage() {
   const [mounted, setMounted] = useState(false);

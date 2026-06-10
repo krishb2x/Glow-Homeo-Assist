@@ -1,11 +1,11 @@
-import { BRAND } from "@/lib/constants";
-import { DUMMY_ABOUT as FULL_ABOUT } from "@/lib/dummy-data";
+import { BRAND } from "../../lib/constants";
+import { DUMMY_ABOUT as FULL_ABOUT } from "../../lib/dummy-data";
 import Image from "next/image";
 import Link from "next/link";
 import { Award, BookOpen, GraduationCap, Users } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Button } from "@/components/ui/Button";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { Button } from "../../components/ui/Button";
 
 export default function AboutPage() {
   const stats = [

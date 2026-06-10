@@ -1,9 +1,9 @@
 import { Activity, Brain, Flame, Heart, Moon, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { TREATMENT_CATEGORIES } from "@/lib/constants";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { TREATMENT_CATEGORIES } from "../../lib/constants";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 
 // Map lucide icons to treatment categories dynamically
 const ICON_MAP: Record<string, any> = {

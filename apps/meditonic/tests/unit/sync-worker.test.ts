@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GET } from '@/app/api/cron/sync-worker/route';
-import { processStoreFulfillment } from '@/lib/storeFulfillment';
+import { processStoreFulfillment } from '../../lib/storeFulfillment';
 
 // Mock the processStoreFulfillment function so we don't hit the real DB
-vi.mock('@/lib/storeFulfillment', () => ({
+vi.mock('../../lib/storeFulfillment', () => ({
   processStoreFulfillment: vi.fn().mockResolvedValue(true)
 }));
 
 // Mock the Supabase client
-vi.mock('@/lib/supabase', () => ({
+vi.mock('../../lib/supabase', () => ({
   createAdminClient: vi.fn().mockReturnValue({
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { X, ChevronRight } from "lucide-react";
-import { BRAND, NAV_LINKS } from "@/lib/constants";
+import { BRAND, NAV_LINKS } from "../../lib/constants";
 
 interface MobileMenuProps {
   isOpen: boolean;

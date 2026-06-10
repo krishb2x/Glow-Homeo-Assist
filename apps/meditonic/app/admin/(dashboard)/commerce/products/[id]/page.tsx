@@ -1,6 +1,6 @@
 import React from "react";
 import ProductForm from "../ProductForm";
-import { createAdminClient } from "@/lib/supabase";
+import { createAdminClient } from "../../../../../lib/supabase";
 import { notFound } from "next/navigation";
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {

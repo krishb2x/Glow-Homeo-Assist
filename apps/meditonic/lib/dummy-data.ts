@@ -1,4 +1,4 @@
-import { BRAND } from "@/lib/constants";
+import { BRAND } from "../lib/constants";
 
 export const DUMMY_ABOUT = `
 ## Professional Profile

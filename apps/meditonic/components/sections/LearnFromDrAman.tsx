@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { BookOpen, Video, ArrowRight, PlayCircle } from "lucide-react";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Button } from "@/components/ui/Button";
-import { BRAND } from "@/lib/constants";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { Button } from "../../components/ui/Button";
+import { BRAND } from "../../lib/constants";
 
 export default function LearnFromDrAman() {
   return (

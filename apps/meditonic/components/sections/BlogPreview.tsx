@@ -1,11 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Clock } from "lucide-react";
-import { DUMMY_BLOG_POSTS } from "@/lib/dummy-data";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { DUMMY_BLOG_POSTS } from "../../lib/dummy-data";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
 
 export default function BlogPreview() {
   return (

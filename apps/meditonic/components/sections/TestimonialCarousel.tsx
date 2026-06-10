@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { DUMMY_TESTIMONIALS } from "@/lib/dummy-data";
-import ScrollReveal from "@/components/ui/ScrollReveal";
+import { DUMMY_TESTIMONIALS } from "../../lib/dummy-data";
+import ScrollReveal from "../../components/ui/ScrollReveal";
 
 export default function TestimonialCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);

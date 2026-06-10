@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { BRAND } from "@/lib/constants";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { BRAND } from "../../lib/constants";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 import { CheckCircle2, Moon, Sparkles } from "lucide-react";
 import Script from "next/script";
 

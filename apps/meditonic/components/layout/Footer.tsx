@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BRAND, TREATMENT_CATEGORIES } from "@/lib/constants";
+import { BRAND, TREATMENT_CATEGORIES } from "../../lib/constants";
 import { Mail, ChevronDown } from "lucide-react";
 
 /* Inline social SVGs */

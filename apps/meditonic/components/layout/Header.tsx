@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
-import { BRAND, NAV_LINKS } from "@/lib/constants";
+import { BRAND, NAV_LINKS } from "../../lib/constants";
 import MobileMenu from "./MobileMenu";
-import { useStore } from "@/components/store/StoreProvider";
+import { useStore } from "../../components/store/StoreProvider";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);

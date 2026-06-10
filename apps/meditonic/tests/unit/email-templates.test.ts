@@ -3,7 +3,7 @@ import {
   Template_EbookPurchased,
   Template_PartnerApplication,
   Template_PartnerApproved
-} from '@/lib/email-templates';
+} from '../../lib/email-templates';
 
 describe('Email Templates', () => {
   it('generates the ebook purchase email correctly', () => {

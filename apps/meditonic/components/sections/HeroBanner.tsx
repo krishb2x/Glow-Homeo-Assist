@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, PlayCircle, User } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { BRAND } from "@/lib/constants";
+import { Button } from "../../components/ui/Button";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { BRAND } from "../../lib/constants";
 
 export default function HeroBanner() {
   return (

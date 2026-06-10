@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Product } from "@/types/store";
+import { Product } from "../../types/store";
 import { useStore } from "./StoreProvider";
 import { useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";

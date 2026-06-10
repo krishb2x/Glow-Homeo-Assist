@@ -1,7 +1,7 @@
 import React from "react";
-import { createPublicClient } from "@/lib/supabase";
-import { BRAND } from "@/lib/constants";
-import { ProductCard, ComboCard } from "@/components/store/ProductCard";
+import { createPublicClient } from "../../lib/supabase";
+import { BRAND } from "../../lib/constants";
+import { ProductCard, ComboCard } from "../../components/store/ProductCard";
 import { Users, PlaySquare, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";

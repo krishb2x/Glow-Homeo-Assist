@@ -1,13 +1,13 @@
-import HeroBanner from "@/components/sections/HeroBanner";
-import TreatmentGrid from "@/components/sections/TreatmentGrid";
-import TestimonialCarousel from "@/components/sections/TestimonialCarousel";
-import LearnFromDrAman from "@/components/sections/LearnFromDrAman";
-import CTABand from "@/components/sections/CTABand";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { BRAND } from "@/lib/constants";
+import HeroBanner from "../components/sections/HeroBanner";
+import TreatmentGrid from "../components/sections/TreatmentGrid";
+import TestimonialCarousel from "../components/sections/TestimonialCarousel";
+import LearnFromDrAman from "../components/sections/LearnFromDrAman";
+import CTABand from "../components/sections/CTABand";
+import ScrollReveal from "../components/ui/ScrollReveal";
+import { BRAND } from "../lib/constants";
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
+import { Button } from "../components/ui/Button";
 import { CheckCircle2 } from "lucide-react";
 
 export default function Home() {

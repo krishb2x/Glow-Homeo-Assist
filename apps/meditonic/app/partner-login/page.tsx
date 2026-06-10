@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowRight, Eye, EyeOff, HeartHandshake } from "lucide-react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "../../lib/supabase-browser";
 import Link from "next/link";
 
 export default function PartnerLogin() {

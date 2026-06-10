@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { createAdminClient } from "@/lib/supabase";
-import { BRAND } from "@/lib/constants";
+import { createAdminClient } from "../../../../lib/supabase";
+import { BRAND } from "../../../../lib/constants";
 
 export async function POST(req: Request) {
   try {

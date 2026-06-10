@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Product } from "@/types/store";
+import { Product } from "../../types/store";
 import { useStore } from "./StoreProvider";
 import { Crown, Star, Check, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice } from "../../lib/utils";
 
 // Normal Individual Product Card
 export const ProductCard = ({ product }: { product: Product }) => {

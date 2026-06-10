@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "./StoreProvider";
 import { X, ArrowRight, ShieldCheck, CheckCircle2, Loader2, Tag, Percent } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
-import { useReferral } from "@/lib/hooks/useReferral";
+import { formatPrice } from "../../lib/utils";
+import { useReferral } from "../../lib/hooks/useReferral";
 
 export const CartDrawer = () => {
   const { cart, removeFromCart, cartTotal, isCartOpen, setIsCartOpen, clearCart } = useStore();

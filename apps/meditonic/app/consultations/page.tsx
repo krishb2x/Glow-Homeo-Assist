@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ArrowRight, Video, MapPin, CalendarClock, ShieldCheck, PhoneCall } from "lucide-react";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { BRAND } from "@/lib/constants";
-import { formatPrice } from "@/lib/utils";
-import CTABand from "@/components/sections/CTABand";
+import ScrollReveal from "../../components/ui/ScrollReveal";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
+import { BRAND } from "../../lib/constants";
+import { formatPrice } from "../../lib/utils";
+import CTABand from "../../components/sections/CTABand";
 import { createClient } from "@supabase/supabase-js";
 
 // Revalidate every minute so pricing updates are almost real-time

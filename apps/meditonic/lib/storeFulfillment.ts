@@ -1,7 +1,7 @@
-import { createAdminClient } from "@/lib/supabase";
-import { sendConfirmationEmail } from "@/lib/email";
-import { Template_StoreProductDelivery, Template_StoreAdminNotification } from "@/lib/email-templates";
-import { deliverPdfs, DeliveryItem } from "@/lib/pdf/deliveryService";
+import { createAdminClient } from "../lib/supabase";
+import { sendConfirmationEmail } from "../lib/email";
+import { Template_StoreProductDelivery, Template_StoreAdminNotification } from "../lib/email-templates";
+import { deliverPdfs, DeliveryItem } from "../lib/pdf/deliveryService";
 
 export async function processStoreFulfillment(mtOrderId: string) {
   const supabase = createAdminClient();

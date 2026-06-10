@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
-import { BRAND } from "@/lib/constants";
+import { BRAND } from "../../lib/constants";
 
 export default function FloatingCTA() {
   const [isVisible, setIsVisible] = useState(false);

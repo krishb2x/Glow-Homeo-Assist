@@ -1,5 +1,5 @@
-import { createAdminClient } from "@/lib/supabase";
-import { formatPrice, formatDate } from "@/lib/utils";
+import { createAdminClient } from "../../../../../../lib/supabase";
+import { formatPrice, formatDate } from "../../../../../../lib/utils";
 import Link from "next/link";
 import { ArrowLeft, UserCircle, MapPin, Phone, Mail, ShoppingBag, Calendar, Eye } from "lucide-react";
 import { notFound } from "next/navigation";

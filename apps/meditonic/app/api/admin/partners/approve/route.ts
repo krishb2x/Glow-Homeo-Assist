@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase";
-import { sendConfirmationEmail } from "@/lib/email";
-import { Template_PartnerApproved } from "@/lib/email-templates";
+import { createAdminClient } from "../../../../../lib/supabase";
+import { sendConfirmationEmail } from "../../../../../lib/email";
+import { Template_PartnerApproved } from "../../../../../lib/email-templates";
 import crypto from "crypto";
-import { BRAND } from "@/lib/constants";
+import { BRAND } from "../../../../../lib/constants";
 
 export async function POST(req: Request) {
   try {

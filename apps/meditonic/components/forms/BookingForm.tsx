@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { bookingFormSchema, type BookingFormValues } from "@/lib/validations";
-import { useReferral } from "@/lib/hooks/useReferral";
-import { TREATMENT_CATEGORIES } from "@/lib/constants";
-import { formatPrice } from "@/lib/utils";
-import { Button } from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/Input";
+import { bookingFormSchema, type BookingFormValues } from "../../lib/validations";
+import { useReferral } from "../../lib/hooks/useReferral";
+import { TREATMENT_CATEGORIES } from "../../lib/constants";
+import { formatPrice } from "../../lib/utils";
+import { Button } from "../../components/ui/Button";
+import { Input, Textarea } from "../../components/ui/Input";
 
 interface BookingFormProps {
   initialConcern?: string;

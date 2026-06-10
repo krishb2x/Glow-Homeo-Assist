@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { POST } from '@/app/api/webhooks/razorpay/route';
 
 // Mock the Supabase client
-vi.mock('@/lib/supabase', () => ({
+vi.mock('../../lib/supabase', () => ({
   createAdminClient: vi.fn().mockReturnValue({
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
