@@ -337,7 +337,7 @@ export function Template_StorePaymentConfirmed(name: string, orderId: string) {
   return BaseTemplate("Payment Confirmed / भुगतान प्राप्त हुआ", "We have received your payment.", html);
 }
 
-export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[], hasFailedDigitalItems: boolean = false) {
+export function Template_StoreProductDelivery(name: string, orderId: string, downloadLinks: any[], physicalItems: any[], hasFailedDigitalItems: boolean = false, errorDetails: string = '') {
   let html = `
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
       Hello ${name},
@@ -356,6 +356,7 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
         We apologize, but a technical error occurred while generating your digital download.<br>
         हमें खेद है, लेकिन आपका डिजिटल डाउनलोड तैयार करते समय एक तकनीकी त्रुटि हुई है।
       </p>
+      ${errorDetails ? `<p style="margin: 0 0 12px 0; color: #be123c; font-size: 12px; line-height: 22px; font-family: monospace; background: #ffe4e6; padding: 8px; border-radius: 4px;"><code>${errorDetails}</code></p>` : ''}
       <p style="margin: 0 0 12px 0; color: #be123c; font-size: 14px; line-height: 22px;">
         <strong>Our team will fulfill your order manually within the next 24 hours.</strong><br>
         <strong>हमारी टीम अगले 24 घंटों के भीतर आपके आदेश को पूरा करेगी।</strong>

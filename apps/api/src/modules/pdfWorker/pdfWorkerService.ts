@@ -54,7 +54,7 @@ async function presignedUrl(key: string): Promise<string> {
   return getSignedUrl(s3, cmd, { expiresIn: URL_EXPIRY_SECONDS });
 }
 
-async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<DeliveredPdf | null> {
+async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<DeliveredPdf | { errorMsg: string }> {
   const slug = item.slug || bookSlug(item.title);
   const docName = item.doctor_name || 'Dr. Aman Agarwal';
   
@@ -98,7 +98,7 @@ async function processItem(item: DeliveryItem, buyer: BuyerDetails): Promise<Del
     };
   } catch (error: any) {
     logger.error(`[PDF Worker] Error processing item ${item.title}: ${error.message}`);
-    return null; // Return null so it can trigger the fallback email logic
+    return { errorMsg: `Error processing ${item.title}: ${error.message}` };
   }
 }
 
@@ -123,7 +123,9 @@ export async function processBackgroundDelivery(payload: {
 
   const deliveryPromises = payload.digitalItems.map(item => processItem(item, buyer));
   const deliveredPdfsNullable = await Promise.all(deliveryPromises);
-  const deliveredPdfs = deliveredPdfsNullable.filter((pdf): pdf is DeliveredPdf => pdf !== null);
+  const deliveredPdfs = deliveredPdfsNullable.filter((pdf): pdf is DeliveredPdf => !('errorMsg' in pdf));
+  const failedPdfs = deliveredPdfsNullable.filter(pdf => 'errorMsg' in pdf);
+  const errorDetails = failedPdfs.map(f => (f as any).errorMsg).join(' | ');
 
   const hasFailedDigitalItems = payload.digitalItems.length > 0 && deliveredPdfs.length < payload.digitalItems.length;
 
@@ -150,7 +152,8 @@ export async function processBackgroundDelivery(payload: {
         payload.orderId, 
         deliveredPdfs, 
         payload.physicalItems, 
-        hasFailedDigitalItems
+        hasFailedDigitalItems,
+        errorDetails
       )
     );
     if (!emailResult.success) {
