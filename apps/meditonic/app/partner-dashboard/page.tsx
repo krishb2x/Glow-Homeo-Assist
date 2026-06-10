@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "../../lib/supabase-browser";
 import { 
   Copy, Check, LogOut, DollarSign, 
   ShoppingBag, Loader2, Sparkles, Target, Link as LinkIcon, Wallet, Activity, TrendingUp, Clock
 } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice } from "../../lib/utils";
 
 export default function PartnerDashboard() {
   const router = useRouter();

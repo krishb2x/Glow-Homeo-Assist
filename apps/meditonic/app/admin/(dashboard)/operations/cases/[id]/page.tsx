@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { Button } from "@/components/ui/Button";
+import { getSupabaseBrowser } from "../../../../../../lib/supabase-browser";
+import { Button } from "../../../../../../components/ui/Button";
 import { Loader2, ArrowLeft, UserPlus, FileText, CheckCircle2, RefreshCw, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

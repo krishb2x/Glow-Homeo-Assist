@@ -2,10 +2,10 @@ export const maxDuration = 300; // Allow up to 5 minutes for large PDF processin
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { createAdminClient, createPublicClient } from "@/lib/supabase";
-import { sendConfirmationEmail } from "@/lib/email";
-import { Template_StoreProductDelivery } from "@/lib/email-templates";
-import { deliverPdfs, DeliveryItem } from "@/lib/pdf/deliveryService";
+import { createAdminClient, createPublicClient } from "../../../../../../lib/supabase";
+import { sendConfirmationEmail } from "../../../../../../lib/email";
+import { Template_StoreProductDelivery } from "../../../../../../lib/email-templates";
+import { deliverPdfs, DeliveryItem } from "../../../../../../lib/pdf/deliveryService";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next";
-import { BRAND, TREATMENT_CATEGORIES, BLOG_CATEGORIES } from "@/lib/constants";
-import { DUMMY_BLOG_POSTS } from "@/lib/dummy-data";
+import { BRAND, TREATMENT_CATEGORIES, BLOG_CATEGORIES } from "../lib/constants";
+import { DUMMY_BLOG_POSTS } from "../lib/dummy-data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = BRAND.siteUrl;

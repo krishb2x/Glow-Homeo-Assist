@@ -23,12 +23,8 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@/lib/*": ["./lib/*", "./Lib/*"],
-      "@/components/*": ["./components/*", "./Components/*"],
-      "@/types/*": ["./types/*", "./Types/*"]
+      "@homeoassist/testing": ["../../packages/testing/src/index.ts"]
     }
   },
   "include": [

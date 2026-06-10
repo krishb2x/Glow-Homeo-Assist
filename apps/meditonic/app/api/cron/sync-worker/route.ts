@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase";
-import { processStoreFulfillment } from "@/lib/storeFulfillment";
+import { createAdminClient } from "../../../../lib/supabase";
+import { processStoreFulfillment } from "../../../../lib/storeFulfillment";
 
 export const maxDuration = 300; // Allow 5 minutes for heavy PDF operations
 export const dynamic = "force-dynamic";

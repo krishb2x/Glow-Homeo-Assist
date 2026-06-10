@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import BookingForm from "@/components/forms/BookingForm";
+import BookingForm from "../../components/forms/BookingForm";
 
 export default function BookingFormWrapper({ fees }: { fees: any[] }) {
   const searchParams = useSearchParams();

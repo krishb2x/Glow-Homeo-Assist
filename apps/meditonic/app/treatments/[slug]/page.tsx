@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
-import { TREATMENT_CATEGORIES, BRAND } from "@/lib/constants";
-import ScrollReveal from "@/components/ui/ScrollReveal";
-import { Button } from "@/components/ui/Button";
-import CTABand from "@/components/sections/CTABand";
+import { TREATMENT_CATEGORIES, BRAND } from "../../../lib/constants";
+import ScrollReveal from "../../../components/ui/ScrollReveal";
+import { Button } from "../../../components/ui/Button";
+import CTABand from "../../../components/sections/CTABand";
 
 export function generateStaticParams() {
   return TREATMENT_CATEGORIES.map((category) => ({

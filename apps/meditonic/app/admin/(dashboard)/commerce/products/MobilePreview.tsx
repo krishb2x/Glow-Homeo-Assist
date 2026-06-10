@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ArrowLeft, CheckCircle2, FileText, Layers, Truck, Star, Search, Menu, ShoppingCart } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice } from "../../../../../lib/utils";
 
 interface MobilePreviewProps {
   payload: any;

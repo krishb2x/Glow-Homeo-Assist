@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "../../../lib/supabase-browser";
 
 export default function AdminLogin() {
   const router = useRouter();
