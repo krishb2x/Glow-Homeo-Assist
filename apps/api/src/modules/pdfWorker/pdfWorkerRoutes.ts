@@ -39,8 +39,10 @@ pdfWorkerRoutes.post("/pdf-delivery", async (req, res) => {
   // 1. Respond immediately so the caller (Vercel) doesn't wait
   jsonSuccess(res, 202, { message: "Accepted for background processing" });
 
-  // 2. Process in the background (no await)
-  processBackgroundDelivery(parsed.data).catch(err => {
-    logger.error(`[PDF Worker] Uncaught error in background process: ${err.message}`);
-  });
+  // 2. Guarantee the HTTP response is flushed to the OS before starting heavy CPU tasks
+  setTimeout(() => {
+    processBackgroundDelivery(parsed.data).catch(err => {
+      logger.error(`[PDF Worker] Uncaught error in background process: ${err.message}`);
+    });
+  }, 1000);
 });
