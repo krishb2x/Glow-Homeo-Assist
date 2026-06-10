@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd ../.. && npm ci --include=dev",
-  "buildCommand": "cd ../.. && npm run build -w @homeoassist/meditonic",
-  "framework": "nextjs",
   "crons": [
     {
       "path": "/api/cron/sync-worker",

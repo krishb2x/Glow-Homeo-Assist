@@ -37,10 +37,10 @@ describe('MarkPaidButton', () => {
     // Ensure fetch was called
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/admin/partners/mark-paid',
+        '/api/admin/partners/commissions/mark-paid',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ attributionId: '123' })
+          body: JSON.stringify({ id: '123' })
         })
       );
     });
