@@ -3,6 +3,7 @@ import { formatPrice, formatDate } from "../../../../../lib/utils";
 import Link from "next/link";
 import { Eye, AlertCircle, CheckCircle2, ShoppingBag, Search, Filter } from "lucide-react";
 import { redirect } from "next/navigation";
+import OrderFilterSelect from "./OrderFilterSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -69,17 +70,7 @@ export default async function OrdersPage({
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Filter className="w-4 h-4 text-slate-400" />
-            <select 
-              name="status"
-              defaultValue={status}
-              onChange={(e) => e.target.form?.submit()}
-              className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 w-full sm:w-auto"
-            >
-              <option value="all">All Statuses</option>
-              <option value="paid">Paid</option>
-              <option value="pending">Pending</option>
-              <option value="failed">Failed</option>
-            </select>
+            <OrderFilterSelect defaultValue={status} />
           </div>
           {/* Hidden submit button to allow Enter key to submit search */}
           <button type="submit" className="hidden">Search</button>
