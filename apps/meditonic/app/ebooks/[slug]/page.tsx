@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, FileText, Layers, Truck, Star, ShieldCheck, Zap, Lock, BookOpen } from "lucide-react";
-import { formatPrice } from "../../../lib/utils";
+import { formatPrice, getImageUrl } from "../../../lib/utils";
 import { createPublicClient } from "../../../lib/supabase";
 import { BRAND } from "../../../lib/constants";
 import LandingBuyButton from "../../../components/store/LandingBuyButton";
@@ -87,7 +87,7 @@ export default async function StoreProductPage({
   const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.type === 'hardcopy';
   const rating = metadata.rating || 5.0;
   const author = metadata.author || "Dr. Aman Agrawal";
-  const imageSrc = product.cover_image_path || product.image_url;
+  const imageSrc = getImageUrl(product.cover_image_path || product.image_url);
   const reviewCount = metadata.verified_reviews?.length || 12; // Fallback to 12 if none
 
   return (
@@ -209,7 +209,7 @@ export default async function StoreProductPage({
                 
                 {metadata.preview_pdf_path && (
                   <a
-                    href={metadata.preview_pdf_path.startsWith('http') ? metadata.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${metadata.preview_pdf_path}`}
+                    href={getImageUrl(metadata.preview_pdf_path)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-4 px-6 rounded-xl border-2 border-slate-200 text-slate-700 font-bold text-center hover:border-mt-primary hover:text-mt-primary hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
@@ -367,7 +367,7 @@ export default async function StoreProductPage({
           </div>
           {metadata.preview_pdf_path && (
             <a
-              href={metadata.preview_pdf_path.startsWith('http') ? metadata.preview_pdf_path : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${metadata.preview_pdf_path}`}
+              href={getImageUrl(metadata.preview_pdf_path)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs font-bold text-slate-600 flex items-center gap-1.5 hover:text-mt-primary underline underline-offset-2"

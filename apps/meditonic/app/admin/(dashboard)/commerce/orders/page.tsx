@@ -110,7 +110,10 @@ export default async function OrdersPage({
               ) : (
                 allOrders.map(order => {
                   // Determine product types in order
-                  const types = new Set(order.items?.map((i: any) => i.product?.product_type || 'UNKNOWN'));
+                  const types = new Set(
+                    (Array.isArray(order.items) ? order.items : [])
+                      .map((i: any) => i?.product?.product_type || i?.product?.type || 'UNKNOWN')
+                  );
                   const typeLabels = Array.from(types).join(", ");
 
                   return (

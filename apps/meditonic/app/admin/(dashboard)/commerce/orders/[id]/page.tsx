@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "../../../../../../lib/supabase-browser";
-import { formatPrice, formatDate } from "../../../../../../lib/utils";
+import { formatPrice, formatDate, getImageUrl } from "../../../../../../lib/utils";
 import Link from "next/link";
 import { ArrowLeft, User, CreditCard, Package, Truck, Calendar, MapPin, ExternalLink, Loader2, CheckCircle2, Mail } from "lucide-react";
 import { Order } from "../../../../../../types/store";
@@ -117,10 +117,11 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
     return <div>Order not found</div>;
   }
 
-  const hasPhysicalItems = order.items?.some((i: any) => i.product?.fulfillment_type === 'PHYSICAL_SHIPPING');
-  const hasConsultation = order.items?.some((i: any) => i.product?.product_type === 'CONSULTATION');
-  const hasDigitalDelivery = order.items?.some((i: any) => ['EBOOK', 'COURSE', 'BUNDLE', 'PROGRAM'].includes(i.product?.product_type) || i.product?.is_bundle);
-  const hasMembership = order.items?.some((i: any) => i.product?.product_type === 'MEMBERSHIP');
+  const itemsList = Array.isArray(order.items) ? order.items : [];
+  const hasPhysicalItems = itemsList.some((i: any) => i?.product?.fulfillment_type === 'PHYSICAL_SHIPPING');
+  const hasConsultation = itemsList.some((i: any) => (i?.product?.product_type || i?.product?.type) === 'CONSULTATION');
+  const hasDigitalDelivery = itemsList.some((i: any) => ['EBOOK', 'COURSE', 'BUNDLE', 'PROGRAM'].includes(i?.product?.product_type || i?.product?.type) || i?.product?.is_bundle);
+  const hasMembership = itemsList.some((i: any) => (i?.product?.product_type || i?.product?.type) === 'MEMBERSHIP');
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -164,34 +165,38 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
               </h3>
             </div>
             <div className="divide-y divide-slate-100">
-              {order.items?.map((item: any, idx: number) => (
-                <div key={idx} className="p-5 flex items-start gap-4">
-                  <div className="w-16 h-20 bg-slate-100 rounded-md overflow-hidden shrink-0">
-                    {item.product?.cover_image_path ? (
-                      <img src={item.product.cover_image_path} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
-                        <Package className="w-6 h-6" />
-                      </div>
-                    )}
+              {itemsList.map((item: any, idx: number) => {
+                if (!item) return null;
+                const coverImage = item.product?.cover_image_path || item.product?.image_url;
+                return (
+                  <div key={idx} className="p-5 flex items-start gap-4">
+                    <div className="w-16 h-20 bg-slate-100 rounded-md overflow-hidden shrink-0">
+                      {coverImage ? (
+                        <img src={getImageUrl(coverImage)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
+                          <Package className="w-6 h-6" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-slate-800 text-sm">{item.product?.title || 'Unknown Product'}</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">{item.product?.product_type || item.product?.type} • {item.product?.fulfillment_type}</p>
+                      
+                      {item.product?.fulfillment_type === 'DIGITAL_DOWNLOAD' && order.status === 'paid' && (
+                        <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Digital link sent via email
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0 ml-4">
+                      <p className="text-sm font-medium text-slate-800">{formatPrice(item.product?.price || 0)}</p>
+                      <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
+                      <p className="text-sm font-bold text-slate-800 mt-2">{formatPrice((item.product?.price || 0) * item.quantity)}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-slate-800 text-sm">{item.product?.title || 'Unknown Product'}</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.product?.product_type} • {item.product?.fulfillment_type}</p>
-                    
-                    {item.product?.fulfillment_type === 'DIGITAL_DOWNLOAD' && order.status === 'paid' && (
-                      <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Digital link sent via email
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0 ml-4">
-                    <p className="text-sm font-medium text-slate-800">{formatPrice(item.product?.price || 0)}</p>
-                    <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
-                    <p className="text-sm font-bold text-slate-800 mt-2">{formatPrice((item.product?.price || 0) * item.quantity)}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="bg-slate-50 p-5 border-t border-slate-200 flex justify-end">
               <div className="w-64 space-y-2 text-sm">

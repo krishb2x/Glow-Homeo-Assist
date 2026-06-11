@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Play } from "lucide-react";
+import { getImageUrl } from "../../lib/utils";
 
 interface ProductGalleryProps {
   title: string;
@@ -25,12 +26,12 @@ export default function ProductGallery({
 
   // 2. Add the main cover image
   if (coverImage) {
-    media.push({ type: 'image', url: coverImage, thumbnail: coverImage });
+    media.push({ type: 'image', url: getImageUrl(coverImage), thumbnail: getImageUrl(coverImage) });
   }
 
   // 3. Add gallery images
   galleryImages.forEach(img => {
-    const url = img.startsWith('http') ? img : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${img}`;
+    const url = getImageUrl(img);
     media.push({ type: 'image', url, thumbnail: url });
   });
 

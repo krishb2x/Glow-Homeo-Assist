@@ -6,7 +6,7 @@ import { useStore } from "./StoreProvider";
 import { Crown, Star, Check, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { formatPrice } from "../../lib/utils";
+import { formatPrice, getImageUrl } from "../../lib/utils";
 
 // Normal Individual Product Card
 export const ProductCard = ({ product }: { product: Product }) => {
@@ -21,7 +21,7 @@ export const ProductCard = ({ product }: { product: Product }) => {
     setTimeout(() => setAdded(false), 1500);
   };
 
-  const imageSrc = product.cover_image_path || product.image_url;
+  const imageSrc = getImageUrl(product.cover_image_path || product.image_url);
   const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.type === 'hardcopy';
   const formatBadge = isPhysical ? 'Physical Book' : 'Digital PDF';
   const rating = product.metadata?.rating || 5.0;
@@ -118,7 +118,7 @@ export const ComboCard = ({ product }: { product: Product }) => {
     setTimeout(() => setAdded(false), 1500);
   };
 
-  const imageSrc = product.cover_image_path || product.image_url;
+  const imageSrc = getImageUrl(product.cover_image_path || product.image_url);
   const savings = product.original_price ? product.original_price - product.price : 0;
 
   return (
