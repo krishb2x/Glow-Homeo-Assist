@@ -42,12 +42,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Overview", href: "/admin", icon: LayoutDashboard },
     { name: "Operations", href: "/admin/operations", icon: Workflow },
     { name: "All Cases", href: "/admin/operations/cases", icon: FolderGit2 },
+    { name: "Treatment Kits", href: "/admin/operations/treatment-kits", icon: Package },
   ];
 
   const commerceItems = [
     { name: "Overview", href: "/admin/commerce", icon: LayoutDashboard },
     { name: "Orders", href: "/admin/commerce/orders", icon: ShoppingCart },
     { name: "Products", href: "/admin/commerce/products", icon: Package },
+    { name: "Kit Reviews", href: "/admin/commerce/treatment-kits", icon: FolderGit2 },
     { name: "Customers", href: "/admin/commerce/customers", icon: UserCircle },
   ];
 

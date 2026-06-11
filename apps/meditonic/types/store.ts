@@ -1,4 +1,4 @@
-export type ProductType = 'EBOOK' | 'PHYSICAL_BOOK' | 'PROGRAM' | 'COURSE' | 'CONSULTATION' | 'MEMBERSHIP' | 'BUNDLE';
+export type ProductType = 'EBOOK' | 'PHYSICAL_BOOK' | 'PROGRAM' | 'COURSE' | 'CONSULTATION' | 'MEMBERSHIP' | 'BUNDLE' | 'TREATMENT_KIT';
 export type FulfillmentType = 'DIGITAL_DOWNLOAD' | 'PHYSICAL_SHIPPING' | 'LMS_ACCESS' | 'BOOKING';
 export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 export type OrderStatus = 'pending' | 'paid' | 'failed' | 'refunded';

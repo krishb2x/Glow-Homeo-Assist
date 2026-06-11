@@ -348,6 +348,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                 <option value="COURSE">Online Course</option>
                 <option value="MEMBERSHIP">Membership Access</option>
                 <option value="BUNDLE">Product Bundle</option>
+                <option value="TREATMENT_KIT">Treatment Kit (Dynamic Triage)</option>
               </select>
               <p className="text-[10px] text-indigo-700 mt-2">
                 This dictates how the system fulfills the order (e.g. S3 Watermarking vs Clinical Triage Queue).

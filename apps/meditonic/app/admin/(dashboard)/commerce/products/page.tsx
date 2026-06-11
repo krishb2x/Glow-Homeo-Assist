@@ -106,13 +106,13 @@ export default function ProductsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
-                        EBOOK
+                      <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700">
+                        {product.product_type || "EBOOK"}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-slate-200 text-slate-600">
-                        DIGITAL
+                        {(product.fulfillment_type || "DIGITAL").replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -130,7 +130,7 @@ export default function ProductsPage() {
                     <td className="px-6 py-4 text-right space-x-4">
                       {product.is_active && (
                         <a 
-                          href={`/ebooks/${product.slug}`}
+                          href={product.product_type === 'TREATMENT_KIT' ? `/treatment-kits/${product.slug}` : `/ebooks/${product.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-slate-400 hover:text-emerald-600 transition-colors"

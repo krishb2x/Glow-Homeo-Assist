@@ -317,6 +317,68 @@ export async function POST(req: Request) {
             );
           }
         }
+      } else if (paymentRecord.purpose === "treatment_kit") {
+        // Update Case Status & Log Activity
+        const { data: updatedCase } = await supabase
+          .from("mt_cases")
+          .update({ 
+            payment_status: "captured",
+            status: "new",
+            workflow_status: "doctor_review"
+          })
+          .eq("id", paymentRecord.reference_id)
+          .select("id")
+          .single();
+
+        if (updatedCase) {
+          await supabase.from("mt_case_activities").insert({
+            case_id: updatedCase.id,
+            action: "Payment Captured",
+            details: { message: "Razorpay webhook confirmed payment for Treatment Kit Case", orderId, amount: paymentRecord.amount }
+          });
+          
+          // Enqueue Sync Job for Google Sheets
+          await supabase.from("mt_sync_queue").insert({
+            case_id: updatedCase.id,
+            target_system: "google_sheets",
+            operation: "insert",
+            payload: { reference_id: paymentRecord.reference_id, case_type: "treatment_kit" }
+          });
+        }
+
+        // Fetch patient to send confirmation email
+        if (paymentRecord.patient_id) {
+          const { data: patient } = await supabase
+            .from("mt_patients")
+            .select("name, email")
+            .eq("id", paymentRecord.patient_id)
+            .single();
+
+          if (patient?.email) {
+            await sendConfirmationEmail(
+              patient.email,
+              "Treatment Kit Case Created - MediTonic",
+              `
+              <div style="text-align: center; margin-bottom: 24px;">
+                <div style="display: inline-block; width: 64px; height: 64px; background-color: #E5F1EE; border-radius: 50%; line-height: 64px; text-align: center;">
+                  <span style="color: #1B6B5C; font-size: 32px;">✓</span>
+                </div>
+              </div>
+              <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 22px; font-weight: 700; text-align: center;">Case Created Successfully!</h2>
+              <p style="margin: 0 0 24px 0; color: #64748b; font-size: 15px; line-height: 24px; text-align: center;">
+                Dear <strong>${patient.name}</strong>, thank you for submitting your intake form. Your treatment kit case has been registered.<br><br>
+                Our medical team will review your details. Once approved, we will collect your physical delivery address to ship your treatment kit.
+              </p>
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin-bottom: 24px; text-align: center;">
+                <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 22px;">
+                  <strong>Case Reference ID:</strong> MT-KIT-${paymentRecord.reference_id.substring(0, 8).toUpperCase()}
+                </p>
+              </div>
+              `,
+              { cc: "care.meditonic@gmail.com", bcc: "aman.aga998@gmail.com" }
+            );
+          }
+        }
       }
       
       // 3. Handle Referral Commission Attribution
