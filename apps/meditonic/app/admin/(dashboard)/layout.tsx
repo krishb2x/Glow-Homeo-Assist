@@ -10,6 +10,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>("support");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -22,11 +23,63 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         // Prevent partners from accessing admin
         router.push("/partner-login");
       } else {
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single();
+
+          if (profile?.role) {
+            setUserRole(profile.role);
+          } else if (session.user.user_metadata?.role) {
+            setUserRole(session.user.user_metadata.role);
+          } else {
+            setUserRole("support"); // Default fallback
+          }
+        } catch (err) {
+          console.error("Failed to query profile role:", err);
+          setUserRole("support");
+        }
         setLoading(false);
       }
     };
     checkAuth();
   }, [router]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    // Support route guard
+    if (userRole === "support") {
+      const isForbidden = 
+        pathname.startsWith("/admin/partners") || 
+        pathname.startsWith("/admin/commerce/products") || 
+        pathname.startsWith("/admin/commerce/customers") ||
+        (pathname.startsWith("/admin/operations") && 
+         !pathname.startsWith("/admin/operations/treatment-kits") && 
+         !pathname.startsWith("/admin/operations/cases"));
+
+      if (isForbidden) {
+        router.push("/admin/operations/treatment-kits");
+      }
+    }
+    
+    // Doctor route guard
+    if (userRole === "doctor") {
+      const isForbidden = 
+        pathname.startsWith("/admin/partners") || 
+        pathname.startsWith("/admin/commerce/products") || 
+        pathname.startsWith("/admin/commerce/customers") ||
+        pathname.startsWith("/admin/commerce/orders") ||
+        (pathname.startsWith("/admin/operations") && 
+         !pathname.startsWith("/admin/operations/cases"));
+
+      if (isForbidden) {
+        router.push("/admin/commerce/treatment-kits");
+      }
+    }
+  }, [pathname, loading, userRole, router]);
 
   const handleLogout = async () => {
     const supabase = getSupabaseBrowser();
@@ -38,27 +91,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>;
   }
 
+  // Role checking flags
+  const isSuperAdminOrAdmin = ["super_admin", "admin"].includes(userRole);
+  const isSupport = userRole === "support";
+  const isDoctor = userRole === "doctor";
+
   const navItems = [
-    { name: "Overview", href: "/admin", icon: LayoutDashboard },
-    { name: "Operations", href: "/admin/operations", icon: Workflow },
-    { name: "All Cases", href: "/admin/operations/cases", icon: FolderGit2 },
-    { name: "Treatment Kits", href: "/admin/operations/treatment-kits", icon: Package },
-  ];
+    { name: "Overview", href: "/admin", icon: LayoutDashboard, visible: isSuperAdminOrAdmin || isDoctor || isSupport },
+    { name: "Operations", href: "/admin/operations", icon: Workflow, visible: isSuperAdminOrAdmin },
+    { name: "All Cases", href: "/admin/operations/cases", icon: FolderGit2, visible: isSuperAdminOrAdmin || isDoctor || isSupport },
+    { name: "Treatment Kits", href: "/admin/operations/treatment-kits", icon: Package, visible: isSuperAdminOrAdmin || isSupport },
+  ].filter(i => i.visible);
 
   const commerceItems = [
-    { name: "Overview", href: "/admin/commerce", icon: LayoutDashboard },
-    { name: "Orders", href: "/admin/commerce/orders", icon: ShoppingCart },
-    { name: "Products", href: "/admin/commerce/products", icon: Package },
-    { name: "Kit Reviews", href: "/admin/commerce/treatment-kits", icon: FolderGit2 },
-    { name: "Customers", href: "/admin/commerce/customers", icon: UserCircle },
-  ];
+    { name: "Overview", href: "/admin/commerce", icon: LayoutDashboard, visible: isSuperAdminOrAdmin },
+    { name: "Orders", href: "/admin/commerce/orders", icon: ShoppingCart, visible: isSuperAdminOrAdmin || isSupport },
+    { name: "Products", href: "/admin/commerce/products", icon: Package, visible: isSuperAdminOrAdmin },
+    { name: "Kit Reviews", href: "/admin/commerce/treatment-kits", icon: FolderGit2, visible: isSuperAdminOrAdmin || isDoctor || isSupport },
+    { name: "Customers", href: "/admin/commerce/customers", icon: UserCircle, visible: isSuperAdminOrAdmin },
+  ].filter(i => i.visible);
 
   const partnerItems = [
-    { name: "Applications", href: "/admin/partners/applications", icon: UserPlus },
-    { name: "Partners", href: "/admin/partners", icon: Users },
-    { name: "Referral Codes", href: "/admin/partners/codes", icon: Gift },
-    { name: "Commissions", href: "/admin/partners/commissions", icon: IndianRupee },
-  ];
+    { name: "Applications", href: "/admin/partners/applications", icon: UserPlus, visible: isSuperAdminOrAdmin },
+    { name: "Partners", href: "/admin/partners", icon: Users, visible: isSuperAdminOrAdmin },
+    { name: "Referral Codes", href: "/admin/partners/codes", icon: Gift, visible: isSuperAdminOrAdmin },
+    { name: "Commissions", href: "/admin/partners/commissions", icon: IndianRupee, visible: isSuperAdminOrAdmin },
+  ].filter(i => i.visible);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -89,47 +147,54 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )
           })}
 
-          <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-6 px-2">Commerce Module</div>
-          {commerceItems.map((item) => {
-            const Icon = item.icon;
-            // For commerce overview, exact match. For others, startsWith
-            const isActive = item.href === '/admin/commerce' 
-              ? pathname === '/admin/commerce'
-              : pathname.startsWith(item.href);
-              
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href}
-                className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-3 py-2 md:py-2.5 rounded-xl text-[10px] md:text-sm font-medium transition-colors shrink-0 ${
-                  isActive ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                }`}
-              >
-                <Icon className={`w-5 h-5 md:w-5 md:h-5 ${isActive ? "text-emerald-200" : "text-slate-500"}`} />
-                <span className="hidden md:inline">{item.name}</span>
-                <span className="md:hidden">{item.name.split(' ')[0]}</span>
-              </Link>
-            )
-          })}
+          {commerceItems.length > 0 && (
+            <>
+              <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-6 px-2">Commerce Module</div>
+              {commerceItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = item.href === '/admin/commerce' 
+                  ? pathname === '/admin/commerce'
+                  : pathname.startsWith(item.href);
+                  
+                return (
+                  <Link 
+                    key={item.href} 
+                    href={item.href}
+                    className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-3 py-2 md:py-2.5 rounded-xl text-[10px] md:text-sm font-medium transition-colors shrink-0 ${
+                      isActive ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 md:w-5 md:h-5 ${isActive ? "text-emerald-200" : "text-slate-500"}`} />
+                    <span className="hidden md:inline">{item.name}</span>
+                    <span className="md:hidden">{item.name.split(' ')[0]}</span>
+                  </Link>
+                )
+              })}
+            </>
+          )}
 
-          <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-6 px-2">Partner Network</div>
-          {partnerItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname.startsWith(item.href);
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href}
-                className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-3 py-2 md:py-2.5 rounded-xl text-[10px] md:text-sm font-medium transition-colors shrink-0 ${
-                  isActive ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                }`}
-              >
-                <Icon className={`w-5 h-5 md:w-5 md:h-5 ${isActive ? "text-emerald-200" : "text-slate-500"}`} />
-                <span className="hidden md:inline">{item.name}</span>
-                <span className="md:hidden">{item.name.split(' ')[0]}</span>
-              </Link>
-            )
-          })}
+          {partnerItems.length > 0 && (
+            <>
+              <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-6 px-2">Partner Network</div>
+              {partnerItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link 
+                    key={item.href} 
+                    href={item.href}
+                    className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-3 py-2 md:py-2.5 rounded-xl text-[10px] md:text-sm font-medium transition-colors shrink-0 ${
+                      isActive ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 md:w-5 md:h-5 ${isActive ? "text-emerald-200" : "text-slate-500"}`} />
+                    <span className="hidden md:inline">{item.name}</span>
+                    <span className="md:hidden">{item.name.split(' ')[0]}</span>
+                  </Link>
+                )
+              })}
+            </>
+          )}
         </div>
 
         <div className="hidden md:block p-4 border-t border-slate-800 shrink-0">
