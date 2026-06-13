@@ -55,7 +55,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
         .select(`
           related_product_id,
           mt_products!mt_product_relationships_related_product_id_fkey (
-            id, title, slug, stock_status, summary, description, metadata
+            id, title, slug, stock_status, description, metadata
           )
         `)
         .eq("product_id", p.id)
@@ -70,7 +70,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
               title: childProduct.title,
               slug: childProduct.slug,
               stock_status: childProduct.stock_status,
-              summary: childProduct.summary || childProduct.description,
+              summary: childProduct.description,
               requires_watermark: childProduct.metadata?.requires_watermark !== false,
             });
           }
