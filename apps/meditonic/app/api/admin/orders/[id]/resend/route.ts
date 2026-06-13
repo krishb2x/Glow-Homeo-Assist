@@ -153,7 +153,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     await supabase
       .from("mt_orders")
-      .update({ audit_log: newAuditLog })
+      .update({ 
+        fulfillment_status: "fulfilled",
+        audit_log: newAuditLog,
+        updated_at: new Date().toISOString()
+      })
       .eq("id", id);
 
     return NextResponse.json({ success: true, message: digitalItems.length > 0 ? "Background processing started" : "Email sent", audit_log: newAuditLog });

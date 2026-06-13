@@ -105,13 +105,13 @@ export async function POST(req: Request) {
       // 0. Check if this is a Store Order in mt_orders
       const { data: storeOrder } = await supabase
         .from("mt_orders")
-        .select("id, status, customer_name, customer_email, clinic_id, audit_log")
+        .select("id, status, fulfillment_status, customer_name, customer_email, clinic_id, audit_log")
         .eq("razorpay_order_id", orderId)
         .single();
 
       if (storeOrder) {
         // 1. If the order is already fully completed and delivered, return early
-        if (storeOrder.status === "fulfilled") {
+        if (storeOrder.fulfillment_status === "fulfilled") {
           return NextResponse.json({ status: "ok", message: "Already fulfilled store order" });
         }
 
@@ -198,11 +198,11 @@ export async function POST(req: Request) {
           // Re-fetch order status to check if it was marked fulfilled by a concurrent thread
           const { data: freshOrder } = await supabase
             .from("mt_orders")
-            .select("status")
+            .select("fulfillment_status")
             .eq("id", storeOrder.id)
             .single();
 
-          if (freshOrder && freshOrder.status !== "fulfilled") {
+          if (freshOrder && freshOrder.fulfillment_status !== "fulfilled") {
             console.log(`[Webhook] Triggering auto-delivery for store order ${storeOrder.id}`);
             await processStoreFulfillment(storeOrder.id);
             console.log(`[Webhook] Auto-delivery completed for store order ${storeOrder.id}`);

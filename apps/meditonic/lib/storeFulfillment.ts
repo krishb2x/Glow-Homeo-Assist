@@ -17,7 +17,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
     throw new Error("Order not found");
   }
 
-  if (order.status === 'fulfilled') {
+  if (order.fulfillment_status === 'fulfilled') {
     console.log(`Order ${mtOrderId} is already fulfilled. Skipping.`);
     return { success: true, already_fulfilled: true };
   }
@@ -139,10 +139,13 @@ export async function processStoreFulfillment(mtOrderId: string) {
     console.error("Failed to send admin notification email:", adminErr);
   }
 
-  // Update status to fulfilled
+  // Update fulfillment_status to fulfilled
   await supabase
     .from("mt_orders")
-    .update({ status: "fulfilled", updated_at: new Date().toISOString() })
+    .update({ 
+      fulfillment_status: "fulfilled",
+      updated_at: new Date().toISOString() 
+    })
     .eq("id", mtOrderId);
 
   return { success: true, fulfilled: true };

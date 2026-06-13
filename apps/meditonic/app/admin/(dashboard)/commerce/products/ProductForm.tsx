@@ -22,6 +22,8 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
   
   // Available products for Upsell
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [existingCategories, setExistingCategories] = useState<string[]>([]);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   
   const [formData, setFormData] = useState<Partial<Product>>({
     title: initialData?.title || "",
@@ -72,6 +74,20 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     };
     fetchProducts();
   }, [initialData?.id]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const supabase = getSupabaseBrowser();
+      const { data } = await supabase
+        .from("mt_products")
+        .select("category");
+      if (data) {
+        const uniqueCats = Array.from(new Set(data.map((p: any) => p.category).filter(Boolean))) as string[];
+        setExistingCategories(uniqueCats);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'cover_image_path' | 'preview_pdf_path' | 'final_pdf_path', bucket: 'meditonic-public' | 'meditonic-private') => {
     const file = e.target.files?.[0];
@@ -372,17 +388,42 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Collection / Category</label>
-                <select name="category" value={formData.category} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
-                  <option value="">No Category</option>
-                  <option value="Diagnosis">Diagnosis</option>
-                  <option value="Women's Health">Women's Health</option>
-                  <option value="Thyroid">Thyroid</option>
-                  <option value="PCOS">PCOS</option>
-                  <option value="Homeopathy Basics">Homeopathy Basics</option>
-                  <option value="Exam Preparation">Exam Preparation</option>
-                </select>
+              <div className="w-full">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-semibold text-slate-600">Collection / Category</label>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsCustomCategory(!isCustomCategory)} 
+                    className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold transition-colors"
+                  >
+                    {isCustomCategory ? "Choose from existing" : "Create new category"}
+                  </button>
+                </div>
+                {isCustomCategory ? (
+                  <input 
+                    type="text" 
+                    name="category" 
+                    value={formData.category} 
+                    onChange={handleChange} 
+                    placeholder="Enter new category name (e.g. Medicine)"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 font-medium"
+                  />
+                ) : (
+                  <select name="category" value={formData.category} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                    <option value="">No Category</option>
+                    {Array.from(new Set([
+                      "Diagnosis",
+                      "Women's Health",
+                      "Thyroid",
+                      "PCOS",
+                      "Homeopathy Basics",
+                      "Exam Preparation",
+                      ...existingCategories
+                    ])).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           </div>
