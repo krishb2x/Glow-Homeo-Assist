@@ -110,83 +110,60 @@ export async function POST(req: Request) {
         .single();
 
       if (storeOrder) {
-        if (storeOrder.status === "paid" || storeOrder.status === "fulfilled") {
-          // Check if we need to process referral commission that might have been skipped due to client-side verification
-          if (storeOrder.audit_log && Array.isArray(storeOrder.audit_log)) {
-            const referralLog = storeOrder.audit_log.find((log: any) => log.action === 'applied_referral');
-            if (referralLog && referralLog.code) {
-              // Check if attribution already exists to prevent duplicate commission
-              const { data: existingAttr } = await supabase
-                .from("mt_order_attributions")
-                .select("id")
-                .eq("order_id", storeOrder.id)
-                .maybeSingle();
-
-              if (!existingAttr) {
-                const { data: refCodeData } = await supabase
-                  .from("mt_referral_codes")
-                  .select("id")
-                  .eq("code", referralLog.code)
-                  .single();
-
-                if (refCodeData) {
-                  console.log(`[Webhook] Processing delayed referral commission for already paid store order ${storeOrder.id} with code ${referralLog.code}`);
-                  await handleReferralCommission(
-                    supabase,
-                    refCodeData.id,
-                    storeOrder.clinic_id || '595cd444-e89c-4d1f-b31f-27f76f59e0d7',
-                    null,
-                    storeOrder.id,
-                    'store_order',
-                    payment.amount / 100,
-                    payment.amount / 100,
-                    0
-                  );
-                }
-              }
-            }
-          }
-          return NextResponse.json({ status: "ok", message: "Already processed store order" });
+        // 1. If the order is already fully completed and delivered, return early
+        if (storeOrder.status === "fulfilled") {
+          return NextResponse.json({ status: "ok", message: "Already fulfilled store order" });
         }
 
-        // Update Store Order
-        await supabase
-          .from("mt_orders")
-          .update({
-            status: "paid",
-            razorpay_payment_id: payment.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", storeOrder.id);
+        // 2. If it was pending, update it to paid in the database
+        if (storeOrder.status === "pending") {
+          await supabase
+            .from("mt_orders")
+            .update({
+              status: "paid",
+              razorpay_payment_id: payment.id,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", storeOrder.id);
+        }
 
-        // Handle Referral Commission if applied
+        // 3. Process referral commission if not already attributed
         if (storeOrder.audit_log && Array.isArray(storeOrder.audit_log)) {
           const referralLog = storeOrder.audit_log.find((log: any) => log.action === 'applied_referral');
           if (referralLog && referralLog.code) {
-             const { data: refCodeData } = await supabase
-               .from("mt_referral_codes")
-               .select("id")
-               .eq("code", referralLog.code)
-               .single();
-               
-             if (refCodeData) {
-               await handleReferralCommission(
-                 supabase,
-                 refCodeData.id,
-                 storeOrder.clinic_id || '595cd444-e89c-4d1f-b31f-27f76f59e0d7',
-                 null,
-                 storeOrder.id,
-                 'store_order',
-                 payment.amount / 100,
-                 payment.amount / 100,
-                 0
-               );
-             }
+            const { data: existingAttr } = await supabase
+              .from("mt_order_attributions")
+              .select("id")
+              .eq("order_id", storeOrder.id)
+              .maybeSingle();
+
+            if (!existingAttr) {
+              const { data: refCodeData } = await supabase
+                .from("mt_referral_codes")
+                .select("id")
+                .eq("code", referralLog.code)
+                .single();
+
+              if (refCodeData) {
+                console.log(`[Webhook] Processing referral commission for store order ${storeOrder.id} with code ${referralLog.code}`);
+                await handleReferralCommission(
+                  supabase,
+                  refCodeData.id,
+                  storeOrder.clinic_id || '595cd444-e89c-4d1f-b31f-27f76f59e0d7',
+                  null,
+                  storeOrder.id,
+                  'store_order',
+                  payment.amount / 100,
+                  payment.amount / 100,
+                  0
+                );
+              }
+            }
           }
         }
 
-        // Send Payment Confirmation Email (Email #1)
-        if (storeOrder.customer_email) {
+        // 4. Send Payment Confirmation Email (Email #1) only if the order was not already paid
+        if (storeOrder.status === "pending" && storeOrder.customer_email) {
           try {
             await sendConfirmationEmail(
               storeOrder.customer_email,
@@ -198,20 +175,41 @@ export async function POST(req: Request) {
           }
         }
 
-        // Enqueue Sync Job for Background Worker instead of blocking the webhook
-        await supabase.from("mt_sync_queue").insert({
-          target_system: "store_fulfillment",
-          operation: "process_order",
-          payload: { order_id: storeOrder.id },
-          status: "pending"
-        });
+        // 5. Enqueue Sync Job for Background Worker record as fallback (only if not already existing)
+        const { data: existingSync } = await supabase
+          .from("mt_sync_queue")
+          .select("id")
+          .eq("target_system", "store_fulfillment")
+          .eq("operation", "process_order")
+          .eq("payload->>order_id", storeOrder.id)
+          .maybeSingle();
 
-        // Trigger fulfillment immediately in the background post-response
+        if (!existingSync) {
+          await supabase.from("mt_sync_queue").insert({
+            target_system: "store_fulfillment",
+            operation: "process_order",
+            payload: { order_id: storeOrder.id },
+            status: "pending"
+          });
+        }
+
+        // 6. Trigger auto-delivery in the background post-response if not already fulfilled
         after(async () => {
           try {
-            console.log(`[Webhook Background] Starting fulfillment for store order ${storeOrder.id}`);
-            await processStoreFulfillment(storeOrder.id);
-            console.log(`[Webhook Background] Fulfillment completed for store order ${storeOrder.id}`);
+            // Re-fetch order status to check if it was marked fulfilled by a concurrent thread
+            const { data: freshOrder } = await supabase
+              .from("mt_orders")
+              .select("status")
+              .eq("id", storeOrder.id)
+              .single();
+
+            if (freshOrder && freshOrder.status !== "fulfilled") {
+              console.log(`[Webhook Background] Triggering auto-delivery for store order ${storeOrder.id}`);
+              await processStoreFulfillment(storeOrder.id);
+              console.log(`[Webhook Background] Auto-delivery completed for store order ${storeOrder.id}`);
+            } else {
+              console.log(`[Webhook Background] Store order ${storeOrder.id} already fulfilled, skipping duplicate delivery.`);
+            }
           } catch (err) {
             console.error(`[Webhook Background Error] Order ${storeOrder.id} fulfillment failed:`, err);
           }
