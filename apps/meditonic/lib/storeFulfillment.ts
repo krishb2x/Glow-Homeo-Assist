@@ -17,6 +17,11 @@ export async function processStoreFulfillment(mtOrderId: string) {
     throw new Error("Order not found");
   }
 
+  if (order.status === 'fulfilled') {
+    console.log(`Order ${mtOrderId} is already fulfilled. Skipping.`);
+    return { success: true, already_fulfilled: true };
+  }
+
   if (order.status !== 'paid') {
     throw new Error("Order is not paid");
   }

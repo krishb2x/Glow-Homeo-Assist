@@ -1,6 +1,6 @@
 import crypto from "crypto";
 export const maxDuration = 300; // Allow up to 5 minutes for large PDF processing
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase";
 import { sendConfirmationEmail } from "../../../../lib/email";
 import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased, Template_StorePaymentConfirmed } from "../../../../lib/email-templates";
@@ -193,27 +193,25 @@ export async function POST(req: Request) {
           });
         }
 
-        // 6. Trigger auto-delivery in the background post-response if not already fulfilled
-        after(async () => {
-          try {
-            // Re-fetch order status to check if it was marked fulfilled by a concurrent thread
-            const { data: freshOrder } = await supabase
-              .from("mt_orders")
-              .select("status")
-              .eq("id", storeOrder.id)
-              .single();
+        // 6. Trigger auto-delivery synchronously if not already fulfilled
+        try {
+          // Re-fetch order status to check if it was marked fulfilled by a concurrent thread
+          const { data: freshOrder } = await supabase
+            .from("mt_orders")
+            .select("status")
+            .eq("id", storeOrder.id)
+            .single();
 
-            if (freshOrder && freshOrder.status !== "fulfilled") {
-              console.log(`[Webhook Background] Triggering auto-delivery for store order ${storeOrder.id}`);
-              await processStoreFulfillment(storeOrder.id);
-              console.log(`[Webhook Background] Auto-delivery completed for store order ${storeOrder.id}`);
-            } else {
-              console.log(`[Webhook Background] Store order ${storeOrder.id} already fulfilled, skipping duplicate delivery.`);
-            }
-          } catch (err) {
-            console.error(`[Webhook Background Error] Order ${storeOrder.id} fulfillment failed:`, err);
+          if (freshOrder && freshOrder.status !== "fulfilled") {
+            console.log(`[Webhook] Triggering auto-delivery for store order ${storeOrder.id}`);
+            await processStoreFulfillment(storeOrder.id);
+            console.log(`[Webhook] Auto-delivery completed for store order ${storeOrder.id}`);
+          } else {
+            console.log(`[Webhook] Store order ${storeOrder.id} already fulfilled, skipping duplicate delivery.`);
           }
-        });
+        } catch (err) {
+          console.error(`[Webhook Error] Order ${storeOrder.id} fulfillment failed:`, err);
+        }
 
         return NextResponse.json({ status: "ok" });
       }

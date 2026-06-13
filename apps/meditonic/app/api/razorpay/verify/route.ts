@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { createAdminClient } from "../../../../lib/supabase";
 import { sendConfirmationEmail } from "../../../../lib/email";
 import { Template_StorePaymentConfirmed } from "../../../../lib/email-templates";
+import { processStoreFulfillment } from "../../../../lib/storeFulfillment";
 
 export async function POST(req: Request) {
   try {
@@ -55,18 +56,11 @@ export async function POST(req: Request) {
     }
 
     // In a real production setup, we might push to an SQS queue here or call the fulfill route.
-    // We will call the fulfill route synchronously for this flow, or trigger it directly.
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://meditonic.glowhomeo.com'}/api/orders/fulfill`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-internal-secret": process.env.INTERNAL_API_SECRET || ""
-        },
-        body: JSON.stringify({ mtOrderId })
-      });
+      console.log(`[Verify API] Triggering direct fulfillment for order ${mtOrderId}`);
+      await processStoreFulfillment(mtOrderId);
     } catch (e) {
-      console.error("Fulfillment trigger failed:", e);
+      console.error("Verify API fulfillment failed:", e);
     }
 
     return NextResponse.json({ success: true });
