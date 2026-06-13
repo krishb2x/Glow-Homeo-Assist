@@ -1,9 +1,10 @@
 import crypto from "crypto";
 export const maxDuration = 300; // Allow up to 5 minutes for large PDF processing
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase";
 import { sendConfirmationEmail } from "../../../../lib/email";
 import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased, Template_StorePaymentConfirmed } from "../../../../lib/email-templates";
+import { processStoreFulfillment } from "../../../../lib/storeFulfillment";
 
 async function handleReferralCommission(
   supabase: any,
@@ -110,6 +111,41 @@ export async function POST(req: Request) {
 
       if (storeOrder) {
         if (storeOrder.status === "paid" || storeOrder.status === "fulfilled") {
+          // Check if we need to process referral commission that might have been skipped due to client-side verification
+          if (storeOrder.audit_log && Array.isArray(storeOrder.audit_log)) {
+            const referralLog = storeOrder.audit_log.find((log: any) => log.action === 'applied_referral');
+            if (referralLog && referralLog.code) {
+              // Check if attribution already exists to prevent duplicate commission
+              const { data: existingAttr } = await supabase
+                .from("mt_order_attributions")
+                .select("id")
+                .eq("order_id", storeOrder.id)
+                .maybeSingle();
+
+              if (!existingAttr) {
+                const { data: refCodeData } = await supabase
+                  .from("mt_referral_codes")
+                  .select("id")
+                  .eq("code", referralLog.code)
+                  .single();
+
+                if (refCodeData) {
+                  console.log(`[Webhook] Processing delayed referral commission for already paid store order ${storeOrder.id} with code ${referralLog.code}`);
+                  await handleReferralCommission(
+                    supabase,
+                    refCodeData.id,
+                    storeOrder.clinic_id || '595cd444-e89c-4d1f-b31f-27f76f59e0d7',
+                    null,
+                    storeOrder.id,
+                    'store_order',
+                    payment.amount / 100,
+                    payment.amount / 100,
+                    0
+                  );
+                }
+              }
+            }
+          }
           return NextResponse.json({ status: "ok", message: "Already processed store order" });
         }
 
@@ -168,6 +204,17 @@ export async function POST(req: Request) {
           operation: "process_order",
           payload: { order_id: storeOrder.id },
           status: "pending"
+        });
+
+        // Trigger fulfillment immediately in the background post-response
+        after(async () => {
+          try {
+            console.log(`[Webhook Background] Starting fulfillment for store order ${storeOrder.id}`);
+            await processStoreFulfillment(storeOrder.id);
+            console.log(`[Webhook Background] Fulfillment completed for store order ${storeOrder.id}`);
+          } catch (err) {
+            console.error(`[Webhook Background Error] Order ${storeOrder.id} fulfillment failed:`, err);
+          }
         });
 
         return NextResponse.json({ status: "ok" });
