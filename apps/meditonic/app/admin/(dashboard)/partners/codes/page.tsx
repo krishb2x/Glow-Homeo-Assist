@@ -14,11 +14,15 @@ export default function ReferralCodesPage() {
   const [formData, setFormData] = useState({
     partner_id: "",
     code: "",
+    code_name: "",
+    description: "",
     discount_type: "percentage",
     discount_value: 10,
     commission_rate: "",
-    product_scope: "all",
-    usage_limit: "",
+    product_scopes: ["all"] as string[],
+    max_uses: "",
+    valid_from: "",
+    valid_until: "",
   });
 
   useEffect(() => {
@@ -65,42 +69,103 @@ export default function ReferralCodesPage() {
     fetchCodes();
   };
 
+  const handleScopeToggle = (scope: string) => {
+    if (scope === "all") {
+      setFormData(prev => ({ ...prev, product_scopes: ["all"] }));
+    } else {
+      let newScopes = formData.product_scopes.filter(s => s !== "all");
+      if (newScopes.includes(scope)) {
+        newScopes = newScopes.filter(s => s !== scope);
+        if (newScopes.length === 0) newScopes = ["all"]; // fallback to all
+      } else {
+        newScopes.push(scope);
+      }
+      setFormData(prev => ({ ...prev, product_scopes: newScopes }));
+    }
+  };
+
   const handleCreateCode = async (e: React.FormEvent) => {
     e.preventDefault();
     const supabase = getSupabaseBrowser();
     
     let landing_path = "/";
-    if (formData.product_scope === "ebooks") landing_path = "/ebooks";
-    if (formData.product_scope === "consultation") landing_path = "/consultation";
-    if (formData.product_scope === "programs") landing_path = "/programs";
+    if (formData.product_scopes.includes("ebook")) landing_path = "/ebooks";
+    if (formData.product_scopes.includes("consultation")) landing_path = "/consultation";
+    if (formData.product_scopes.includes("program")) landing_path = "/programs";
+    if (formData.product_scopes.includes("treatment_kit")) landing_path = "/treatment-kits";
 
+    const payload: any = {
+      clinic_id: "595cd444-e89c-4d1f-b31f-27f76f59e0d7", // Fallback, will normally be dynamic
+      partner_id: formData.partner_id,
+      code: formData.code.toUpperCase(),
+      code_name: formData.code_name || null,
+      description: formData.description || null,
+      discount_type: formData.discount_type,
+      discount_value: Number(formData.discount_value),
+      commission_rate: formData.commission_rate ? Number(formData.commission_rate) : null,
+      landing_path: landing_path,
+      is_active: true
+    };
+
+    // Try inserting with new schema columns first
     const { data: newCode, error } = await supabase
       .from("mt_referral_codes")
       .insert({
-        clinic_id: "595cd444-e89c-4d1f-b31f-27f76f59e0d7", // Fallback, will normally be dynamic
-        partner_id: formData.partner_id,
-        code: formData.code.toUpperCase(),
-        discount_type: formData.discount_type,
-        discount_value: Number(formData.discount_value),
-        commission_rate: formData.commission_rate ? Number(formData.commission_rate) : null,
-        landing_path: landing_path,
-        usage_limit: formData.usage_limit ? Number(formData.usage_limit) : null,
-        is_active: true
+        ...payload,
+        usage_limit: formData.max_uses ? Number(formData.max_uses) : null,
+        max_uses: formData.max_uses ? Number(formData.max_uses) : null,
+        start_date: formData.valid_from ? new Date(formData.valid_from).toISOString() : null,
+        valid_from: formData.valid_from ? new Date(formData.valid_from).toISOString() : null,
+        end_date: formData.valid_until ? new Date(formData.valid_until).toISOString() : null,
+        valid_until: formData.valid_until ? new Date(formData.valid_until).toISOString() : null,
       })
       .select()
       .single();
 
-    if (error) {
-      alert("Failed to create code: " + error.message);
-    } else if (newCode) {
-      // Map product scope
-      await supabase.from("mt_referral_products").insert({
-        referral_code_id: newCode.id,
-        product_type: formData.product_scope
-      });
+    let finalCode = newCode;
+    let finalError = error;
+
+    // If schema cache indicates missing columns, fallback to legacy schema insert
+    if (error && error.message.includes("column") && error.message.includes("does not exist")) {
+      const fallbackRes = await supabase
+        .from("mt_referral_codes")
+        .insert({
+          ...payload,
+          usage_limit: formData.max_uses ? Number(formData.max_uses) : null,
+          start_date: formData.valid_from ? new Date(formData.valid_from).toISOString() : null,
+          end_date: formData.valid_until ? new Date(formData.valid_until).toISOString() : null,
+        })
+        .select()
+        .single();
+      finalCode = fallbackRes.data;
+      finalError = fallbackRes.error;
+    }
+
+    if (finalError) {
+      alert("Failed to create code: " + finalError.message);
+    } else if (finalCode) {
+      // Map multiple product scopes
+      const scopeInserts = formData.product_scopes.map((scope: string) => ({
+        referral_code_id: finalCode.id,
+        product_type: scope
+      }));
+
+      await supabase.from("mt_referral_products").insert(scopeInserts);
 
       setIsDrawerOpen(false);
-      setFormData({ partner_id: "", code: "", discount_type: "percentage", discount_value: 10, commission_rate: "", product_scope: "all", usage_limit: "" });
+      setFormData({ 
+        partner_id: "", 
+        code: "", 
+        code_name: "",
+        description: "",
+        discount_type: "percentage", 
+        discount_value: 10, 
+        commission_rate: "", 
+        product_scopes: ["all"], 
+        max_uses: "",
+        valid_from: "",
+        valid_until: ""
+      });
       fetchCodes();
     }
   };
@@ -150,7 +215,10 @@ export default function ReferralCodesPage() {
             {/* Top Half */}
             <div className={`p-6 border-b-2 border-dashed border-slate-200 relative ${!code.is_active ? 'opacity-70 bg-slate-50' : 'bg-gradient-to-b from-white to-slate-50/50'}`}>
               <div className="flex justify-between items-start mb-6">
-                <h3 className="font-mono text-2xl font-black tracking-wider text-slate-800">{code.code}</h3>
+                <div>
+                  <h3 className="font-mono text-2xl font-black tracking-wider text-slate-800">{code.code}</h3>
+                  {code.code_name && <p className="text-xs text-slate-500 font-semibold mt-1">{code.code_name}</p>}
+                </div>
                 <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-black tracking-wider border flex items-center gap-1.5 shadow-sm ${
                   code.is_active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'
                 }`}>
@@ -175,7 +243,7 @@ export default function ReferralCodesPage() {
                   </span>
                   {code.commission_rate && (
                     <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded ml-2">
-                      {code.commission_rate}% Comm.
+                      {code.commission_rate}% Override
                     </span>
                   )}
                 </div>
@@ -187,8 +255,15 @@ export default function ReferralCodesPage() {
               <div>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">Total Usage</p>
                 <p className="text-xl font-black text-slate-800">
-                  {code.current_usage} <span className="text-sm font-semibold text-slate-400">{code.usage_limit ? `/ ${code.usage_limit}` : 'uses'}</span>
+                  {code.current_uses ?? code.current_usage ?? 0} <span className="text-sm font-semibold text-slate-400">
+                    {(code.max_uses !== null && code.max_uses !== undefined) ? `/ ${code.max_uses}` : (code.usage_limit ? `/ ${code.usage_limit}` : 'uses')}
+                  </span>
                 </p>
+                {code.valid_until && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Expires: {new Date(code.valid_until).toLocaleDateString()}
+                  </p>
+                )}
               </div>
               <Button 
                 variant="outline" 
@@ -235,18 +310,40 @@ export default function ReferralCodesPage() {
                   ))}
                 </select>
               </div>
-              
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-slate-700">Code (Tracking ID) *</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={formData.code} 
+                    onChange={e => setFormData({...formData, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base font-bold focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all uppercase font-mono tracking-wider text-slate-900"
+                    placeholder="e.g. SUMMER10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-slate-700">Code Name (Label)</label>
+                  <input 
+                    type="text" 
+                    value={formData.code_name} 
+                    onChange={e => setFormData({...formData, code_name: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all"
+                    placeholder="e.g. Aman General Code"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-700">Code (Tracking ID) *</label>
+                <label className="block text-sm font-bold text-slate-700">Description</label>
                 <input 
-                  required
                   type="text" 
-                  value={formData.code} 
-                  onChange={e => setFormData({...formData, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base font-bold focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all uppercase font-mono tracking-wider text-slate-900"
-                  placeholder="e.g. SUMMER10"
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all"
+                  placeholder="e.g. Partner campaign tracking for July"
                 />
-                <p className="text-[11px] font-medium text-slate-500 mt-1">This code is used at checkout and via URL (?ref=SUMMER10).</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -276,20 +373,7 @@ export default function ReferralCodesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Product Scope</label>
-                  <select 
-                    value={formData.product_scope} 
-                    onChange={e => setFormData({...formData, product_scope: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all"
-                  >
-                    <option value="all">All Products</option>
-                    <option value="consultation">Consultations Only</option>
-                    <option value="ebooks">eBooks Only</option>
-                    <option value="programs">Programs Only</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Partner Comm. (%)</label>
+                  <label className="text-sm font-bold text-slate-700">Commission Override (%)</label>
                   <input 
                     type="number" 
                     min="1"
@@ -300,21 +384,179 @@ export default function ReferralCodesPage() {
                     placeholder="Use Base Rate"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Usage Limit</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    value={formData.max_uses} 
+                    onChange={e => setFormData({...formData, max_uses: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all"
+                    placeholder="Unlimited"
+                  />
+                </div>
               </div>
-              
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Start Date</label>
+                  <input 
+                    type="date" 
+                    value={formData.valid_from} 
+                    onChange={e => setFormData({...formData, valid_from: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">End Date</label>
+                  <input 
+                    type="date" 
+                    value={formData.valid_until} 
+                    onChange={e => setFormData({...formData, valid_until: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Checkboxes for Product Scopes */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 flex justify-between">
-                  <span>Usage Limit</span> 
-                  <span className="text-slate-400 font-normal">Optional</span>
-                </label>
-                <input 
-                  type="number" 
-                  min="1"
-                  value={formData.usage_limit} 
-                  onChange={e => setFormData({...formData, usage_limit: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 outline-none transition-all"
-                  placeholder="Leave empty for unlimited"
-                />
+                <label className="text-sm font-bold text-slate-700 block">Product Scope Restrictions</label>
+                <p className="text-[11px] font-medium text-slate-500 mb-2">Select which product types this code can discount. Defaults to All.</p>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('all') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('all')} 
+                      onChange={() => handleScopeToggle('all')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300"
+                    />
+                    <span className="text-xs font-bold">All Products</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('treatment_kit') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('treatment_kit')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('treatment_kit')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">Treatment Kits</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('consultation') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('consultation')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('consultation')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">Consultations</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('ebook') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('ebook')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('ebook')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">eBooks</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('physical_book') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('physical_book')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('physical_book')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">Physical Books</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('program') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('program')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('program')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">Programs</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('course') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('course')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('course')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">Courses</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('membership') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('membership')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('membership')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">Memberships</span>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    formData.product_scopes.includes('bundle') 
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.product_scopes.includes('bundle')} 
+                      disabled={formData.product_scopes.includes('all')}
+                      onChange={() => handleScopeToggle('bundle')}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4.5 w-4.5 border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-xs font-bold">Bundles</span>
+                  </label>
+                </div>
               </div>
             </form>
 

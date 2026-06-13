@@ -5,6 +5,7 @@ import { useStore } from "./StoreProvider";
 import { X, ArrowRight, ShieldCheck, CheckCircle2, Loader2, Tag, Percent } from "lucide-react";
 import { formatPrice } from "../../lib/utils";
 import { useReferral } from "../../lib/hooks/useReferral";
+import { isReferralApplicable } from "../../lib/referrals/product-mapping";
 
 export const CartDrawer = () => {
   const { cart, removeFromCart, cartTotal, isCartOpen, setIsCartOpen, clearCart } = useStore();
@@ -100,13 +101,12 @@ export const CartDrawer = () => {
   
   let discountAmount = 0;
   if (discountInfo) {
-    // Calculate eligible amount
+    // Calculate eligible amount using shared isReferralApplicable
     let eligibleTotal = 0;
     if (discountInfo.applicableProducts && discountInfo.applicableProducts.length > 0) {
       cart.forEach(item => {
-        const itemType = item.product.category;
         const isEligible = discountInfo.applicableProducts!.some(
-          (p: any) => p.product_type === 'all' || p.product_type === itemType || p.product_id === item.product.id
+          (p: any) => isReferralApplicable(p.product_type, item.product.product_type) || p.product_id === item.product.id
         );
         if (isEligible) {
           eligibleTotal += (item.product.original_price || item.product.price) * item.quantity;

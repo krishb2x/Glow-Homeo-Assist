@@ -19,15 +19,38 @@ async function handleReferralCommission(
 ) {
   const { data: referralData, error: referralError } = await supabase
     .from("mt_referral_codes")
-    .select("id, partner_id, current_usage, commission_rate, mt_partners(id, base_commission_rate)")
+    .select("*, mt_partners(id, base_commission_rate, partner_type)")
     .eq("id", referralCodeId)
     .single();
     
   if (!referralError && referralData && referralData.mt_partners) {
     const partner: any = Array.isArray(referralData.mt_partners) ? referralData.mt_partners[0] : referralData.mt_partners;
-    const commissionRate = referralData.commission_rate ?? (partner?.base_commission_rate || 10);
+    
+    // Commission Rate Priority Hierarchy:
+    // 1. Referral Code Commission Rate (Override)
+    // 2. Partner Custom Commission Rate (base_commission_rate)
+    // 3. Partner Default Commission Rate (influencer: 15%, affiliate/other: 10%)
+    // 4. System Default Commission Rate (10%)
+    const referralRate = referralData.commission_rate;
+    const partnerRate = partner?.base_commission_rate;
+    const partnerDefaultRate = partner?.partner_type === 'influencer' ? 15 : 10;
+    const systemDefaultRate = 10;
+
+    const commissionRate = referralRate !== null && referralRate !== undefined 
+      ? referralRate 
+      : (partnerRate !== null && partnerRate !== undefined 
+        ? partnerRate 
+        : (partnerDefaultRate ?? systemDefaultRate));
+
     const revenueAfterDiscount = amount || 0;
-    const commissionAmount = (revenueAfterDiscount * commissionRate) / 100;
+
+    // Deduct GST (18%), Payment Gateway charges (2%), and GlowHomeo Platform charges (7%) individually
+    const gstAmount = revenueAfterDiscount * 0.18;
+    const pgAmount = revenueAfterDiscount * 0.02;
+    const glowhomeoAmount = revenueAfterDiscount * 0.07;
+    
+    const netRevenue = revenueAfterDiscount - gstAmount - pgAmount - glowhomeoAmount;
+    const commissionAmount = (netRevenue * commissionRate) / 100;
 
     const { error: attrError } = await supabase.from("mt_order_attributions").insert({
       clinic_id: clinicId,
@@ -62,9 +85,18 @@ async function handleReferralCommission(
         .eq("id", referralData.partner_id);
     }
     
+    // Dynamic update object based on existing schema columns
+    const updateFields: any = {};
+    if (referralData.current_usage !== undefined) {
+      updateFields.current_usage = (referralData.current_usage || 0) + 1;
+    }
+    if (referralData.current_uses !== undefined) {
+      updateFields.current_uses = (referralData.current_uses || 0) + 1;
+    }
+
     await supabase
       .from("mt_referral_codes")
-      .update({ current_usage: (referralData.current_usage || 0) + 1 })
+      .update(updateFields)
       .eq("id", referralData.id);
   }
 }

@@ -399,14 +399,6 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
       </p>
       `;
 
-      if (link.summary) {
-        html += `
-        <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 14px; line-height: 22px;">
-          ${link.summary}
-        </p>
-        `;
-      }
-
       html += `
       <p style="margin: 0 0 24px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
         Download Link:<br>
@@ -418,8 +410,8 @@ export function Template_StoreProductDelivery(name: string, orderId: string, dow
     html += `
     <p style="margin: 0 0 16px 0; color: ${COLORS.textSecondary}; font-size: 15px; line-height: 24px;">
       Link Validity:<br>
-      This secure download link will remain active for 7 days.<br>
-      यह सुरक्षित डाउनलोड लिंक 7 दिनों तक सक्रिय रहेगा।
+      This secure download link will remain active for 30 days.<br>
+      यह सुरक्षित डाउनलोड लिंक 30 दिनों तक सक्रिय रहेगा।
     </p>
 
     <p style="margin: 0 0 16px 0; color: ${COLORS.textPrimary}; font-size: 16px; font-weight: 600;">

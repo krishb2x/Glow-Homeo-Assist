@@ -54,7 +54,7 @@ var watermark_1 = require("./watermark");
 var s3Keys_1 = require("./s3Keys");
 var BUCKET = process.env.AWS_S3_BUCKET_NAME;
 var REGION = process.env.AWS_REGION || 'eu-north-1';
-var URL_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days
+var URL_EXPIRY_SECONDS = 30 * 24 * 60 * 60; // 30 days
 var s3 = new client_s3_1.S3Client({
     region: REGION,
     credentials: {
