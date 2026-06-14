@@ -33,6 +33,7 @@
     "puppeteer-core": "^24.8.2",
     "resend": "^6.12.4",
     "uuid": "^11.0.3",
+    "@types/nodemailer": "^8.0.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -41,7 +42,6 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.2",
-    "@types/nodemailer": "^8.0.1",
     "@types/supertest": "^6.0.0",
     "@vitest/coverage-v8": "^3.0.0",
     "supertest": "^7.0.0",
