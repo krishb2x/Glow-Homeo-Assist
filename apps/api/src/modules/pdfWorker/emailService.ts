@@ -16,18 +16,20 @@ function createTransporter() {
     return null;
   }
 
+  const isServerless = !!process.env.VERCEL || !!process.env.LAMBDA_TASK_ROOT || !!process.env.NETLIFY;
+
   return nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     auth: { user, pass },
-    pool: true,
-    maxConnections: 3,
-  });
+    pool: !isServerless,
+    maxConnections: isServerless ? undefined : 3,
+  } as any);
 }
 
 // Singleton transporter instance
-let _transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+let _transporter: any = null;
 
 function getTransporter() {
   if (!_transporter) {

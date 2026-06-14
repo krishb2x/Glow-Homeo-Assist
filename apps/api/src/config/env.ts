@@ -58,6 +58,12 @@ const envSchema = z.object({
   AWS_S3_BUCKET_NAME: z.string().optional(),
   WORKER_SECRET: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  NOTIFICATION_FROM_EMAIL: z.string().optional(),
+  NOTIFICATION_REPLY_TO_EMAIL: z.string().optional(),
 
   // Redis
   REDIS_URL: z.string().url().optional(),

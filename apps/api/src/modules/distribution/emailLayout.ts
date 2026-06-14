@@ -1,3 +1,4 @@
+import nodemailer from "nodemailer";
 import { logger } from "../../lib/logger";
 
 export type SendEmailInput = {
@@ -124,6 +125,38 @@ function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/'/g, "&#39;");
 }
 
+// Create a reusable SMTP transporter (Zoho)
+function createTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+
+  if (!host || !user || !pass) {
+    return null;
+  }
+
+  const isServerless = !!process.env.VERCEL || !!process.env.LAMBDA_TASK_ROOT || !!process.env.NETLIFY;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    pool: !isServerless,
+    maxConnections: isServerless ? undefined : 3,
+  } as any);
+}
+
+let _transporter: any = null;
+
+function getTransporter() {
+  if (!_transporter) {
+    _transporter = createTransporter();
+  }
+  return _transporter;
+}
+
 export async function sendTransactionalEmail(input: SendEmailInput): Promise<ChannelSendResult> {
   const to = normalizeEmailAddress(input.to);
   if (!isValidEmailAddress(to)) {
@@ -135,51 +168,31 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Cha
     return { ok: true, provider: "mock", mock: true, messageId: `mock-${Date.now()}` };
   }
 
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  if (!apiKey) {
+  const transporter = getTransporter();
+  if (!transporter) {
     if (process.env.NODE_ENV !== "production") {
       logger.info("notification_email_mock_no_key", { to, subject: input.subject });
       return { ok: true, provider: "mock", mock: true, messageId: `mock-${Date.now()}` };
     }
-    return { ok: false, error: "RESEND_API_KEY not configured" };
+    return { ok: false, error: "SMTP not configured" };
   }
 
   const from = defaultFromAddress();
   const replyTo = input.replyTo?.trim() || defaultReplyToAddress();
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: input.subject,
-        html: input.html,
-        text: input.text,
-        reply_to: replyTo,
-        tags: input.tags
-      })
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject: input.subject,
+      html: input.html,
+      text: input.text || `Please enable HTML to view this email.`,
+      replyTo,
     });
 
-    const bodyText = await res.text();
-    if (!res.ok) {
-      return { ok: false, error: `Resend ${res.status}: ${bodyText.slice(0, 300)}` };
-    }
-
-    let messageId: string | undefined;
-    try {
-      const parsed = JSON.parse(bodyText) as { id?: string };
-      messageId = parsed.id;
-    } catch {
-      /* ignore parse errors */
-    }
-
-    return { ok: true, provider: "resend", messageId };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    return { ok: true, provider: "smtp", messageId: info.messageId };
+  } catch (error: any) {
+    logger.error("notification_email_error", { to, subject: input.subject, error: error.message });
+    return { ok: false, error: error.message };
   }
 }

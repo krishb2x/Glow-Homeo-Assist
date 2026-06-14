@@ -58,23 +58,14 @@ export function getIntegrationHealth(): Record<string, IntegrationCheck> {
       required: isProd,
       detail: set("WHATSAPP_TOKEN_ENCRYPTION_KEY") ? "encryption key set" : "WHATSAPP_TOKEN_ENCRYPTION_KEY missing"
     },
-    resend: {
-      ok: set("RESEND_API_KEY") || mockSend || !isProd,
+    smtp: {
+      ok: (set("SMTP_HOST") && set("SMTP_USER") && set("SMTP_PASSWORD")) || mockSend || !isProd,
       required: isProd && !mockSend,
       detail: mockSend
         ? "NOTIFICATION_MOCK_SEND=true — outbound email suppressed"
-        : set("RESEND_API_KEY")
-          ? set("NOTIFICATION_FROM_EMAIL")
-            ? "configured"
-            : "RESEND_API_KEY set — NOTIFICATION_FROM_EMAIL uses default"
-          : "RESEND_API_KEY not set — email delivery disabled"
-    },
-    resendWebhook: {
-      ok: set("RESEND_WEBHOOK_SECRET") || !isProd || mockSend,
-      required: isProd && !mockSend,
-      detail: set("RESEND_WEBHOOK_SECRET")
-        ? "bounce/complaint tracking enabled"
-        : "RESEND_WEBHOOK_SECRET missing — delivery feedback disabled"
+        : (set("SMTP_HOST") && set("SMTP_USER") && set("SMTP_PASSWORD"))
+          ? "SMTP configured"
+          : "SMTP_HOST, SMTP_USER, or SMTP_PASSWORD not set — email delivery disabled"
     },
     s3: {
       ok: isS3Configured() || !isProd,
