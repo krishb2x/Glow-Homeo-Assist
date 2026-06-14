@@ -110,7 +110,9 @@ export default async function PartnersPage() {
               ) : (
                 partners?.map((p) => {
                   const app = p.mt_partner_applications;
-                  const primaryCode = p.mt_referral_codes?.find((c: any) => c.is_active)?.code || p.mt_referral_codes?.[0]?.code;
+                  const primaryCode = Array.isArray(p.mt_referral_codes)
+                    ? (p.mt_referral_codes.find((c: any) => c.is_active)?.code || p.mt_referral_codes[0]?.code)
+                    : p.mt_referral_codes?.code;
                   
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">

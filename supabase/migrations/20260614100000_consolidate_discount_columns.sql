@@ -8,16 +8,24 @@
 -- (copies global discount/commission into per-product rows before we drop those columns)
 -- ============================================================
 
-UPDATE public.mt_referral_products rp
-SET 
-  discount_type = COALESCE(rp.discount_type, rc.discount_type, 'percentage'),
-  discount_value = COALESCE(rp.discount_value, rc.discount_value, 10),
-  commission_type = COALESCE(rp.commission_type, 'percentage'),
-  commission_value = COALESCE(rp.commission_value, rc.commission_rate, 10)
-FROM public.mt_referral_codes rc
-WHERE rp.referral_code_id = rc.id
-  AND (rp.discount_type IS NULL OR rp.discount_value IS NULL 
-       OR rp.commission_type IS NULL OR rp.commission_value IS NULL);
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'mt_referral_codes' AND column_name = 'discount_type'
+    ) THEN
+        UPDATE public.mt_referral_products rp
+        SET 
+          discount_type = COALESCE(rp.discount_type, rc.discount_type, 'percentage'),
+          discount_value = COALESCE(rp.discount_value, rc.discount_value, 10),
+          commission_type = COALESCE(rp.commission_type, 'percentage'),
+          commission_value = COALESCE(rp.commission_value, rc.commission_rate, 10)
+        FROM public.mt_referral_codes rc
+        WHERE rp.referral_code_id = rc.id
+          AND (rp.discount_type IS NULL OR rp.discount_value IS NULL 
+               OR rp.commission_type IS NULL OR rp.commission_value IS NULL);
+    END IF;
+END $$;
 
 
 -- ============================================================

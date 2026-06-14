@@ -103,5 +103,9 @@ export const NAV_LINKS = [
     href: "/ebooks",
     label: "Buy eBooks",
   },
+  {
+    href: "/store",
+    label: "Store",
+  },
   { href: "/about", label: "About" },
 ] as const;

@@ -14,6 +14,7 @@ export default async function StorefrontPage() {
     .select("*")
     .eq("clinic_id", BRAND.clinicId)
     .eq("is_active", true)
+    .not("product_type", "in", '("PHYSICAL_BOOK","TREATMENT_KIT")')
     .order("display_order", { ascending: true })
     .order("created_at", { ascending: false });
     
@@ -28,7 +29,8 @@ export default async function StorefrontPage() {
     .from("mt_products")
     .select("category")
     .eq("clinic_id", BRAND.clinicId)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .not("product_type", "in", '("PHYSICAL_BOOK","TREATMENT_KIT")');
     
   const categories = Array.from(
     new Set((allProducts || []).map((p) => p.category).filter(Boolean))

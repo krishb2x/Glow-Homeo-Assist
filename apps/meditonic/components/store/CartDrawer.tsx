@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useStore } from "./StoreProvider";
-import { X, ArrowRight, ShieldCheck, CheckCircle2, Loader2, Tag, Percent, Lock } from "lucide-react";
+import { X, ArrowRight, ShieldCheck, CheckCircle2, Loader2, Tag, Percent, Lock, MapPin } from "lucide-react";
 import { formatPrice } from "../../lib/utils";
 import { useReferral } from "../../lib/hooks/useReferral";
 import { isReferralApplicable, findReferralOverride } from "../../lib/referrals/product-mapping";
@@ -17,6 +17,20 @@ export const CartDrawer = () => {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Shipping Address State
+  const [street, setStreet] = useState("");
+  const [landmark, setLandmark] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [pincodeError, setPincodeError] = useState("");
+  const [validatingPincode, setValidatingPincode] = useState(false);
+
+  const hasPhysicalItems = cart.some(item => 
+    item.product.product_type === 'PHYSICAL_BOOK' || 
+    item.product.product_type === 'TREATMENT_KIT'
+  );
 
   // Viewport adjustment for mobile keyboards
   const [drawerHeight, setDrawerHeight] = useState("80vh");
@@ -34,6 +48,49 @@ export const CartDrawer = () => {
       validateReferralCode(autoRefCode);
     }
   }, [autoRefCode]);
+
+  // PIN Code API Auto-fill
+  useEffect(() => {
+    const lookupPincode = async () => {
+      if (pincode.length !== 6) {
+        setPincodeError("");
+        return;
+      }
+      if (!/^\d{6}$/.test(pincode)) {
+        setPincodeError("PIN code must be exactly 6 digits");
+        return;
+      }
+
+      setValidatingPincode(true);
+      setPincodeError("");
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+        const data = await res.json();
+        
+        if (data && data[0] && data[0].Status === "Success") {
+          const postOffices = data[0].PostOffice;
+          if (postOffices && postOffices.length > 0) {
+            const resolvedCity = postOffices[0].District || postOffices[0].Division;
+            const resolvedState = postOffices[0].State;
+            setCity(resolvedCity);
+            setState(resolvedState);
+            setPincodeError("");
+          } else {
+            setPincodeError("Invalid PIN code. Not found.");
+          }
+        } else {
+          setPincodeError("PIN code not found.");
+        }
+      } catch (err) {
+        console.error("PIN code lookup failed:", err);
+        setPincodeError("Failed to lookup PIN code. Please type city/state manually.");
+      } finally {
+        setValidatingPincode(false);
+      }
+    };
+
+    lookupPincode();
+  }, [pincode]);
 
   const validateReferralCode = async (code: string) => {
     if (!code) return;
@@ -165,6 +222,15 @@ export const CartDrawer = () => {
   const handleCreateOrderAndPay = async () => {
     if (!name || !email || !phone) return alert("Please fill all contact details.");
     
+    if (hasPhysicalItems) {
+      if (!pincode || !street || !city || !state) {
+        return alert("Please fill in all required shipping address fields.");
+      }
+      if (pincode.length !== 6 || pincodeError) {
+        return alert("Please enter a valid 6-digit PIN code.");
+      }
+    }
+
     setLoading(true);
     try {
       // 1. Create order on server
@@ -175,7 +241,14 @@ export const CartDrawer = () => {
           amount: finalTotal,
           items: cart,
           contact: { name, email, phone },
-          referralCode: discountInfo?.code
+          referralCode: discountInfo?.code,
+          shippingAddress: hasPhysicalItems ? {
+            street,
+            landmark,
+            city,
+            state,
+            pincode
+          } : undefined
         })
       });
       
@@ -441,6 +514,89 @@ export const CartDrawer = () => {
                     <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Phone / फ़ोन नंबर (For Delivery / UPI) *</label>
                     <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium" placeholder="9876543210" />
                   </div>
+
+                  {hasPhysicalItems && (
+                    <div className="pt-3 border-t border-slate-100 space-y-3 animate-fade-in">
+                      <p className="text-xs font-bold text-mt-primary flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4" />
+                        <span>Shipping Address / डिलीवरी का पता</span>
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[9px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">PIN Code / पिन कोड *</label>
+                          <div className="relative">
+                            <input 
+                              type="text" 
+                              maxLength={6}
+                              value={pincode} 
+                              onChange={e => setPincode(e.target.value.replace(/\D/g, ""))} 
+                              className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium" 
+                              placeholder="110001" 
+                            />
+                            {validatingPincode && (
+                              <Loader2 className="absolute right-3 top-2.5 w-4 h-4 text-mt-primary animate-spin" />
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-end">
+                          {pincode.length === 6 && !pincodeError && !validatingPincode && (
+                            <span className="text-[10px] text-emerald-600 font-bold mb-2.5">✓ PIN Code Verified</span>
+                          )}
+                          {pincodeError && (
+                            <span className="text-[10px] text-red-500 font-semibold mb-2">{pincodeError}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Area, Colony, Street Address / पता *</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={street} 
+                          onChange={e => setStreet(e.target.value)} 
+                          className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium" 
+                          placeholder="Flat No, Building, Street, Area" 
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Landmark / लैंडमार्क (Optional)</label>
+                        <input 
+                          type="text" 
+                          value={landmark} 
+                          onChange={e => setLandmark(e.target.value)} 
+                          className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium" 
+                          placeholder="e.g. Near Metro Station or Temple" 
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[9px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">City / शहर *</label>
+                          <input 
+                            type="text" 
+                            value={city} 
+                            onChange={e => setCity(e.target.value)} 
+                            className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium bg-slate-50" 
+                            placeholder="New Delhi" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">State / राज्य *</label>
+                          <input 
+                            type="text" 
+                            value={state} 
+                            onChange={e => setState(e.target.value)} 
+                            className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium bg-slate-50" 
+                            placeholder="Delhi" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2.5 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -485,10 +641,14 @@ export const CartDrawer = () => {
               </div>
               <h3 className="font-display text-2xl font-bold text-mt-text mb-2">Order Successful!</h3>
               <p className="text-sm text-mt-text-secondary mb-6 max-w-[250px]">
-                Your PDF link has been sent to your email. Check your inbox (and spam folder) in the next 60 seconds.
+                {hasPhysicalItems ? (
+                  "Your hard copy order is confirmed. A tracking number will be sent to your email as soon as it is dispatched."
+                ) : (
+                  "Your PDF link has been sent to your email. Check your inbox (and spam folder) in the next 60 seconds."
+                )}
               </p>
               <button onClick={() => setIsCartOpen(false)} className="w-full bg-[#1B6B5C] text-white py-3.5 rounded-xl font-bold text-sm">
-                Continue Learning
+                {hasPhysicalItems ? "Back to Store" : "Continue Learning"}
               </button>
             </div>
           )}

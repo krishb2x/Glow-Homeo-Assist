@@ -58,6 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         pathname.startsWith("/admin/commerce/customers") ||
         (pathname.startsWith("/admin/operations") && 
          !pathname.startsWith("/admin/operations/treatment-kits") && 
+         !pathname.startsWith("/admin/operations/store") && 
          !pathname.startsWith("/admin/operations/cases"));
 
       if (isForbidden) {
@@ -103,6 +104,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Operations", href: "/admin/operations", icon: Workflow, visible: isSuperAdminOrAdmin },
     { name: "All Cases", href: "/admin/operations/cases", icon: FolderGit2, visible: isSuperAdminOrAdmin || isDoctor || isSupport },
     { name: "Treatment Kits", href: "/admin/operations/treatment-kits", icon: Package, visible: isSuperAdminOrAdmin || isSupport },
+    { name: "Store Shipments", href: "/admin/operations/store", icon: Package, visible: isSuperAdminOrAdmin || isSupport },
   ].filter(i => i.visible);
 
   const commerceItems = [
