@@ -1,6 +1,6 @@
 interface EmailOptions {
-  cc?: string;
-  bcc?: string;
+  cc?: string | string[];
+  bcc?: string | string[];
 }
 
 export async function sendConfirmationEmail(to: string, subject: string, html: string, options?: EmailOptions) {
@@ -15,6 +15,14 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
   const from = process.env.RESEND_FROM_EMAIL || process.env.NOTIFICATION_FROM_EMAIL || "onboarding@resend.dev";
 
   try {
+    const ccList = options?.cc 
+      ? (Array.isArray(options.cc) ? options.cc : options.cc.split(',').map(s => s.trim()).filter(Boolean)) 
+      : undefined;
+
+    const bccList = options?.bcc 
+      ? (Array.isArray(options.bcc) ? options.bcc : options.bcc.split(',').map(s => s.trim()).filter(Boolean)) 
+      : undefined;
+
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -24,8 +32,8 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
       body: JSON.stringify({
         from,
         to: [to],
-        cc: options?.cc ? [options.cc] : undefined,
-        bcc: options?.bcc ? [options.bcc] : undefined,
+        cc: ccList,
+        bcc: bccList,
         reply_to: process.env.NOTIFICATION_REPLY_TO_EMAIL || "care@glowhomeo.in",
         subject,
         html,

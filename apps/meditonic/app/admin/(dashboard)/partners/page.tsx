@@ -152,7 +152,7 @@ export default async function PartnersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-5 text-right">
-                        <Link href={`/admin/partners/codes`} className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm">
+                        <Link href={`/admin/partners/${p.id}`} className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm">
                           <ChevronRight className="w-4 h-4" />
                         </Link>
                       </td>

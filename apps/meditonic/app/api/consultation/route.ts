@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     // 4. Determine Price from DB
     const { data: feeData, error: feeError } = await supabase
       .from("mt_consultation_fees")
-      .select("price")
+      .select("id, price")
       .eq("clinic_id", clinicId)
       .eq("type", data.type)
       .single();
@@ -97,7 +97,12 @@ export async function POST(req: Request) {
           *,
           mt_referral_products (
             product_type,
-            product_id
+            product_id,
+            discount_type,
+            discount_value,
+            commission_type,
+            commission_value,
+            is_active
           )
         `)
         .eq("clinic_id", clinicId)
@@ -124,18 +129,28 @@ export async function POST(req: Request) {
           : (referralData.current_usage || 0);
         const limitValid = maxUses === undefined || maxUses === null || currentUses < maxUses;
         
-        // Scoping check using shared logic
-        const isApplicable = !referralData.mt_referral_products || referralData.mt_referral_products.length === 0 || 
-          referralData.mt_referral_products.some((p: any) => {
-            return isReferralApplicable(p.product_type, "consultation") || p.product_id === "consultation";
-          });
+        // Scoping check using shared logic and overrides
+        let override = referralData.mt_referral_products?.find((p: any) => 
+          p.product_id === feeData.id || p.product_id === data.type || (isReferralApplicable(p.product_type, "consultation") && !p.product_id)
+        );
+
+        const isApplicable = !referralData.mt_referral_products || referralData.mt_referral_products.length === 0 || (override && override.is_active !== false);
 
         if (startValid && endValid && limitValid && isApplicable) {
           referralCodeId = referralData.id;
-          if (referralData.discount_type === 'percentage') {
-            discountApplied = (originalPrice * referralData.discount_value) / 100;
-          } else if (referralData.discount_type === 'fixed') {
-            discountApplied = referralData.discount_value;
+          
+          let discountType = referralData.discount_type;
+          let discountValue = referralData.discount_value;
+          
+          if (override && override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
+            discountType = override.discount_type;
+            discountValue = override.discount_value;
+          }
+          
+          if (discountType === 'percentage') {
+            discountApplied = (originalPrice * discountValue) / 100;
+          } else if (discountType === 'fixed') {
+            discountApplied = discountValue;
           }
           
           price = Math.max(0, originalPrice - discountApplied);

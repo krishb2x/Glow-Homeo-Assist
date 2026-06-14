@@ -101,27 +101,47 @@ export const CartDrawer = () => {
   
   let discountAmount = 0;
   if (discountInfo) {
-    // Calculate eligible amount using shared isReferralApplicable
-    let eligibleTotal = 0;
-    if (discountInfo.applicableProducts && discountInfo.applicableProducts.length > 0) {
-      cart.forEach(item => {
-        const isEligible = discountInfo.applicableProducts!.some(
-          (p: any) => isReferralApplicable(p.product_type, item.product.product_type) || p.product_id === item.product.id
+    cart.forEach(item => {
+      // Find override configuration matching product_id first
+      let override: any = null;
+      if (discountInfo.applicableProducts && discountInfo.applicableProducts.length > 0) {
+        override = discountInfo.applicableProducts.find(
+          (p: any) => p.product_id === item.product.id
         );
-        if (isEligible) {
-          eligibleTotal += (item.product.original_price || item.product.price) * item.quantity;
+        if (!override) {
+          override = discountInfo.applicableProducts.find(
+            (p: any) => isReferralApplicable(p.product_type, item.product.product_type) && !p.product_id
+          );
         }
-      });
-    } else {
-      eligibleTotal = cartTotal;
-    }
+      }
 
-    if (discountInfo.type === 'percentage') {
-      discountAmount = (eligibleTotal * discountInfo.value) / 100;
-    } else {
-      // Fixed discount cannot exceed eligible total
-      discountAmount = Math.min(discountInfo.value, eligibleTotal);
-    }
+      // If override explicitly disabled, skip discount for this item
+      if (override && override.is_active === false) {
+        return;
+      }
+
+      // If overrides exist but none match this item, then it's not eligible
+      if (discountInfo.applicableProducts && discountInfo.applicableProducts.length > 0 && !override) {
+        return;
+      }
+
+      // Resolve discount type and value
+      let dType = discountInfo.type;
+      let dValue = discountInfo.value;
+
+      if (override && override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
+        dType = override.discount_type;
+        dValue = Number(override.discount_value);
+      }
+
+      // Calculate discount for this item
+      const itemPrice = item.product.price;
+      if (dType === 'percentage') {
+        discountAmount += ((itemPrice * dValue) / 100) * item.quantity;
+      } else {
+        discountAmount += Math.min(dValue, itemPrice) * item.quantity;
+      }
+    });
   }
   const finalTotal = Math.max(0, cartTotal - discountAmount);
   
@@ -306,12 +326,18 @@ export const CartDrawer = () => {
                   <div className="mt-4 pt-4 border-t border-mt-border shrink-0">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-mt-text-secondary">Subtotal</span>
-                      <span className="text-sm font-bold">{formatPrice(cartTotal)}</span>
+                      <span className="text-sm font-bold">{formatPrice(originalTotal)}</span>
                     </div>
+                    {originalTotal > cartTotal && (
+                      <div className="flex items-center justify-between mb-2 text-slate-500">
+                        <span className="text-sm">Meditonic Discount</span>
+                        <span className="text-sm font-semibold">-{formatPrice(originalTotal - cartTotal)}</span>
+                      </div>
+                    )}
                     {discountAmount > 0 && (
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-mt-text-secondary">Discount</span>
-                        <span className="text-sm font-bold text-emerald-600">-{formatPrice(discountAmount)}</span>
+                      <div className="flex items-center justify-between mb-2 text-emerald-600">
+                        <span className="text-sm font-medium">Referral Discount</span>
+                        <span className="text-sm font-bold">-{formatPrice(discountAmount)}</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between mb-2 pt-2 border-t border-slate-100">

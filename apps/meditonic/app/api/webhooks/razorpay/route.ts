@@ -5,6 +5,7 @@ import { createAdminClient } from "../../../../lib/supabase";
 import { sendConfirmationEmail } from "../../../../lib/email";
 import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased, Template_StorePaymentConfirmed } from "../../../../lib/email-templates";
 import { processStoreFulfillment } from "../../../../lib/storeFulfillment";
+import { isReferralApplicable } from "../../../../lib/referrals/product-mapping";
 
 async function handleReferralCommission(
   supabase: any,
@@ -17,88 +18,247 @@ async function handleReferralCommission(
   originalAmount: number,
   discountApplied: number
 ) {
+  // 1. Fetch Referral Code and partner details, plus all override configurations
   const { data: referralData, error: referralError } = await supabase
     .from("mt_referral_codes")
-    .select("*, mt_partners(id, base_commission_rate, partner_type)")
+    .select(`
+      *,
+      mt_partners(id, base_commission_rate, partner_type),
+      mt_referral_products(
+        product_type,
+        product_id,
+        discount_type,
+        discount_value,
+        commission_type,
+        commission_value,
+        is_active
+      )
+    `)
     .eq("id", referralCodeId)
     .single();
     
-  if (!referralError && referralData && referralData.mt_partners) {
-    const partner: any = Array.isArray(referralData.mt_partners) ? referralData.mt_partners[0] : referralData.mt_partners;
-    
-    // Commission Rate Priority Hierarchy:
-    // 1. Referral Code Commission Rate (Override)
-    // 2. Partner Custom Commission Rate (base_commission_rate)
-    // 3. Partner Default Commission Rate (influencer: 15%, affiliate/other: 10%)
-    // 4. System Default Commission Rate (10%)
-    const referralRate = referralData.commission_rate;
-    const partnerRate = partner?.base_commission_rate;
-    const partnerDefaultRate = partner?.partner_type === 'influencer' ? 15 : 10;
-    const systemDefaultRate = 10;
-
-    const commissionRate = referralRate !== null && referralRate !== undefined 
-      ? referralRate 
-      : (partnerRate !== null && partnerRate !== undefined 
-        ? partnerRate 
-        : (partnerDefaultRate ?? systemDefaultRate));
-
-    const revenueAfterDiscount = amount || 0;
-
-    // Deduct GST (18%), Payment Gateway charges (2%), and GlowHomeo Platform charges (7%) individually
-    const gstAmount = revenueAfterDiscount * 0.18;
-    const pgAmount = revenueAfterDiscount * 0.02;
-    const glowhomeoAmount = revenueAfterDiscount * 0.07;
-    
-    const netRevenue = revenueAfterDiscount - gstAmount - pgAmount - glowhomeoAmount;
-    const commissionAmount = (netRevenue * commissionRate) / 100;
-
-    const { error: attrError } = await supabase.from("mt_order_attributions").insert({
-      clinic_id: clinicId,
-      partner_id: referralData.partner_id,
-      referral_code_id: referralCodeId,
-      order_id: referenceId,
-      customer_id: patientId,
-      product_type: purpose,
-      revenue_before_discount: originalAmount || revenueAfterDiscount,
-      discount_applied: discountApplied || 0,
-      revenue_after_discount: revenueAfterDiscount,
-      commission_percentage: commissionRate,
-      commission_amount: commissionAmount,
-      status: "pending"
-    });
-    if (attrError) console.error("Failed to insert attribution:", attrError);
-
-    const { data: partnerState } = await supabase
-      .from("mt_partners")
-      .select("total_revenue, total_orders, total_commission")
-      .eq("id", referralData.partner_id)
-      .single();
-      
-    if (partnerState) {
-      await supabase
-        .from("mt_partners")
-        .update({
-          total_revenue: Number(partnerState.total_revenue) + Number(revenueAfterDiscount),
-          total_orders: Number(partnerState.total_orders) + 1,
-          total_commission: Number(partnerState.total_commission) + Number(commissionAmount)
-        })
-        .eq("id", referralData.partner_id);
-    }
-    
-    // Dynamic update object based on existing schema columns
-    const updateFields: any = {};
-    if (referralData.current_usage !== undefined) {
-      updateFields.current_usage = (referralData.current_usage || 0) + 1;
-    }
-    if (referralData.current_uses !== undefined) {
-      updateFields.current_uses = (referralData.current_uses || 0) + 1;
-    }
-
-    await supabase
-      .from("mt_referral_codes")
-      .update(updateFields)
-      .eq("id", referralData.id);
+  if (referralError || !referralData) {
+    console.error("Failed to fetch referral code data for commission:", referralError);
+    return;
   }
+
+  const partner: any = Array.isArray(referralData.mt_partners) ? referralData.mt_partners[0] : referralData.mt_partners;
+  if (!partner) {
+    console.error("Partner not found for referral code:", referralCodeId);
+    return;
+  }
+
+  // 2. Fetch items for this attribution
+  // For 'store_order', we fetch the order record from mt_orders to get order items.
+  // For other types (consultation, ebook, program, treatment_kit), we treat it as a single item.
+  let itemsList: any[] = [];
+
+  if (purpose === "store_order") {
+    const { data: orderRecord } = await supabase
+      .from("mt_orders")
+      .select("items")
+      .eq("id", referenceId)
+      .single();
+    if (orderRecord && orderRecord.items) {
+      itemsList = Array.isArray(orderRecord.items) ? orderRecord.items : [];
+    }
+  } else if (purpose === "consultation") {
+    const { data: consultRecord } = await supabase
+      .from("mt_consultation_requests")
+      .select("id, type, price_charged, discount_applied")
+      .eq("id", referenceId)
+      .single();
+    
+    if (consultRecord) {
+      // Fetch consultation fee details to get database fee ID
+      const { data: feeData } = await supabase
+        .from("mt_consultation_fees")
+        .select("id")
+        .eq("type", consultRecord.type)
+        .limit(1)
+        .maybeSingle();
+
+      itemsList = [{
+        product: {
+          id: feeData?.id || consultRecord.type,
+          product_type: "consultation",
+          price: consultRecord.price_charged,
+          original_price: (consultRecord.price_charged || 0) + (consultRecord.discount_applied || 0)
+        },
+        quantity: 1
+      }];
+    }
+  } else {
+    // For program, ebook, treatment_kit:
+    // If it is stored in mt_payments or similar, we treat it as a single product.
+    let product_id = referenceId;
+    let product_type = purpose; // e.g. ebook, program, treatment_kit
+    
+    if (purpose === "ebook") {
+      const { data: ebookOrder } = await supabase
+        .from("mt_ebook_orders")
+        .select("ebook_id")
+        .eq("id", referenceId)
+        .maybeSingle();
+      if (ebookOrder) product_id = ebookOrder.ebook_id;
+    } else if (purpose === "program") {
+      const { data: progEnroll } = await supabase
+        .from("mt_program_enrollments")
+        .select("program_id")
+        .eq("id", referenceId)
+        .maybeSingle();
+      if (progEnroll) product_id = progEnroll.program_id;
+    }
+    
+    itemsList = [{
+      product: {
+        id: product_id,
+        product_type: product_type,
+        price: amount,
+        original_price: originalAmount
+      },
+      quantity: 1
+    }];
+  }
+
+  // If no items found, fallback to treating the entire amount as a generic single product
+  if (itemsList.length === 0) {
+    itemsList = [{
+      product: {
+        id: "generic",
+        product_type: purpose,
+        price: amount,
+        original_price: originalAmount
+      },
+      quantity: 1
+    }];
+  }
+
+  let totalAttributedRevenue = 0;
+  let totalAttributedCommission = 0;
+  let totalDiscountApplied = 0;
+
+  // 3. Process each item to resolve item-level discount and commission
+  for (const item of itemsList) {
+    const itemProduct = item.product || {};
+    const itemId = itemProduct.id;
+    const itemType = itemProduct.product_type || itemProduct.type || purpose;
+    
+    // Find matching override row in mt_referral_products
+    let override = referralData.mt_referral_products?.find((rp: any) => 
+      rp.product_id === itemId
+    );
+    
+    if (!override) {
+      override = referralData.mt_referral_products?.find((rp: any) => 
+        isReferralApplicable(rp.product_type, itemType) && !rp.product_id
+      );
+    }
+
+    // If override explicitly disabled, skip commission/attribution for this item
+    if (override && override.is_active === false) {
+      continue;
+    }
+
+    // Resolve discount and commission values for this item
+    let discType = referralData.discount_type;
+    let discVal = Number(referralData.discount_value);
+    let commType = "percentage";
+    let commVal = Number(referralData.commission_rate ?? partner.base_commission_rate ?? 10);
+
+    if (override) {
+      if (override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
+        discType = override.discount_type;
+        discVal = Number(override.discount_value);
+      }
+      if (override.commission_type && override.commission_value !== undefined && override.commission_value !== null) {
+        commType = override.commission_type;
+        commVal = Number(override.commission_value);
+      }
+    }
+
+    // Calculate item pricing (price is already excluding Meditonic discount)
+    const quantity = item.quantity || 1;
+    const itemPrice = Number(itemProduct.price || 0);
+    
+    let itemDiscount = 0;
+    if (discType === "percentage") {
+      itemDiscount = ((itemPrice * discVal) / 100) * quantity;
+    } else {
+      itemDiscount = Math.min(discVal, itemPrice) * quantity;
+    }
+
+    const itemRevenueAfterDiscount = Math.max(0, (itemPrice * quantity) - itemDiscount);
+
+    // Calculate PG charges, GST, and GlowHomeo Platform charges on revenue after discount
+    const gstAmount = itemRevenueAfterDiscount * 0.18;
+    const pgAmount = itemRevenueAfterDiscount * 0.02;
+    const glowhomeoAmount = itemRevenueAfterDiscount * 0.07;
+    const netRevenue = itemRevenueAfterDiscount - gstAmount - pgAmount - glowhomeoAmount;
+
+    let itemCommission = 0;
+    if (commType === "percentage") {
+      itemCommission = (netRevenue * commVal) / 100;
+    } else {
+      itemCommission = commVal * quantity;
+    }
+
+    totalAttributedRevenue += itemRevenueAfterDiscount;
+    totalAttributedCommission += itemCommission;
+    totalDiscountApplied += itemDiscount;
+  }
+
+  // 4. Create Order Attribution record
+  const { error: attrError } = await supabase.from("mt_order_attributions").insert({
+    clinic_id: clinicId,
+    partner_id: referralData.partner_id,
+    referral_code_id: referralCodeId,
+    order_id: referenceId,
+    customer_id: patientId,
+    product_type: purpose,
+    revenue_before_discount: originalAmount,
+    discount_applied: totalDiscountApplied || discountApplied,
+    revenue_after_discount: totalAttributedRevenue || amount,
+    commission_percentage: referralData.commission_rate ?? partner.base_commission_rate ?? 10.00,
+    commission_amount: totalAttributedCommission,
+    status: "pending"
+  });
+
+  if (attrError) {
+    console.error("Failed to insert attribution:", attrError);
+  }
+
+  // 5. Update partner totals
+  const { data: partnerState } = await supabase
+    .from("mt_partners")
+    .select("total_revenue, total_orders, total_commission")
+    .eq("id", referralData.partner_id)
+    .single();
+    
+  if (partnerState) {
+    await supabase
+      .from("mt_partners")
+      .update({
+        total_revenue: Number(partnerState.total_revenue) + Number(totalAttributedRevenue || amount),
+        total_orders: Number(partnerState.total_orders) + 1,
+        total_commission: Number(partnerState.total_commission) + Number(totalAttributedCommission)
+      })
+      .eq("id", referralData.partner_id);
+  }
+  
+  // 6. Update usage counters on referral code
+  const updateFields: any = {};
+  if (referralData.current_usage !== undefined) {
+    updateFields.current_usage = (referralData.current_usage || 0) + 1;
+  }
+  if (referralData.current_uses !== undefined) {
+    updateFields.current_uses = (referralData.current_uses || 0) + 1;
+  }
+
+  await supabase
+    .from("mt_referral_codes")
+    .update(updateFields)
+    .eq("id", referralData.id);
 }
 
 export async function POST(req: Request) {
@@ -137,7 +297,7 @@ export async function POST(req: Request) {
       // 0. Check if this is a Store Order in mt_orders
       const { data: storeOrder } = await supabase
         .from("mt_orders")
-        .select("id, status, fulfillment_status, customer_name, customer_email, clinic_id, audit_log")
+        .select("id, status, fulfillment_status, customer_name, customer_email, clinic_id, audit_log, items")
         .eq("razorpay_order_id", orderId)
         .single();
 

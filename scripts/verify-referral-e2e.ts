@@ -12,6 +12,98 @@ async function verify() {
   console.log("🚀 Starting E2E Verification for MediTonic Partner Referral Program...");
 
   try {
+    // 0. Clean up previous test data
+    console.log("\n0. Cleaning up previous E2E test data...");
+    
+    // Fetch test applications
+    const { data: oldApps } = await supabase
+      .from("mt_partner_applications")
+      .select("id, email")
+      .or("email.ilike.testpartner_%,name.eq.E2E Test Partner");
+
+    const appIds = oldApps?.map(a => a.id) || [];
+    const appEmails = oldApps?.map(a => a.email) || [];
+
+    if (appIds.length > 0) {
+      console.log(`Found ${appIds.length} old test applications. Cleaning up associated records...`);
+
+      // Fetch partners associated with these applications
+      const { data: oldPartners } = await supabase
+        .from("mt_partners")
+        .select("id, user_id")
+        .in("application_id", appIds);
+
+      const partnerIds = oldPartners?.map(p => p.id) || [];
+      const userIds = oldPartners?.map(p => p.user_id).filter(Boolean) || [];
+
+      // Fetch referral codes associated with these partners
+      const { data: oldCodes } = await supabase
+        .from("mt_referral_codes")
+        .select("id")
+        .in("partner_id", partnerIds);
+      
+      const codeIds = oldCodes?.map(c => c.id) || [];
+
+      // Delete order attributions
+      if (partnerIds.length > 0) {
+        await supabase.from("mt_order_attributions").delete().in("partner_id", partnerIds);
+        await supabase.from("mt_partner_payouts").delete().in("partner_id", partnerIds);
+        try {
+          await supabase.from("mt_partner_email_logs").delete().in("partner_id", partnerIds);
+        } catch (e) {
+          // ignore if table doesn't exist yet
+        }
+      }
+
+      // Delete referral products mapping
+      if (codeIds.length > 0) {
+        await supabase.from("mt_referral_products").delete().in("referral_code_id", codeIds);
+        await supabase.from("mt_referral_codes").delete().in("id", codeIds);
+      }
+
+      // Delete partners
+      if (partnerIds.length > 0) {
+        await supabase.from("mt_partners").delete().in("id", partnerIds);
+      }
+
+      // Delete partner applications
+      await supabase.from("mt_partner_applications").delete().in("id", appIds);
+
+      // Delete Auth Users
+      for (const userId of userIds) {
+        try {
+          await supabase.auth.admin.deleteUser(userId);
+          console.log(`Deleted auth user: ${userId}`);
+        } catch (e) {
+          // ignore
+        }
+      }
+      console.log("Cleanup completed.");
+    } else {
+      console.log("No previous E2E test data found to clean.");
+    }
+
+    // Also clean up any loose referral codes starting with E2E
+    const { data: looseCodes } = await supabase
+      .from("mt_referral_codes")
+      .select("id, partner_id")
+      .ilike("code", "E2E%");
+
+    if (looseCodes && looseCodes.length > 0) {
+      console.log(`Found ${looseCodes.length} loose E2E referral codes. Cleaning up...`);
+      const looseCodeIds = looseCodes.map(c => c.id);
+      const loosePartnerIds = looseCodes.map(c => c.partner_id).filter(Boolean);
+
+      await supabase.from("mt_referral_products").delete().in("referral_code_id", looseCodeIds);
+      await supabase.from("mt_order_attributions").delete().in("referral_code_id", looseCodeIds);
+      await supabase.from("mt_referral_codes").delete().in("id", looseCodeIds);
+      
+      if (loosePartnerIds.length > 0) {
+        await supabase.from("mt_partners").delete().in("id", loosePartnerIds);
+      }
+      console.log("Loose code cleanup completed.");
+    }
+
     // 1. Submit Application
     console.log("\n1. Testing Partner Application Submission...");
     const appData = {

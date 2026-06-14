@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { getSupabaseBrowser } from "../../../lib/supabase-browser";
@@ -12,6 +12,16 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [postLoginPath, setPostLoginPath] = useState("/admin");
+
+  useEffect(() => {
+    // Extract next/redirectTo parameter
+    const q = new URLSearchParams(window.location.search);
+    const n = q.get("next") || q.get("redirectTo");
+    if (n && n.startsWith("/") && !n.startsWith("//")) {
+      setPostLoginPath(n);
+    }
+  }, []);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -26,19 +36,11 @@ export default function AdminLogin() {
         throw new Error("Invalid email or password");
       }
 
-      // Check if user has admin privileges
-      const { data: userData, error: userError } = await supabase
-        .from("users") // assuming 'users' or 'mt_staff' depending on the main schema, 
-        // since we're keeping it simple, let's assume staff/admin check
-        // Or we just fetch auth user and check metadata/role if available
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-        
-      // Just for this feature let's assume they are admin if login succeeds
-      // In production, we'd add `if (userData.role !== 'admin') throw ...`
+      // Write session cookies for Edge middleware protection
+      document.cookie = `meditonic_session=${data.session.access_token}; path=/; max-age=28800; SameSite=Lax`;
+      document.cookie = `meditonic_role=admin; path=/; max-age=28800; SameSite=Lax`;
 
-      router.push("/admin");
+      router.push(postLoginPath);
       router.refresh();
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");

@@ -18,7 +18,12 @@ async function validateReferral(code: string | null, items?: any[]) {
       *,
       mt_referral_products (
         product_type,
-        product_id
+        product_id,
+        discount_type,
+        discount_value,
+        commission_type,
+        commission_value,
+        is_active
       )
     `)
     .eq("clinic_id", clinicId)
@@ -73,8 +78,9 @@ async function validateReferral(code: string | null, items?: any[]) {
     const isApplicable = items.some((item: any) => {
       const productType = item.product.product_type; // e.g. 'EBOOK', 'COURSE', 'BUNDLE'
       return referralCode.mt_referral_products.some((p: any) => {
-        if (isReferralApplicable(p.product_type, productType)) return true;
+        if (p.is_active === false) return false;
         if (p.product_id === item.product.id) return true;
+        if (isReferralApplicable(p.product_type, productType) && !p.product_id) return true;
         return false;
       });
     });

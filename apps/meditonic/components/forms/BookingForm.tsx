@@ -43,6 +43,8 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
   // Find the single unified consultation fee
   const feeObj = fees.find((f) => f.type === "initial_online") || fees[0];
   const basePrice = feeObj ? feeObj.price : 499; // Fallback only if no DB result
+  const originalPrice = feeObj && feeObj.original_price ? feeObj.original_price : basePrice;
+  const meditonicDiscount = Math.max(0, originalPrice - basePrice);
   
   let discountAmount = 0;
   if (discountInfo) {
@@ -267,13 +269,19 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
       <div className="rounded-xl bg-mt-primary-bg p-6 border border-mt-primary/20">
         <div className="flex justify-between items-center mb-3">
           <span className="text-mt-text font-medium">Consultation Fee</span>
-          <span className={`font-display text-lg ${discountInfo ? 'line-through text-slate-400' : 'font-bold text-mt-primary'}`}>
-            {formatPrice(basePrice)}
+          <span className="font-display text-lg font-bold text-mt-primary">
+            {formatPrice(originalPrice)}
           </span>
         </div>
+        {meditonicDiscount > 0 && (
+          <div className="flex justify-between items-center mb-3 text-slate-500 font-medium">
+            <span>Meditonic Discount</span>
+            <span>- {formatPrice(meditonicDiscount)}</span>
+          </div>
+        )}
         {discountInfo && (
           <div className="flex justify-between items-center mb-3 text-emerald-600 font-medium">
-            <span>Referral Benefit</span>
+            <span>Referral Discount</span>
             <span>- {formatPrice(discountAmount)}</span>
           </div>
         )}
