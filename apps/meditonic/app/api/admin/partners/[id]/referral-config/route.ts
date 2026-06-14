@@ -229,7 +229,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       // Insert new settings for overrides
       const overrideInserts = configs.map((cfg: any) => ({
         referral_code_id: codeId,
-        product_type: cfg.product_type,
+        product_type: cfg.product_type ? cfg.product_type.toLowerCase() : "",
         product_id: cfg.db_id,
         discount_type: cfg.discount_type,
         discount_value: Number(cfg.discount_value),
