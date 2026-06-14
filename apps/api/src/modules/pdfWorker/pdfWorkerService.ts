@@ -10,7 +10,7 @@ import { supabaseAdmin } from '../../supabase';
 
 const BUCKET = env.AWS_S3_BUCKET_NAME!;
 const REGION = env.AWS_REGION || 'eu-north-1';
-const URL_EXPIRY_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const URL_EXPIRY_SECONDS = 6 * 24 * 60 * 60; // 6 days (AWS SigV4 maximum is 7 days)
 
 const s3 = new S3Client({
   region: REGION,
