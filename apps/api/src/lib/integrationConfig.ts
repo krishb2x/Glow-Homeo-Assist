@@ -58,14 +58,16 @@ export function getIntegrationHealth(): Record<string, IntegrationCheck> {
       required: isProd,
       detail: set("WHATSAPP_TOKEN_ENCRYPTION_KEY") ? "encryption key set" : "WHATSAPP_TOKEN_ENCRYPTION_KEY missing"
     },
-    smtp: {
-      ok: (set("SMTP_HOST") && set("SMTP_USER") && set("SMTP_PASSWORD")) || mockSend || !isProd,
+    emailDelivery: {
+      ok: (set("SMTP_HOST") && set("SMTP_USER") && set("SMTP_PASSWORD")) || set("RESEND_API_KEY") || mockSend || !isProd,
       required: isProd && !mockSend,
       detail: mockSend
         ? "NOTIFICATION_MOCK_SEND=true — outbound email suppressed"
         : (set("SMTP_HOST") && set("SMTP_USER") && set("SMTP_PASSWORD"))
           ? "SMTP configured"
-          : "SMTP_HOST, SMTP_USER, or SMTP_PASSWORD not set — email delivery disabled"
+          : set("RESEND_API_KEY")
+            ? "Resend API configured"
+            : "Neither SMTP nor RESEND_API_KEY is configured"
     },
     s3: {
       ok: isS3Configured() || !isProd,

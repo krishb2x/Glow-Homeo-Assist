@@ -171,17 +171,52 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Cha
     return { ok: true, provider: "mock", mock: true, messageId: `mock-${Date.now()}` };
   }
 
+  const from = defaultFromAddress();
+  const replyTo = input.replyTo?.trim() || defaultReplyToAddress();
+
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  if (resendApiKey) {
+    try {
+      logger.info("notification_email_resend_attempt", { to, subject: input.subject });
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from,
+          to: [to],
+          subject: input.subject,
+          html: input.html,
+          text: input.text || `Please enable HTML to view this email.`,
+          reply_to: replyTo,
+          tags: input.tags
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json() as { id?: string };
+        return { ok: true, provider: "resend", messageId: data.id };
+      } else {
+        const errText = await res.text();
+        logger.warn("notification_email_resend_failed", { to, error: errText });
+        // Fallback to SMTP
+      }
+    } catch (e: any) {
+      logger.warn("notification_email_resend_exception", { to, error: e.message });
+      // Fallback to SMTP
+    }
+  }
+
   const transporter = getTransporter();
   if (!transporter) {
     if (process.env.NODE_ENV !== "production") {
       logger.info("notification_email_mock_no_key", { to, subject: input.subject });
       return { ok: true, provider: "mock", mock: true, messageId: `mock-${Date.now()}` };
     }
-    return { ok: false, error: "SMTP not configured" };
+    return { ok: false, error: "SMTP/Resend not configured" };
   }
-
-  const from = defaultFromAddress();
-  const replyTo = input.replyTo?.trim() || defaultReplyToAddress();
 
   try {
     const info = await transporter.sendMail({

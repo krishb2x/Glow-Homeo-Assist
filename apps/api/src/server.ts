@@ -142,6 +142,44 @@ app.post("/public/marketing-lead", async (req, res) => {
   jsonSuccess(res, 201, { id: (data as { id?: string } | null)?.id ?? null });
 });
 
+import net from "net";
+
+app.get("/public/smtp-diag", async (req, res) => {
+  const ports = [465, 587];
+  const results: Record<string, string> = {};
+
+  for (const port of ports) {
+    results[`Port ${port}`] = await new Promise<string>((resolve) => {
+      const socket = net.createConnection({
+        host: "smtp.zoho.in",
+        port: port
+      });
+
+      socket.on("connect", () => {
+        socket.destroy();
+        resolve("CONNECTED");
+      });
+
+      socket.on("error", (err) => {
+        socket.destroy();
+        resolve(`ERROR: ${err.message}`);
+      });
+
+      socket.setTimeout(8000, () => {
+        socket.destroy();
+        resolve("TIMEOUT");
+      });
+    });
+  }
+
+  const isBlocking = results["Port 465"] === "TIMEOUT" && results["Port 587"] === "TIMEOUT";
+
+  res.json({
+    results,
+    "Railway blocking SMTP": isBlocking ? "YES" : "NO"
+  });
+});
+
 const MS_FOLLOWUP_DUE = 14 * 24 * 60 * 60 * 1000;
 
 function extractNoteDetail(n: unknown): {

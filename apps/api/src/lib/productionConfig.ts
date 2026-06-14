@@ -50,9 +50,11 @@ export function assertProductionEnvironment(): void {
   }
 
   if (process.env.NOTIFICATION_MOCK_SEND !== "true") {
-    if (!process.env.SMTP_HOST?.trim()) missing.push("SMTP_HOST");
-    if (!process.env.SMTP_USER?.trim()) missing.push("SMTP_USER");
-    if (!process.env.SMTP_PASSWORD?.trim()) missing.push("SMTP_PASSWORD");
+    const hasSmtp = process.env.SMTP_HOST?.trim() && process.env.SMTP_USER?.trim() && process.env.SMTP_PASSWORD?.trim();
+    const hasResend = process.env.RESEND_API_KEY?.trim();
+    if (!hasSmtp && !hasResend) {
+      missing.push("EMAIL_DELIVERY_CONFIG (set SMTP_HOST/USER/PASSWORD or RESEND_API_KEY)");
+    }
   }
 
   const requirePlatformWa = process.env.REQUIRE_PLATFORM_WHATSAPP_IN_PROD === "1";
