@@ -48,11 +48,20 @@ export default function StoreOperationsBoard() {
         .select("*")
         .eq("clinic_id", BRAND.clinicId)
         .eq("status", "paid")
-        .not("workflow_status", "is", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+
+      // Filter only orders containing physical items
+      const physicalOrders = (data || []).filter((o: any) => {
+        const items = o.items || [];
+        return items.some((item: any) => 
+          item.product?.product_type === 'PHYSICAL_BOOK' || 
+          item.product?.product_type === 'TREATMENT_KIT'
+        );
+      });
+
+      setOrders(physicalOrders);
     } catch (err) {
       console.error("Error fetching store orders:", err);
     } finally {
