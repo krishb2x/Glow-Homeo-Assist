@@ -88,17 +88,18 @@ export default async function PartnersPage() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Partner Details</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Tracking Code</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Base Comm.</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Total Revenue</th>
+                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Referral Code</th>
                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Status</th>
+                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Total Orders</th>
+                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Total Commission</th>
+                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-500">Last Updated</th>
                 <th className="px-6 py-4 text-right font-bold text-xs uppercase tracking-wider text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {partners?.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
+                  <td colSpan={7} className="px-6 py-16 text-center">
                     <div className="mx-auto w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                       <Users className="h-8 w-8 text-slate-400" />
                     </div>
@@ -115,34 +116,25 @@ export default async function PartnersPage() {
                     <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold shadow-sm">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold shadow-sm shrink-0">
                             {app?.name?.charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <div className="font-bold text-slate-900">{app?.name}</div>
-                            {app?.profession && <div className="text-emerald-600 font-semibold text-[11px] uppercase tracking-wider mt-0.5">{app.profession}</div>}
-                            <div className="flex items-center gap-3 mt-1.5 text-slate-500 text-xs font-medium">
-                              <span className="flex items-center gap-1 hover:text-emerald-600 transition-colors"><Mail className="w-3.5 h-3.5" /> {app?.email}</span>
-                              <span className="flex items-center gap-1 hover:text-emerald-600 transition-colors"><Phone className="w-3.5 h-3.5" /> {app?.mobile}</span>
-                            </div>
+                            <div className="text-slate-500 text-xs mt-0.5">{app?.email}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-5">
                         {primaryCode ? (
-                          <div className="font-mono text-sm font-bold bg-slate-100 px-3 py-1.5 rounded-lg w-fit text-slate-700 border border-slate-200">
+                          <span className="font-mono text-xs font-black bg-slate-150 px-3 py-1.5 rounded-lg text-slate-700 border border-slate-200 tracking-wider">
                             {primaryCode}
-                          </div>
+                          </span>
                         ) : (
-                          <span className="text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 font-bold">Missing Code</span>
+                          <span className="text-[10px] text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-250 font-black uppercase tracking-wider">
+                            Missing Code
+                          </span>
                         )}
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="text-sm font-bold text-slate-700">{p.base_commission_rate}%</div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="text-sm font-bold text-slate-900">{formatPrice(p.total_revenue || 0)}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-0.5">{p.total_orders || 0} Orders</div>
                       </td>
                       <td className="px-6 py-5">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider border ${
@@ -151,9 +143,25 @@ export default async function PartnersPage() {
                           {p.status}
                         </span>
                       </td>
+                      <td className="px-6 py-5">
+                        <div className="text-sm font-bold text-slate-700">{p.total_orders || 0}</div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="text-sm font-bold text-emerald-600">{formatPrice(p.total_commission || 0)}</div>
+                      </td>
+                      <td className="px-6 py-5 text-slate-500 text-xs font-semibold">
+                        {new Date(p.updated_at || p.created_at).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </td>
                       <td className="px-6 py-5 text-right">
-                        <Link href={`/admin/partners/${p.id}`} className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm">
-                          <ChevronRight className="w-4 h-4" />
+                        <Link 
+                          href={`/admin/partners/${p.id}`} 
+                          className="inline-flex items-center justify-center px-4 py-2 border border-slate-200 rounded-xl text-xs font-extrabold text-slate-750 bg-white hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
+                        >
+                          View / Edit
                         </Link>
                       </td>
                     </tr>

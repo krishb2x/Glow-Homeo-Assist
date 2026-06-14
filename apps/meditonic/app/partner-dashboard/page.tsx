@@ -6,11 +6,11 @@ import { getSupabaseBrowser } from "../../lib/supabase-browser";
 import { 
   Copy, Check, LogOut, DollarSign, 
   ShoppingBag, Loader2, Sparkles, Target, Link as LinkIcon, 
-  Wallet, Activity, TrendingUp, Clock, Home, Compass, FileText, Share2, Award, Calendar, ChevronRight
+  Wallet, Activity, TrendingUp, Clock, Home, Compass, FileText, Share2, Award, Calendar, ChevronRight, X, Mail, Eye
 } from "lucide-react";
 import { formatPrice } from "../../lib/utils";
 
-type TabType = "overview" | "promote" | "ledger";
+type TabType = "overview" | "promote" | "ledger" | "payouts";
 
 export default function PartnerDashboard() {
   const router = useRouter();
@@ -18,11 +18,17 @@ export default function PartnerDashboard() {
   const [codes, setCodes] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [attributions, setAttributions] = useState<any[]>([]);
+  const [payouts, setPayouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState("");
   const [greeting, setGreeting] = useState("Welcome");
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [timeString, setTimeString] = useState("09:41 AM");
+
+  // UX Swipe Assets State
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [copiedTextType, setCopiedTextType] = useState<string | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -97,6 +103,17 @@ export default function PartnerDashboard() {
           setProducts(productsData);
         }
 
+        // Fetch Payouts via API Endpoint to bypass RLS restrictions
+        const payoutsRes = await fetch(`/api/partners/payouts`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        if (payoutsRes.ok) {
+          const pData = await payoutsRes.json();
+          setPayouts(pData.payouts || []);
+        }
+
       } catch (err) {
         console.error(err);
         router.push("/partner-login");
@@ -113,6 +130,12 @@ export default function PartnerDashboard() {
     navigator.clipboard.writeText(link);
     setCopied(id);
     setTimeout(() => setCopied(""), 2000);
+  };
+
+  const copyTextSwipe = (type: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedTextType(type);
+    setTimeout(() => setCopiedTextType(null), 2000);
   };
 
   const handleLogout = async () => {
@@ -141,6 +164,10 @@ export default function PartnerDashboard() {
   const pendingCommission = attributions
     .filter(a => a.status === 'pending')
     .reduce((sum, a) => sum + (a.commission_amount || 0), 0);
+
+  const totalClearedPayouts = payouts
+    .filter(p => p.status === 'paid')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center font-sans md:py-6 select-none animate-in fade-in duration-500">
@@ -174,7 +201,7 @@ export default function PartnerDashboard() {
         </div>
 
         {/* Dynamic App Header */}
-        <header className="sticky top-0 z-40 bg-white border-b border-slate-100 px-5 pt-4 pb-3 flex items-center justify-between shrink-0 shadow-sm">
+        <header className="sticky top-0 z-40 bg-white border-b border-slate-100 px-5 pt-4 pb-3 flex items-center justify-between shrink-0 shadow-sm select-none">
           <div className="flex items-center gap-3">
             <div className="w-9.5 h-9.5 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-600 to-teal-800 flex items-center justify-center text-white font-serif font-black shadow-md shadow-emerald-500/20 text-sm">
               M
@@ -195,6 +222,7 @@ export default function PartnerDashboard() {
         {/* Scrollable Screen Viewport */}
         <div className="flex-1 overflow-y-auto px-5 py-5 pb-28 space-y-5 bg-slate-50">
           
+          {/* Active Tab View: Home/Overview */}
           {activeTab === "overview" && (
             <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-300">
               
@@ -206,7 +234,7 @@ export default function PartnerDashboard() {
                 </div>
                 <div>
                   <div className="flex items-center gap-1 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-500 animate-pulse" /> {greeting}
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> {greeting}
                   </div>
                   <h2 className="text-base font-black text-slate-800 leading-tight">Hey, {firstName}!</h2>
                 </div>
@@ -214,7 +242,7 @@ export default function PartnerDashboard() {
 
               {/* Unique Code card box */}
               {primaryCode && (
-                <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent p-4 rounded-2xl border border-emerald-500/20 shadow-sm flex items-center justify-between">
+                <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent p-4 rounded-2xl border border-emerald-500/20 shadow-sm flex items-center justify-between select-text">
                   <div>
                     <span className="text-[9px] font-extrabold text-slate-400 block uppercase tracking-wider">YOUR TRACKING CODE</span>
                     <span className="font-mono font-black text-xl text-slate-800 tracking-widest">{primaryCode}</span>
@@ -291,11 +319,12 @@ export default function PartnerDashboard() {
             </div>
           )}
 
+          {/* Active Tab View: Promote & Marketing Assets */}
           {activeTab === "promote" && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div>
                 <h3 className="text-lg font-black text-slate-800">Promote Products</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Estimated commissions per successful order attributions</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Generate sales links & copy Swipe Copy templates</p>
               </div>
 
               {primaryCode ? (
@@ -309,41 +338,98 @@ export default function PartnerDashboard() {
                         ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.cover_image_path}` 
                         : product.image_url;
 
+                    const socialText = `Check out Dr. Aman Agrawal's premium homeopathy treatment program: "${product.title}"! Get a special discount with my exclusive code ${primaryCode} at checkout: ${link}`;
+                    const emailSubject = `Homeopathy Care: ${product.title}`;
+                    const emailBody = `Hello,\n\nI highly recommend checking out "${product.title}" by Dr. Aman Agrawal. It is a premium homeopathy program.\n\nYou can use my code "${primaryCode}" at checkout to get an exclusive discount.\n\nLink to program: ${link}\n\nBest regards!`;
+
+                    const isExpanded = expandedProduct === product.id;
+
                     return (
-                      <div key={product.id} className="bg-white rounded-2.5xl border border-slate-100 overflow-hidden shadow-sm flex p-3.5 gap-4 hover:border-slate-200 transition-colors">
-                        <div className="w-20 h-24 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100 flex items-center justify-center relative shadow-inner">
-                          {imageSrc ? (
-                            <img src={imageSrc} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <ShoppingBag className="w-6 h-6 text-slate-300" />
-                          )}
-                        </div>
-                        <div className="flex-1 flex flex-col justify-between min-w-0">
-                          <div>
-                            <h4 className="font-extrabold text-sm text-slate-800 truncate pr-1" title={product.title}>
-                              {product.title}
-                            </h4>
-                            <p className="text-[11px] font-bold text-slate-400 mt-0.5">Retail: {formatPrice(product.price)}</p>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-500/10 border border-emerald-500/10 px-2.5 py-0.5 rounded-lg mt-2">
-                              Comms: {formatPrice(estimatedEarnings)}
-                            </span>
-                          </div>
-                          
-                          <button 
-                            onClick={() => copyToClipboard(product.id, link)}
-                            className={`w-full h-9 mt-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 border ${
-                              copied === product.id 
-                                ? "bg-emerald-600 border-emerald-600 text-white shadow-sm" 
-                                : "bg-slate-100 border-slate-100 text-slate-650 hover:bg-slate-900 hover:text-white"
-                            }`}
-                          >
-                            {copied === product.id ? (
-                              <><Check className="w-3.5 h-3.5" /> Copied!</>
+                      <div key={product.id} className="bg-white rounded-2.5xl border border-slate-100 overflow-hidden shadow-sm flex flex-col p-3.5 gap-2.5 hover:border-slate-200 transition-all">
+                        <div className="flex gap-4">
+                          <div className="w-20 h-24 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100 flex items-center justify-center relative shadow-inner">
+                            {imageSrc ? (
+                              <img src={imageSrc} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <><LinkIcon className="w-3.5 h-3.5" /> Copy Promo Link</>
+                              <ShoppingBag className="w-6 h-6 text-slate-300" />
                             )}
-                          </button>
+                          </div>
+                          <div className="flex-1 flex flex-col justify-between min-w-0">
+                            <div>
+                              <h4 className="font-extrabold text-sm text-slate-800 truncate pr-1" title={product.title}>
+                                {product.title}
+                              </h4>
+                              <p className="text-[11px] font-bold text-slate-400 mt-0.5">Retail: {formatPrice(product.price)}</p>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-500/10 border border-emerald-500/10 px-2.5 py-0.5 rounded-lg mt-2">
+                                Comms: {formatPrice(estimatedEarnings)}
+                              </span>
+                            </div>
+                            
+                            <div className="flex gap-2 mt-2">
+                              <button 
+                                onClick={() => copyToClipboard(product.id, link)}
+                                className={`flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 border ${
+                                  copied === product.id 
+                                    ? "bg-emerald-600 border-emerald-600 text-white" 
+                                    : "bg-slate-100 border-slate-100 text-slate-650 hover:bg-slate-900 hover:text-white"
+                                }`}
+                              >
+                                {copied === product.id ? (
+                                  <><Check className="w-3.5 h-3.5" /> Copied!</>
+                                ) : (
+                                  <><LinkIcon className="w-3.5 h-3.5" /> Copy Link</>
+                                )}
+                              </button>
+                              
+                              <button
+                                onClick={() => setExpandedProduct(isExpanded ? null : product.id)}
+                                className="h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-850 flex items-center justify-center text-[10px] font-black uppercase tracking-wider"
+                              >
+                                Swipe Copy {isExpanded ? "▲" : "▼"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
+
+                        {/* Collapsible Swipe Assets */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-100 pt-3 mt-1 space-y-3 animate-in slide-in-from-top-1.5 duration-200">
+                            {/* Social Post Swipe */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Social Post Swipe</span>
+                                <button
+                                  onClick={() => copyTextSwipe(`social-${product.id}`, socialText)}
+                                  className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100"
+                                >
+                                  {copiedTextType === `social-${product.id}` ? "Copied!" : "Copy Post"}
+                                </button>
+                              </div>
+                              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-150 text-[11px] font-medium text-slate-650 max-h-16 overflow-y-auto select-text leading-relaxed">
+                                {socialText}
+                              </div>
+                            </div>
+
+                            {/* Email Swipe */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Email Campaign Swipe</span>
+                                <button
+                                  onClick={() => copyTextSwipe(`email-${product.id}`, emailBody)}
+                                  className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100"
+                                >
+                                  {copiedTextType === `email-${product.id}` ? "Copied!" : "Copy Body"}
+                                </button>
+                              </div>
+                              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-150 text-[11px] font-medium text-slate-650 max-h-20 overflow-y-auto select-text leading-relaxed whitespace-pre-line">
+                                <strong>Subject:</strong> {emailSubject}
+                                <br/><br/>
+                                {emailBody}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                       </div>
                     );
                   })}
@@ -358,14 +444,15 @@ export default function PartnerDashboard() {
             </div>
           )}
 
+          {/* Active Tab View: Ledger */}
           {activeTab === "ledger" && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div>
-                <h3 className="text-lg font-black text-slate-805 text-slate-800">Activity Ledger</h3>
+                <h3 className="text-lg font-black text-slate-800">Activity Ledger</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">Transparent conversions tracking and pay-out status logs</p>
               </div>
 
-              <div className="bg-white rounded-2.5xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2.5xl border border-slate-100 shadow-sm overflow-hidden select-text">
                 {attributions.length === 0 ? (
                   <div className="p-8 text-center flex flex-col items-center">
                     <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
@@ -388,7 +475,7 @@ export default function PartnerDashboard() {
                             <p className="text-xs font-black text-slate-800 truncate max-w-[140px] uppercase tracking-wide">
                               {attr.product_type ? attr.product_type.replace('_', ' ') : 'Commission'}
                             </p>
-                            <p className="text-[9px] text-slate-400 mt-0.5 flex items-center gap-1">
+                            <p className="text-[9px] text-slate-400 mt-0.5 flex items-center gap-1 font-semibold">
                               <Calendar className="w-3 h-3" />
                               {new Date(attr.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                             </p>
@@ -408,6 +495,85 @@ export default function PartnerDashboard() {
             </div>
           )}
 
+          {/* Active Tab View: Payouts Ledger & Receipt Lightbox */}
+          {activeTab === "payouts" && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div>
+                <h3 className="text-lg font-black text-slate-800">Monthly Payouts</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Logs of cleared payouts, admin remarks, and payment receipts</p>
+              </div>
+
+              {/* Payout Stats Summary Card */}
+              <div className="grid grid-cols-2 gap-3.5 select-none">
+                <div className="bg-white border border-slate-100 p-4.5 rounded-2.5xl shadow-sm">
+                  <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Unpaid balance</span>
+                  <span className="font-black text-xl text-amber-600 mt-1 block">{formatPrice(pendingCommission)}</span>
+                  <span className="text-[8px] font-bold text-slate-400 block mt-1">Clears in next monthly payout</span>
+                </div>
+                <div className="bg-white border border-slate-100 p-4.5 rounded-2.5xl shadow-sm">
+                  <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Total Paid Out</span>
+                  <span className="font-black text-xl text-emerald-600 mt-1 block">{formatPrice(totalClearedPayouts)}</span>
+                  <span className="text-[8px] font-bold text-emerald-650 block mt-1">Historically paid out</span>
+                </div>
+              </div>
+
+              {/* Payouts list */}
+              <div className="bg-white rounded-2.5xl border border-slate-100 shadow-sm overflow-hidden select-text">
+                {payouts.length === 0 ? (
+                  <div className="p-8 text-center flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
+                      <Wallet className="w-6 h-6 text-slate-300" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-700">No payouts cleared yet</h4>
+                    <p className="text-xs text-slate-400 mt-1.5 max-w-[200px] mx-auto leading-relaxed">Your monthly payout confirmations and receipts will display here once processed.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-50">
+                    {payouts.map((payout) => (
+                      <div key={payout.id} className="p-4.5 space-y-2.5 hover:bg-slate-50/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span className="bg-emerald-500/10 text-emerald-700 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-250/20">
+                              Cleared
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {new Date(payout.paid_at || payout.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                          <span className="font-black text-sm text-slate-800">{formatPrice(payout.amount)}</span>
+                        </div>
+
+                        {/* Reference and payment method */}
+                        <div className="text-[10px] text-slate-500 font-semibold flex justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
+                          <span><strong>Method:</strong> {payout.payment_method === 'upi' ? 'UPI' : 'Bank Transfer'}</span>
+                          <span className="truncate max-w-[150px]"><strong>Ref:</strong> {payout.transaction_reference || "N/A"}</span>
+                        </div>
+
+                        {/* Admin Remarks */}
+                        {payout.admin_remarks && (
+                          <div className="text-[10px] text-slate-650 bg-slate-50/40 p-2 rounded-lg border border-slate-100 italic">
+                            &ldquo;{payout.admin_remarks}&rdquo;
+                          </div>
+                        )}
+
+                        {/* View Screenshot button */}
+                        {payout.receipt_url && (
+                          <button
+                            onClick={() => setSelectedReceipt(payout.receipt_url)}
+                            className="w-full h-8.5 rounded-xl border border-slate-200 text-slate-650 hover:bg-slate-900 hover:text-white flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider transition-all"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View Payment Receipt
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Bottom App Navigation Bar (Fixed bottom inside mobile viewport mockup) */}
@@ -415,7 +581,7 @@ export default function PartnerDashboard() {
           <div className="flex justify-around items-center w-full">
             <button 
               onClick={() => setActiveTab("overview")}
-              className={`flex flex-col items-center gap-1 transition-all duration-250 px-4 py-1 rounded-xl relative ${
+              className={`flex flex-col items-center gap-1 transition-all duration-250 px-3.5 py-1 rounded-xl relative ${
                 activeTab === 'overview' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -426,7 +592,7 @@ export default function PartnerDashboard() {
             
             <button 
               onClick={() => setActiveTab("promote")}
-              className={`flex flex-col items-center gap-1 transition-all duration-250 px-4 py-1 rounded-xl relative ${
+              className={`flex flex-col items-center gap-1 transition-all duration-250 px-3.5 py-1 rounded-xl relative ${
                 activeTab === 'promote' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -437,13 +603,24 @@ export default function PartnerDashboard() {
             
             <button 
               onClick={() => setActiveTab("ledger")}
-              className={`flex flex-col items-center gap-1 transition-all duration-250 px-4 py-1 rounded-xl relative ${
+              className={`flex flex-col items-center gap-1 transition-all duration-250 px-3.5 py-1 rounded-xl relative ${
                 activeTab === 'ledger' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
               <FileText className="w-5.5 h-5.5" />
               <span className="text-[9px] font-black uppercase tracking-wider">Ledger</span>
               {activeTab === 'ledger' && <span className="absolute -bottom-1.5 w-1.2 h-1.2 bg-emerald-600 rounded-full"></span>}
+            </button>
+
+            <button 
+              onClick={() => setActiveTab("payouts")}
+              className={`flex flex-col items-center gap-1 transition-all duration-250 px-3.5 py-1 rounded-xl relative ${
+                activeTab === 'payouts' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Wallet className="w-5.5 h-5.5" />
+              <span className="text-[9px] font-black uppercase tracking-wider">Payouts</span>
+              {activeTab === 'payouts' && <span className="absolute -bottom-1.5 w-1.2 h-1.2 bg-emerald-600 rounded-full"></span>}
             </button>
           </div>
           
@@ -452,6 +629,27 @@ export default function PartnerDashboard() {
         </nav>
 
       </div>
+
+      {/* Lightbox Screenshot Modal */}
+      {selectedReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/85 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
+              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Payment Proof Screenshot</span>
+              <button 
+                onClick={() => setSelectedReceipt(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center font-bold text-sm"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-5 flex items-center justify-center bg-slate-100">
+              <img src={selectedReceipt} alt="Payment Receipt" className="max-w-full max-h-120 object-contain rounded-xl shadow border border-slate-200 select-text" />
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

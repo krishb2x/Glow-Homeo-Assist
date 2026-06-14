@@ -16,6 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       subject = "Your Referral Program Configuration Has Been Updated",
       adminName = "Admin",
       configs = [], // Active product configs to generate the table
+      resendContent, // Optional direct HTML content snapshot to resend
     } = body;
 
     if (!to) {
@@ -108,8 +109,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       </div>
     `;
 
-    // 4. Resolve Template Placeholders
-    const resolvedBody = templateBody
+    // 4. Resolve Template Placeholders (skip if resending a direct snapshot)
+    const resolvedBody = resendContent || templateBody
       .replace(/{{Partner_Name}}/g, partnerName)
       .replace(/{{Partner_Email}}/g, partnerEmail)
       .replace(/{{Referral_Code}}/g, code)

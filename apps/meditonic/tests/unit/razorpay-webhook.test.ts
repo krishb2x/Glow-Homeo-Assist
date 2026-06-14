@@ -1,31 +1,28 @@
 import { describe, it, expect, vi } from 'vitest';
 import { POST } from '@/app/api/webhooks/razorpay/route';
 
-// Mock the Supabase client
-vi.mock('../../lib/supabase', () => ({
-  createAdminClient: vi.fn().mockReturnValue({
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'order-123', total_amount: 1000 },
-            error: null
-          })
-        })
-      }),
-      insert: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ error: null })
-        })
-      }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ error: null })
-        })
-      })
+vi.mock('../../lib/supabase', () => {
+  const queryBuilder: any = {
+    select: () => queryBuilder,
+    eq: () => queryBuilder,
+    insert: () => queryBuilder,
+    update: () => queryBuilder,
+    single: async () => ({
+      data: { id: 'order-123', total_amount: 1000, items: [] },
+      error: null
+    }),
+    maybeSingle: async () => ({
+      data: null,
+      error: null
     })
-  })
-}));
+  };
+  
+  return {
+    createAdminClient: () => ({
+      from: () => queryBuilder
+    })
+  };
+});
 
 // Mock crypto verification to always pass in test
 vi.mock('crypto', () => ({

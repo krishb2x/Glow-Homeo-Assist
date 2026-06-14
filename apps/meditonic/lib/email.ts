@@ -1,6 +1,7 @@
 interface EmailOptions {
   cc?: string | string[];
   bcc?: string | string[];
+  attachments?: { filename: string; content: string }[];
 }
 
 export async function sendConfirmationEmail(to: string, subject: string, html: string, options?: EmailOptions) {
@@ -37,7 +38,8 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
         reply_to: process.env.NOTIFICATION_REPLY_TO_EMAIL || "care@glowhomeo.in",
         subject,
         html,
-        text: `Please enable HTML to view this email from MediTonic.`
+        text: `Please enable HTML to view this email from MediTonic.`,
+        attachments: options?.attachments
       })
     });
 

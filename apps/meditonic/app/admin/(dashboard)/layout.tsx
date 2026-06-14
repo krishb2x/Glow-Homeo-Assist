@@ -116,7 +116,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const partnerItems = [
     { name: "Applications", href: "/admin/partners/applications", icon: UserPlus, visible: isSuperAdminOrAdmin },
     { name: "Partners", href: "/admin/partners", icon: Users, visible: isSuperAdminOrAdmin },
-    { name: "Referral Codes", href: "/admin/partners/codes", icon: Gift, visible: isSuperAdminOrAdmin },
     { name: "Commissions", href: "/admin/partners/commissions", icon: IndianRupee, visible: isSuperAdminOrAdmin },
   ].filter(i => i.visible);
 
