@@ -32,8 +32,9 @@ export function notificationMockSendEnabled(): boolean {
 }
 
 export function defaultFromAddress(): string {
+  const defaultEmail = process.env.SMTP_USER || "care@glowhomeo.in";
   return (
-    process.env.NOTIFICATION_FROM_EMAIL?.trim() || "GlowHomeo Assist <noreply@glowhomeo.com>"
+    process.env.NOTIFICATION_FROM_EMAIL?.trim() || `GlowHomeo Assist <${defaultEmail}>`
   );
 }
 
