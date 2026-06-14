@@ -92,7 +92,14 @@ export default function Header() {
           </nav>
 
           {/* CTA & Mobile Toggle */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link
+              href="/ebooks"
+              className="inline-block lg:hidden text-xs sm:text-sm font-semibold text-mt-text-secondary hover:text-mt-primary px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-mt-border/60 hover:bg-mt-primary-bg transition-colors"
+            >
+              eBooks
+            </Link>
+
             <button 
               onClick={() => setIsCartOpen(true)}
               className="relative p-2 text-mt-text-secondary hover:text-mt-primary transition-colors"

@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 import { logger } from "../../lib/logger";
 
 export type SendEmailInput = {
@@ -126,8 +127,28 @@ function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/'/g, "&#39;");
 }
 
-// Create a reusable SMTP transporter (Zoho)
+// Create a reusable transporter (AWS SES or Zoho SMTP)
 function createTransporter() {
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  const region = process.env.AWS_REGION || "eu-north-1";
+
+  // 1. AWS SES (Primary)
+  if (accessKeyId && secretAccessKey) {
+    const sesClient = new SESClient({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
+
+    return nodemailer.createTransport({
+      SES: { ses: sesClient, aws: { SendRawEmailCommand } },
+    } as any);
+  }
+
+  // 2. Zoho SMTP (Fallback)
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT) || 465;
   const user = process.env.SMTP_USER;
@@ -171,9 +192,44 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Cha
     return { ok: true, provider: "mock", mock: true, messageId: `mock-${Date.now()}` };
   }
 
-  const from = defaultFromAddress();
+  const isSES = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+  let from = defaultFromAddress();
+  if (isSES) {
+    const sesFrom = process.env.SES_FROM_EMAIL || "care@glowhomeo.com";
+    const defaultFrom = defaultFromAddress();
+    if (defaultFrom.includes("<")) {
+      from = defaultFrom.replace(/<[^>]+>/, `<${sesFrom}>`);
+    } else {
+      from = sesFrom;
+    }
+  }
+
   const replyTo = input.replyTo?.trim() || defaultReplyToAddress();
 
+  // 1. AWS SES (Primary)
+  if (isSES) {
+    const transporter = getTransporter();
+    if (transporter) {
+      try {
+        logger.info("notification_email_ses_attempt", { to, subject: input.subject });
+        const info = await transporter.sendMail({
+          from,
+          to,
+          subject: input.subject,
+          html: input.html,
+          text: input.text || `Please enable HTML to view this email.`,
+          replyTo,
+        });
+
+        return { ok: true, provider: "ses", messageId: info.messageId };
+      } catch (error: any) {
+        logger.error("notification_email_ses_error", { to, subject: input.subject, error: error.message });
+        // Fallback to Resend or SMTP if SES fails
+      }
+    }
+  }
+
+  // 2. Resend API (Fallback)
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   if (resendApiKey) {
     try {
@@ -209,13 +265,14 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Cha
     }
   }
 
+  // 3. Zoho SMTP (Fallback)
   const transporter = getTransporter();
   if (!transporter) {
     if (process.env.NODE_ENV !== "production") {
       logger.info("notification_email_mock_no_key", { to, subject: input.subject });
       return { ok: true, provider: "mock", mock: true, messageId: `mock-${Date.now()}` };
     }
-    return { ok: false, error: "SMTP/Resend not configured" };
+    return { ok: false, error: "SMTP/Resend/SES not configured" };
   }
 
   try {

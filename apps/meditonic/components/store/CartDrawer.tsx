@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { useStore } from "./StoreProvider";
-import { X, ArrowRight, ShieldCheck, CheckCircle2, Loader2, Tag, Percent } from "lucide-react";
+import { X, ArrowRight, ShieldCheck, CheckCircle2, Loader2, Tag, Percent, Lock } from "lucide-react";
 import { formatPrice } from "../../lib/utils";
 import { useReferral } from "../../lib/hooks/useReferral";
 import { isReferralApplicable, findReferralOverride } from "../../lib/referrals/product-mapping";
+import { formatCategoryName } from "./StorefrontClient";
 
 export const CartDrawer = () => {
   const { cart, removeFromCart, cartTotal, isCartOpen, setIsCartOpen, clearCart } = useStore();
@@ -88,17 +89,27 @@ export const CartDrawer = () => {
     return () => window.visualViewport?.removeEventListener('resize', updateViewport);
   }, []);
 
-  // Reset step when closed
+  // Reset step when closed so subsequent checkouts start fresh
   useEffect(() => {
-    if (!isCartOpen && checkoutStep !== "confirmation") {
-      setTimeout(() => setCheckoutStep("cart"), 300);
+    if (!isCartOpen) {
+      const timer = setTimeout(() => setCheckoutStep("cart"), 300);
+      return () => clearTimeout(timer);
     }
-  }, [isCartOpen, checkoutStep]);
+  }, [isCartOpen]);
 
   if (!isCartOpen) return null;
 
   const originalTotal = cart.reduce((total, item) => total + ((item.product.original_price || item.product.price) * item.quantity), 0);
   
+  // Resolve coupon displays
+  const firstApplicable = discountInfo?.applicableProducts?.[0];
+  const displayType = discountInfo?.type || firstApplicable?.discount_type || "percentage";
+  const displayValue = (discountInfo?.value !== null && discountInfo?.value !== undefined)
+    ? discountInfo.value 
+    : (firstApplicable?.discount_value !== null && firstApplicable?.discount_value !== undefined)
+      ? firstApplicable.discount_value
+      : 10;
+
   let discountAmount = 0;
   if (discountInfo) {
     cart.forEach(item => {
@@ -203,15 +214,56 @@ export const CartDrawer = () => {
     }
   };
 
-  const renderProgress = () => (
-    <div className="flex items-center justify-center gap-2 mb-6">
-      <div className={`text-[10px] font-bold uppercase tracking-wider ${checkoutStep === 'cart' ? 'text-mt-primary' : 'text-mt-text-tertiary'}`}>Cart</div>
-      <ArrowRight className="w-3 h-3 text-mt-text-tertiary" />
-      <div className={`text-[10px] font-bold uppercase tracking-wider ${checkoutStep === 'contact' ? 'text-mt-primary' : 'text-mt-text-tertiary'}`}>Contact</div>
-      <ArrowRight className="w-3 h-3 text-mt-text-tertiary" />
-      <div className={`text-[10px] font-bold uppercase tracking-wider ${checkoutStep === 'payment' || checkoutStep === 'confirmation' ? 'text-mt-primary' : 'text-mt-text-tertiary'}`}>Pay</div>
-    </div>
-  );
+  const renderProgress = () => {
+    const steps = [
+      { id: "cart", label: "Cart" },
+      { id: "contact", label: "Details" },
+      { id: "payment", label: "Pay" }
+    ];
+    
+    const currentIdx = steps.findIndex(s => s.id === checkoutStep);
+    
+    return (
+      <div className="w-full px-1 mb-6">
+        <div className="flex items-center justify-between relative">
+          {/* Line Background */}
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 -translate-y-1/2 z-0" />
+          {/* Line Active Progress */}
+          <div 
+            className="absolute top-1/2 left-0 h-0.5 bg-mt-primary -translate-y-1/2 z-0 transition-all duration-500" 
+            style={{ width: `${currentIdx >= 0 ? (currentIdx / (steps.length - 1)) * 100 : 0}%` }}
+          />
+          
+          {steps.map((step, idx) => {
+            const isCompleted = idx < currentIdx;
+            const isActive = step.id === checkoutStep;
+            return (
+              <div key={step.id} className="flex flex-col items-center relative z-10">
+                <div 
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                    isCompleted 
+                      ? "bg-mt-primary text-white shadow-sm" 
+                      : isActive 
+                        ? "bg-mt-primary text-white ring-4 ring-mt-primary/15" 
+                        : "bg-white border-2 border-slate-200 text-slate-400"
+                  }`}
+                >
+                  {isCompleted ? "✓" : idx + 1}
+                </div>
+                <span 
+                  className={`text-[10px] font-bold mt-1.5 uppercase tracking-wider ${
+                    isActive || isCompleted ? "text-mt-primary font-semibold" : "text-mt-text-tertiary"
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -223,14 +275,17 @@ export const CartDrawer = () => {
         className="relative w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col transition-all duration-300 ease-out"
         style={{ height: drawerHeight, maxHeight: "90vh" }}
       >
-        <div className="flex items-center justify-between p-5 border-b border-mt-border">
+        {/* Grab Handle for native bottom-sheet look on mobile */}
+        <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
+        
+        <div className="flex items-center justify-between px-5 pt-3 pb-4 border-b border-mt-border">
           <h2 className="font-display text-xl font-bold text-mt-text">
             {checkoutStep === "cart" && "Your Cart"}
             {checkoutStep === "contact" && "Contact Info"}
             {checkoutStep === "payment" && "Processing..."}
             {checkoutStep === "confirmation" && "Order Complete"}
           </h2>
-          <button onClick={() => setIsCartOpen(false)} className="p-2 -mr-2 text-mt-text-secondary hover:bg-gray-100 rounded-full">
+          <button onClick={() => setIsCartOpen(false)} className="p-2 -mr-2 text-mt-text-secondary hover:bg-slate-100 rounded-full transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -242,18 +297,18 @@ export const CartDrawer = () => {
           {checkoutStep === "cart" && (
             <>
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-mt-text-secondary">
+                <div className="flex flex-col items-center justify-center h-full text-mt-text-secondary py-10">
                   <p>Your cart is empty.</p>
-                  <button onClick={() => setIsCartOpen(false)} className="mt-4 text-[#1B6B5C] font-bold text-sm">
+                  <button onClick={() => setIsCartOpen(false)} className="mt-4 text-[#1B6B5C] font-bold text-sm hover:underline">
                     Continue Shopping
                   </button>
                 </div>
               ) : (
                 <div className="flex flex-col h-full">
-                  <div className="flex-1 space-y-4">
+                  <div className="flex-1 space-y-3">
                     {cart.map((item, idx) => (
-                      <div key={`${item.product.id}-${idx}`} className="flex items-start gap-4">
-                        <div className="w-12 h-16 bg-gray-100 rounded overflow-hidden shrink-0 relative">
+                      <div key={`${item.product.id}-${idx}`} className="flex items-center gap-3.5 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+                        <div className="w-10 h-14 bg-white rounded overflow-hidden shrink-0 relative shadow-sm border border-slate-100 flex items-center justify-center">
                            {item.product.image_url ? (
                              <img src={item.product.image_url} alt="" className="w-full h-full object-cover" />
                            ) : (
@@ -261,12 +316,12 @@ export const CartDrawer = () => {
                            )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-bold text-mt-text truncate">{item.product.title}</h4>
-                          <p className="text-[10px] text-mt-text-secondary truncate mt-0.5">{item.product.category.replace('_', ' ')}</p>
-                          <button onClick={() => removeFromCart(item.product.id)} className="text-[10px] text-red-500 font-bold mt-2 uppercase tracking-wider">Remove</button>
+                          <h4 className="text-xs font-bold text-mt-text truncate">{item.product.title}</h4>
+                          <p className="text-[9px] text-mt-text-secondary truncate mt-0.5 capitalize">{formatCategoryName(item.product.category)}</p>
+                          <button onClick={() => removeFromCart(item.product.id)} className="text-[9px] text-red-500 font-bold mt-1 uppercase tracking-wider hover:text-red-700 transition-colors">Remove</button>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-mt-text">{formatPrice(item.product.price * item.quantity)}</p>
+                          <p className="text-xs font-bold text-mt-text">{formatPrice(item.product.price * item.quantity)}</p>
                         </div>
                       </div>
                     ))}
@@ -274,18 +329,20 @@ export const CartDrawer = () => {
 
                   <div className="mt-4 border-t border-mt-border pt-4">
                     {discountInfo ? (
-                      <div className="bg-[#1B6B5C]/10 rounded-lg p-3 flex items-center justify-between border border-[#1B6B5C]/20">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-5 h-5 text-[#1B6B5C]" />
+                      <div className="bg-[#1B6B5C]/5 rounded-xl p-3 flex items-center justify-between border border-[#1B6B5C]/20 border-dashed animate-fade-in">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 bg-[#1B6B5C]/10 rounded-lg text-mt-primary shrink-0">
+                            <Tag className="w-4 h-4" />
+                          </div>
                           <div>
-                            <p className="text-xs font-bold text-[#1B6B5C] uppercase">Referral Benefit Applied ✓</p>
+                            <p className="text-[10px] font-bold text-[#1B6B5C] uppercase tracking-wide">Referral Applied ✓</p>
                             <p className="text-[10px] font-semibold text-mt-text-secondary mt-0.5">
-                              Code {discountInfo.code}: {discountInfo.type === 'percentage' ? `${discountInfo.value}% off` : `₹${discountInfo.value} off`}
+                              Code {discountInfo.code}: {displayType === 'percentage' ? `${displayValue}% off` : `₹${displayValue} off`}
                             </p>
                           </div>
                         </div>
-                        <button type="button" onClick={handleRemoveReferral} className="p-1 hover:bg-[#1B6B5C]/20 rounded">
-                          <X className="w-4 h-4 text-[#1B6B5C]" />
+                        <button type="button" onClick={handleRemoveReferral} className="p-1.5 hover:bg-[#1B6B5C]/10 rounded-full transition-colors text-[#1B6B5C]">
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     ) : (
@@ -296,14 +353,14 @@ export const CartDrawer = () => {
                             type="text" 
                             value={referralInput} 
                             onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
-                            className="flex-1 border border-mt-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-mt-primary uppercase"
+                            className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all uppercase placeholder-slate-400 font-medium"
                             placeholder="e.g. AMAN10"
                           />
                           <button 
                             type="button"
                             onClick={() => validateReferralCode(referralInput)}
                             disabled={!referralInput || validatingRef}
-                            className="bg-mt-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-mt-primary/90 disabled:opacity-50"
+                            className="bg-mt-primary text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-mt-primary-dark transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
                           >
                             {validatingRef ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
                           </button>
@@ -340,10 +397,10 @@ export const CartDrawer = () => {
                         <span className="text-xs text-[#1B6B5C] font-bold">{formatPrice(savings)}</span>
                       </div>
                     )}
-                    <button onClick={() => setCheckoutStep("contact")} className="w-full bg-[#1B6B5C] text-white py-3.5 rounded-xl font-bold text-sm mb-3">
+                    <button onClick={() => setCheckoutStep("contact")} className="w-full bg-[#1B6B5C] hover:bg-mt-primary-dark text-white py-3.5 rounded-xl font-bold text-sm mb-2.5 transition-all shadow-md active:scale-[0.98]">
                       Proceed to Checkout
                     </button>
-                    <button onClick={() => setIsCartOpen(false)} className="w-full text-xs font-bold text-mt-text-secondary text-center py-2">
+                    <button onClick={() => setIsCartOpen(false)} className="w-full text-xs font-bold text-mt-text-secondary text-center py-1.5 hover:underline transition-all">
                       Continue Shopping
                     </button>
                   </div>
@@ -357,20 +414,22 @@ export const CartDrawer = () => {
             <div className="flex flex-col h-full">
               <div className="flex-1 space-y-4">
                 <p className="text-xs text-mt-text-secondary mb-4">Where should we send your order? / हम आपका ऑर्डर कहाँ भेजें?</p>
-                <div>
-                  <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Full Name / पूरा नाम *</label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full border border-mt-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-mt-primary" placeholder="John Doe" />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Full Name / पूरा नाम *</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium" placeholder="John Doe" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Email / ईमेल पता (For PDF Delivery) *</label>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium" placeholder="your.email@gmail.com" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Phone / फ़ोन नंबर (For Delivery / UPI) *</label>
+                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mt-primary/20 focus:border-mt-primary transition-all placeholder-slate-400 font-medium" placeholder="9876543210" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Email / ईमेल पता (For PDF Delivery) *</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-mt-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-mt-primary" placeholder="your.email@gmail.com" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Phone / फ़ोन नंबर (For Delivery / UPI) *</label>
-                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full border border-mt-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-mt-primary" placeholder="9876543210" />
-                </div>
-                <div className="flex items-center gap-2 mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                  <ShieldCheck className="w-4 h-4 text-green-600 shrink-0" />
+                <div className="flex items-center gap-2.5 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <p className="text-[10px] text-mt-text-secondary leading-tight">Your data is safe. We only use this for order delivery and support.</p>
                 </div>
               </div>
@@ -379,11 +438,16 @@ export const CartDrawer = () => {
                 <button 
                   onClick={handleCreateOrderAndPay} 
                   disabled={loading}
-                  className="w-full bg-[#1B6B5C] text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="w-full bg-[#1B6B5C] hover:bg-mt-primary-dark text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg active:scale-[0.98] transition-all"
                 >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${formatPrice(finalTotal)}`}
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Secure Checkout • Pay {formatPrice(finalTotal)}</span>
+                    </>
+                  )}
                 </button>
-                <button onClick={() => setCheckoutStep("cart")} className="w-full text-xs font-bold text-mt-text-secondary text-center py-3 mt-1">
+                <button onClick={() => setCheckoutStep("cart")} className="w-full text-xs font-bold text-mt-text-secondary text-center py-2.5 mt-1 hover:underline">
                   Back to Cart
                 </button>
               </div>

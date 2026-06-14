@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 
 interface EmailOptions {
   cc?: string | string[];
@@ -6,8 +7,28 @@ interface EmailOptions {
   attachments?: { filename: string; content: string }[];
 }
 
-// Create a reusable SMTP transporter (Zoho)
+// Create a reusable transporter (AWS SES or Zoho SMTP)
 function createTransporter() {
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  const region = process.env.AWS_REGION || "eu-north-1";
+
+  // 1. AWS SES (Primary)
+  if (accessKeyId && secretAccessKey) {
+    const sesClient = new SESClient({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
+
+    return nodemailer.createTransport({
+      SES: { ses: sesClient, aws: { SendRawEmailCommand } },
+    } as any);
+  }
+
+  // 2. Zoho SMTP (Fallback)
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT) || 465;
   const user = process.env.SMTP_USER;
@@ -45,11 +66,25 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
   const transporter = getTransporter();
   
   if (!transporter) {
-    console.warn("SMTP is not configured (missing SMTP_HOST/SMTP_USER/SMTP_PASSWORD). Email will not be sent to:", to);
-    return { success: false, error: "SMTP not configured" };
+    console.warn("Email transport is not configured (missing SMTP or AWS credentials). Email will not be sent to:", to);
+    return { success: false, error: "Email transport not configured" };
   }
 
-  const from = process.env.NOTIFICATION_FROM_EMAIL || `"MediTonic" <${process.env.SMTP_USER}>`;
+  const isSES = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+  let from = process.env.NOTIFICATION_FROM_EMAIL || `"MediTonic" <${process.env.SMTP_USER || "care@glowhomeo.in"}>`;
+  if (isSES) {
+    const sesFrom = process.env.SES_FROM_EMAIL || "care@glowhomeo.com";
+    if (process.env.NOTIFICATION_FROM_EMAIL) {
+      if (process.env.NOTIFICATION_FROM_EMAIL.includes("<")) {
+        from = process.env.NOTIFICATION_FROM_EMAIL.replace(/<[^>]+>/, `<${sesFrom}>`);
+      } else {
+        from = sesFrom;
+      }
+    } else {
+      from = `"MediTonic" <${sesFrom}>`;
+    }
+  }
+
   const replyTo = process.env.NOTIFICATION_REPLY_TO_EMAIL || "care@glowhomeo.in";
 
   try {
@@ -81,11 +116,13 @@ export async function sendConfirmationEmail(to: string, subject: string, html: s
       attachments,
     });
 
-    console.log("Successfully sent email to:", to, "| MessageID:", info.messageId);
+    const providerName = isSES ? "SES" : "SMTP";
+    console.log(`Successfully sent email via ${providerName} to:`, to, "| MessageID:", info.messageId);
     return { success: true, data: { id: info.messageId } };
     
   } catch (error: any) {
-    console.error("Error sending email via SMTP:", error.message);
+    const providerName = isSES ? "SES" : "SMTP";
+    console.error(`Error sending email via ${providerName}:`, error.message);
     return { success: false, error: error.message };
   }
 }

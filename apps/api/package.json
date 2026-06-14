@@ -15,12 +15,14 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.924.0",
+    "@aws-sdk/client-ses": "^3.1068.0",
     "@aws-sdk/s3-request-presigner": "^3.924.0",
     "@google/generative-ai": "^0.24.1",
     "@homeoassist/domain": "0.1.0",
     "@homeoassist/print": "0.1.0",
     "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/supabase-js": "^2.49.8",
+    "@types/nodemailer": "^8.0.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
@@ -33,7 +35,6 @@
     "puppeteer-core": "^24.8.2",
     "resend": "^6.12.4",
     "uuid": "^11.0.3",
-    "@types/nodemailer": "^8.0.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {

@@ -64,6 +64,7 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   NOTIFICATION_FROM_EMAIL: z.string().optional(),
   NOTIFICATION_REPLY_TO_EMAIL: z.string().optional(),
+  SES_FROM_EMAIL: z.string().optional(),
 
   // Redis
   REDIS_URL: z.string().url().optional(),
