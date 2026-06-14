@@ -25,6 +25,8 @@ function createTransporter() {
     auth: { user, pass },
     pool: !isServerless,
     maxConnections: isServerless ? undefined : 3,
+    dnsFamily: 4, // Force IPv4 to prevent Railway IPv6 resolution timeout issues
+    connectionTimeout: 15000, // Fail faster if blocked
   } as any);
 }
 

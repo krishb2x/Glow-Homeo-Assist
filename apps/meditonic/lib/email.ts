@@ -26,6 +26,8 @@ function createTransporter() {
     auth: { user, pass },
     pool: !isServerless, // Disable connection pooling in serverless environments
     maxConnections: isServerless ? undefined : 3,
+    dnsFamily: 4, // Force IPv4 to prevent IPv6 resolution timeout issues
+    connectionTimeout: 15000, // Fail faster if blocked
   } as any);
 }
 
