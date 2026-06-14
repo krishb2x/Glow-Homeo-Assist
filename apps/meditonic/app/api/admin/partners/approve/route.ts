@@ -95,8 +95,6 @@ export async function POST(req: Request) {
       code: generatedCode,
       partner_id: partner.id,
       clinic_id: BRAND.clinicId,
-      discount_type: "percentage",
-      discount_value: 10,
       landing_path: "/",
       is_active: true
     }).select().single();
@@ -105,11 +103,49 @@ export async function POST(req: Request) {
       console.error("Failed to generate code:", codeError);
       // Non-fatal, they can generate manually later if this fails, but it shouldn't.
     } else if (newCode) {
-      // Map to All Products by default
-      await supabase.from("mt_referral_products").insert({
-        referral_code_id: newCode.id,
-        product_type: "all"
-      });
+      // Create default per-product override rows for all active products and consultations
+      const defaultOverrides: any[] = [];
+
+      const { data: allProducts } = await supabase
+        .from("mt_products")
+        .select("id, product_type")
+        .eq("is_active", true)
+        .eq("status", "PUBLISHED");
+
+      const { data: allConsultations } = await supabase
+        .from("mt_consultation_fees")
+        .select("id")
+        .eq("is_active", true);
+
+      for (const p of (allProducts || [])) {
+        defaultOverrides.push({
+          referral_code_id: newCode.id,
+          product_type: p.product_type?.toLowerCase() || "all",
+          product_id: p.id,
+          discount_type: "percentage",
+          discount_value: 10,
+          commission_type: "percentage",
+          commission_value: 10,
+          is_active: true,
+        });
+      }
+
+      for (const c of (allConsultations || [])) {
+        defaultOverrides.push({
+          referral_code_id: newCode.id,
+          product_type: "consultation",
+          product_id: c.id,
+          discount_type: "percentage",
+          discount_value: 10,
+          commission_type: "percentage",
+          commission_value: 10,
+          is_active: true,
+        });
+      }
+
+      if (defaultOverrides.length > 0) {
+        await supabase.from("mt_referral_products").insert(defaultOverrides);
+      }
     }
 
     // 6. Send Approval Email with Login Credentials

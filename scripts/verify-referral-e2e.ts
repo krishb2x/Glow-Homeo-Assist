@@ -1,6 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
+import * as dotenv from "dotenv";
+import * as path from "path";
 
-// Load environment variables if needed, or assume they are passed
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, "../apps/meditonic/.env") });
+dotenv.config({ path: path.join(__dirname, "../.env") });
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; // use service role for testing
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -145,24 +150,66 @@ async function verify() {
     if (!approveRes.ok) throw new Error(`Approve API failed: ${approveData.error}`);
     console.log("✅ Partner Approved and Auth User Created. Partner ID:", approveData.partnerId);
 
-    // 3. Create Referral Code
-    console.log("\n3. Creating Referral Code...");
+    // 3. Create or Update Referral Code
+    console.log("\n3. Creating or Updating Referral Code...");
     const testCode = `E2E${Date.now()}`;
-    const { data: codeRecord, error: codeErr } = await supabase
-      .from("mt_referral_codes")
-      .insert({
-        clinic_id: "595cd444-e89c-4d1f-b31f-27f76f59e0d7",
-        partner_id: approveData.partnerId,
-        code: testCode,
-        discount_type: "percentage",
-        discount_value: 15, // 15% off
-        is_active: true
-      })
-      .select()
-      .single();
     
-    if (codeErr) throw new Error(`Code creation failed: ${codeErr.message}`);
-    console.log(`✅ Code Created: ${testCode} (15% off)`);
+    const { data: existingCode } = await supabase
+      .from("mt_referral_codes")
+      .select("id")
+      .eq("partner_id", approveData.partnerId)
+      .limit(1)
+      .maybeSingle();
+
+    let codeRecord;
+    if (existingCode) {
+      console.log(`Found existing auto-generated code (ID: ${existingCode.id}). Updating it...`);
+      const { data: updatedCode, error: codeErr } = await supabase
+        .from("mt_referral_codes")
+        .update({
+          code: testCode,
+          is_active: true
+        })
+        .eq("id", existingCode.id)
+        .select()
+        .single();
+      
+      if (codeErr) throw new Error(`Code update failed: ${codeErr.message}`);
+      codeRecord = updatedCode;
+    } else {
+      console.log("No existing code found. Inserting new one...");
+      const { data: insertedCode, error: codeErr } = await supabase
+        .from("mt_referral_codes")
+        .insert({
+          clinic_id: "595cd444-e89c-4d1f-b31f-27f76f59e0d7",
+          partner_id: approveData.partnerId,
+          code: testCode,
+          is_active: true
+        })
+        .select()
+        .single();
+      
+      if (codeErr) throw new Error(`Code insertion failed: ${codeErr.message}`);
+      codeRecord = insertedCode;
+    }
+    
+    console.log(`✅ Code Configured: ${testCode}`);
+
+    // Insert a product-level override for 'consultation'
+    console.log("Adding product-level override for consultations (flat ₹50 off, 25% commission)...");
+    const { error: overrideErr } = await supabase
+      .from("mt_referral_products")
+      .insert({
+        referral_code_id: codeRecord.id,
+        product_type: "consultation",
+        discount_type: "fixed",
+        discount_value: 50.00, // flat ₹50 discount
+        commission_type: "percentage",
+        commission_value: 25.00, // 25% commission override
+        is_active: true
+      });
+    if (overrideErr) throw new Error(`Override creation failed: ${overrideErr.message}`);
+    console.log("✅ Consultation product override applied");
 
     // 4. Validate Code via API
     console.log("\n4. Testing Code Validation API...");
@@ -237,7 +284,36 @@ async function verify() {
       .eq("referral_code_id", codeRecord.id);
       
     if (!attrData || attrData.length === 0) throw new Error("Order Attribution record not created!");
-    console.log(`✅ Order Attribution created. Commission Amount: ₹${attrData[0].commission_amount}`);
+    const attr = attrData[0];
+    console.log(`✅ Order Attribution created. Commission Amount: ₹${attr.commission_amount}`);
+
+    // Verify override values were applied correctly
+    const expectedDiscount = 50.00;
+    if (Number(attr.discount_applied) !== expectedDiscount) {
+      throw new Error(`Discount override mismatch! Expected: ₹${expectedDiscount}, Actual: ₹${attr.discount_applied}`);
+    }
+    console.log(`✅ Verified discount override applied: ₹${attr.discount_applied}`);
+
+    const expectedRevenueAfterDiscount = Number(attr.revenue_before_discount) - expectedDiscount;
+    if (Number(attr.revenue_after_discount) !== expectedRevenueAfterDiscount) {
+      throw new Error(`Revenue after discount mismatch! Expected: ₹${expectedRevenueAfterDiscount}, Actual: ₹${attr.revenue_after_discount}`);
+    }
+    console.log(`✅ Verified revenue after discount: ₹${attr.revenue_after_discount}`);
+
+    // Net revenue calculation:
+    const rev = expectedRevenueAfterDiscount;
+    const gst = rev * 0.18;
+    const pg = rev * 0.02;
+    const platform = rev * 0.07;
+    const netRevenue = rev - gst - pg - platform;
+    const expectedCommission = Number((netRevenue * 0.25).toFixed(2));
+    const actualCommission = Number(Number(attr.commission_amount).toFixed(2));
+    
+    // Allow a small delta for floating point precision (e.g. 0.05)
+    if (Math.abs(actualCommission - expectedCommission) > 0.05) {
+      throw new Error(`Commission override mismatch! Expected: ₹${expectedCommission}, Actual: ₹${actualCommission}`);
+    }
+    console.log(`✅ Verified commission override of 25% applied correctly: ₹${attr.commission_amount}`);
 
     // Check mt_partners total revenue
     const { data: partnerData } = await supabase
@@ -248,7 +324,7 @@ async function verify() {
       
     console.log(`✅ Partner Totals Updated -> Revenue: ₹${partnerData?.total_revenue}, Commission: ₹${partnerData?.total_commission}`);
 
-    console.log("\n🎉 ALL E2E TESTS PASSED SUCCESSFULLY! The Referral System is fully operational.");
+    console.log("\n🎉 ALL E2E TESTS PASSED SUCCESSFULLY! The Referral System is fully operational and overrides apply correctly.");
 
   } catch (error) {
     console.error("\n❌ E2E VERIFICATION FAILED:");

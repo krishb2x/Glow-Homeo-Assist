@@ -42,32 +42,26 @@ async function validateReferral(code: string | null, items?: any[]) {
 
   console.log("DEBUG SCENARIO D:", {
     max_uses: referralCode.max_uses,
-    usage_limit: referralCode.usage_limit,
     current_uses: referralCode.current_uses,
-    current_usage: referralCode.current_usage,
-    valid_until: referralCode.valid_until,
-    end_date: referralCode.end_date
+    valid_from: referralCode.valid_from,
+    valid_until: referralCode.valid_until
   });
   
-  // Check start validity (supporting both new valid_from and legacy start_date)
-  const validFromVal = referralCode.valid_from !== undefined && referralCode.valid_from !== null ? referralCode.valid_from : referralCode.start_date;
-  const validFrom = validFromVal ? new Date(validFromVal) : null;
+  // Check start validity
+  const validFrom = referralCode.valid_from ? new Date(referralCode.valid_from) : null;
   if (validFrom && validFrom > now) {
     return NextResponse.json({ error: "Referral code is not yet active" }, { status: 400 });
   }
 
-  // Check expiration (supporting both new valid_until and legacy end_date)
-  const validUntilVal = referralCode.valid_until !== undefined && referralCode.valid_until !== null ? referralCode.valid_until : referralCode.end_date;
-  const validUntil = validUntilVal ? new Date(validUntilVal) : null;
+  // Check expiration
+  const validUntil = referralCode.valid_until ? new Date(referralCode.valid_until) : null;
   if (validUntil && validUntil < now) {
     return NextResponse.json({ error: "Referral code has expired" }, { status: 400 });
   }
 
-  // Check usage limits (supporting both new max_uses and legacy usage_limit)
-  const maxUses = referralCode.max_uses !== undefined && referralCode.max_uses !== null ? referralCode.max_uses : referralCode.usage_limit;
-  const currentUses = referralCode.current_uses !== undefined && referralCode.current_uses !== null
-    ? Math.max(referralCode.current_uses, referralCode.current_usage || 0)
-    : (referralCode.current_usage || 0);
+  // Check usage limits
+  const maxUses = referralCode.max_uses;
+  const currentUses = referralCode.current_uses || 0;
   if (maxUses !== undefined && maxUses !== null && currentUses >= maxUses) {
     return NextResponse.json({ error: "Referral code usage limit reached" }, { status: 400 });
   }
@@ -94,8 +88,8 @@ async function validateReferral(code: string | null, items?: any[]) {
     success: true,
     id: referralCode.id,
     code: referralCode.code,
-    discountType: referralCode.discount_type,
-    discountValue: referralCode.discount_value,
+    discountType: null,
+    discountValue: null,
     applicableProducts: referralCode.mt_referral_products || []
   });
 }

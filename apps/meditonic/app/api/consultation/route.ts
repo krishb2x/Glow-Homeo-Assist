@@ -3,7 +3,7 @@ import Razorpay from "razorpay";
 import { createAdminClient } from "../../../lib/supabase";
 import { bookingFormSchema } from "../../../lib/validations";
 import { BRAND } from "../../../lib/constants";
-import { isReferralApplicable } from "../../../lib/referrals/product-mapping";
+import { isReferralApplicable, findReferralOverride } from "../../../lib/referrals/product-mapping";
 
 function getRazorpay() {
   return new Razorpay({
@@ -112,39 +112,33 @@ export async function POST(req: Request) {
       if (!referralError && referralData && referralData.is_active) {
         const now = new Date();
         
-        // Start date check (supporting valid_from and legacy start_date)
-        const validFromVal = referralData.valid_from !== undefined && referralData.valid_from !== null ? referralData.valid_from : referralData.start_date;
-        const validFrom = validFromVal ? new Date(validFromVal) : null;
+        // Start date check
+        const validFrom = referralData.valid_from ? new Date(referralData.valid_from) : null;
         const startValid = !validFrom || validFrom <= now;
 
-        // Expiration check (supporting valid_until and legacy end_date)
-        const validUntilVal = referralData.valid_until !== undefined && referralData.valid_until !== null ? referralData.valid_until : referralData.end_date;
-        const validUntil = validUntilVal ? new Date(validUntilVal) : null;
+        // Expiration check
+        const validUntil = referralData.valid_until ? new Date(referralData.valid_until) : null;
         const endValid = !validUntil || validUntil >= now;
 
-        // Usage limit check (supporting max_uses/current_uses and legacy usage_limit/current_usage)
-        const maxUses = referralData.max_uses !== undefined && referralData.max_uses !== null ? referralData.max_uses : referralData.usage_limit;
-        const currentUses = referralData.current_uses !== undefined && referralData.current_uses !== null
-          ? Math.max(referralData.current_uses, referralData.current_usage || 0)
-          : (referralData.current_usage || 0);
+        // Usage limit check
+        const maxUses = referralData.max_uses;
+        const currentUses = referralData.current_uses || 0;
         const limitValid = maxUses === undefined || maxUses === null || currentUses < maxUses;
         
         // Scoping check using shared logic and overrides
-        let override = referralData.mt_referral_products?.find((p: any) => 
-          p.product_id === feeData.id || p.product_id === data.type || (isReferralApplicable(p.product_type, "consultation") && !p.product_id)
-        );
+        let override = findReferralOverride(referralData.mt_referral_products, feeData.id, "consultation");
 
         const isApplicable = !referralData.mt_referral_products || referralData.mt_referral_products.length === 0 || (override && override.is_active !== false);
 
         if (startValid && endValid && limitValid && isApplicable) {
           referralCodeId = referralData.id;
           
-          let discountType = referralData.discount_type;
-          let discountValue = referralData.discount_value;
+          let discountType = override?.discount_type || "percentage";
+          let discountValue = override ? Number(override.discount_value) : 10;
           
           if (override && override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
             discountType = override.discount_type;
-            discountValue = override.discount_value;
+            discountValue = Number(override.discount_value);
           }
           
           if (discountType === 'percentage') {

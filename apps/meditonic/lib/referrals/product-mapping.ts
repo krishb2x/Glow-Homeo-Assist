@@ -34,3 +34,50 @@ export function isReferralApplicable(referralType: string, productType: string):
 
   return false;
 }
+
+/**
+ * Centrally resolves and prioritizes the referral override configuration
+ * for a specific product item.
+ * Priority order:
+ * 1. Exact product_id match
+ * 2. Category-specific match (e.g. consultation, kit) excluding 'all'
+ * 3. Generic 'all' match
+ */
+export function findReferralOverride(
+  overrides: any[] | null | undefined,
+  productId: string | null | undefined,
+  productType: string | null | undefined
+): any | null {
+  if (!overrides || overrides.length === 0) return null;
+
+  const targetProdId = productId ? String(productId).trim() : null;
+  const targetType = productType ? String(productType).toLowerCase().trim() : null;
+
+  // 1. Prioritize exact product_id match
+  if (targetProdId) {
+    const exactMatch = overrides.find(o => o.product_id === targetProdId);
+    if (exactMatch) return exactMatch;
+  }
+
+  // 2. Next, category-specific match (excluding 'all')
+  if (targetType) {
+    const categoryMatch = overrides.find(o => 
+      !o.product_id && 
+      o.product_type && 
+      o.product_type.toLowerCase().trim() !== "all" && 
+      isReferralApplicable(o.product_type, targetType)
+    );
+    if (categoryMatch) return categoryMatch;
+  }
+
+  // 3. Fallback to generic 'all' match
+  const allMatch = overrides.find(o => 
+    !o.product_id && 
+    o.product_type && 
+    o.product_type.toLowerCase().trim() === "all"
+  );
+  if (allMatch) return allMatch;
+
+  return null;
+}
+

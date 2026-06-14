@@ -24,10 +24,8 @@ export const generateMockPartner = (overrides = {}) => ({
     {
       id: "code-123",
       code: "JOHN20",
-      discount_type: "percentage",
-      discount_value: 20,
       is_active: true,
-      current_usage: 5
+      current_uses: 5
     }
   ],
   ...overrides

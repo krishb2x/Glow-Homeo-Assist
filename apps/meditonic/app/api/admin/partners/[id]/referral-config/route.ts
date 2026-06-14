@@ -64,10 +64,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         name: p.title,
         product_type: p.product_type,
         price: p.price,
-        discount_type: existingConfig ? existingConfig.discount_type : (referralCode?.discount_type || "percentage"),
-        discount_value: existingConfig ? Number(existingConfig.discount_value) : Number(referralCode?.discount_value || 10),
-        commission_type: existingConfig ? existingConfig.commission_type : "percentage",
-        commission_value: existingConfig ? Number(existingConfig.commission_value) : Number(referralCode?.commission_rate || partner.base_commission_rate || 10),
+        discount_type: existingConfig?.discount_type || "percentage",
+        discount_value: existingConfig ? Number(existingConfig.discount_value) : 10,
+        commission_type: existingConfig?.commission_type || "percentage",
+        commission_value: existingConfig ? Number(existingConfig.commission_value) : Number(partner.base_commission_rate || 10),
         is_active: existingConfig ? existingConfig.is_active : true,
       };
     });
@@ -79,10 +79,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         name: c.label || c.type,
         product_type: "consultation",
         price: c.price,
-        discount_type: existingConfig ? existingConfig.discount_type : (referralCode?.discount_type || "percentage"),
-        discount_value: existingConfig ? Number(existingConfig.discount_value) : Number(referralCode?.discount_value || 10),
-        commission_type: existingConfig ? existingConfig.commission_type : "percentage",
-        commission_value: existingConfig ? Number(existingConfig.commission_value) : Number(referralCode?.commission_rate || partner.base_commission_rate || 10),
+        discount_type: existingConfig?.discount_type || "percentage",
+        discount_value: existingConfig ? Number(existingConfig.discount_value) : 10,
+        commission_type: existingConfig?.commission_type || "percentage",
+        commission_value: existingConfig ? Number(existingConfig.commission_value) : Number(partner.base_commission_rate || 10),
         is_active: existingConfig ? existingConfig.is_active : true,
       };
     });
@@ -106,9 +106,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         ? {
             id: referralCode.id,
             code: referralCode.code,
-            discount_type: referralCode.discount_type,
-            discount_value: referralCode.discount_value,
-            commission_rate: referralCode.commission_rate,
             is_active: referralCode.is_active,
           }
         : null,
@@ -212,8 +209,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           clinic_id: BRAND.clinicId,
           partner_id: partnerId,
           code: cleanCode,
-          discount_type: "percentage",
-          discount_value: 10,
           is_active: true,
         })
         .select()

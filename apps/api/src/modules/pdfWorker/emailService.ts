@@ -1,50 +1,69 @@
+import nodemailer from "nodemailer";
+
 interface EmailOptions {
   cc?: string;
   bcc?: string;
 }
 
-export async function sendConfirmationEmail(to: string, subject: string, html: string, options?: EmailOptions) {
-  const apiKey = process.env.RESEND_API_KEY;
-  
-  if (!apiKey) {
-    console.warn("RESEND_API_KEY is not configured. Email will not be sent to:", to);
-    return { success: false, error: "API Key missing" };
+// Create a reusable SMTP transporter (Zoho)
+function createTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+
+  if (!host || !user || !pass) {
+    return null;
   }
 
-  // Use the brand email if configured, otherwise use Resend's default onboarding email for testing
-  const from = process.env.RESEND_FROM_EMAIL || process.env.NOTIFICATION_FROM_EMAIL || "onboarding@resend.dev";
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    pool: true,
+    maxConnections: 3,
+  });
+}
+
+// Singleton transporter instance
+let _transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+
+function getTransporter() {
+  if (!_transporter) {
+    _transporter = createTransporter();
+  }
+  return _transporter;
+}
+
+export async function sendConfirmationEmail(to: string, subject: string, html: string, options?: EmailOptions) {
+  const transporter = getTransporter();
+  
+  if (!transporter) {
+    console.warn("SMTP is not configured (missing SMTP_HOST/SMTP_USER/SMTP_PASSWORD). Email will not be sent to:", to);
+    return { success: false, error: "SMTP not configured" };
+  }
+
+  const from = process.env.NOTIFICATION_FROM_EMAIL || `"GlowHomeo" <${process.env.SMTP_USER}>`;
+  const replyTo = process.env.NOTIFICATION_REPLY_TO_EMAIL || "care@glowhomeo.in";
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        cc: options?.cc ? [options.cc] : undefined,
-        bcc: options?.bcc ? [options.bcc] : undefined,
-        reply_to: process.env.NOTIFICATION_REPLY_TO_EMAIL || "care@glowhomeo.in",
-        subject,
-        html,
-        text: `Please enable HTML to view this email from MediTonic.`
-      })
+    const info = await transporter.sendMail({
+      from,
+      to,
+      cc: options?.cc || undefined,
+      bcc: options?.bcc || undefined,
+      replyTo,
+      subject,
+      html,
+      text: `Please enable HTML to view this email.`,
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Failed to send email via Resend:", errorText);
-      return { success: false, error: errorText };
-    }
-
-    const data = await res.json();
-    console.log("Successfully sent confirmation email to:", to);
-    return { success: true, data };
+    console.log("Successfully sent email to:", to, "| MessageID:", info.messageId);
+    return { success: true, data: { id: info.messageId } };
     
   } catch (error: any) {
-    console.error("Error sending email via Resend:", error);
+    console.error("Error sending email via SMTP:", error.message);
     return { success: false, error: error.message };
   }
 }

@@ -5,7 +5,7 @@ import { useStore } from "./StoreProvider";
 import { X, ArrowRight, ShieldCheck, CheckCircle2, Loader2, Tag, Percent } from "lucide-react";
 import { formatPrice } from "../../lib/utils";
 import { useReferral } from "../../lib/hooks/useReferral";
-import { isReferralApplicable } from "../../lib/referrals/product-mapping";
+import { isReferralApplicable, findReferralOverride } from "../../lib/referrals/product-mapping";
 
 export const CartDrawer = () => {
   const { cart, removeFromCart, cartTotal, isCartOpen, setIsCartOpen, clearCart } = useStore();
@@ -102,18 +102,8 @@ export const CartDrawer = () => {
   let discountAmount = 0;
   if (discountInfo) {
     cart.forEach(item => {
-      // Find override configuration matching product_id first
-      let override: any = null;
-      if (discountInfo.applicableProducts && discountInfo.applicableProducts.length > 0) {
-        override = discountInfo.applicableProducts.find(
-          (p: any) => p.product_id === item.product.id
-        );
-        if (!override) {
-          override = discountInfo.applicableProducts.find(
-            (p: any) => isReferralApplicable(p.product_type, item.product.product_type) && !p.product_id
-          );
-        }
-      }
+      // Find override configuration using prioritized resolution
+      let override: any = findReferralOverride(discountInfo.applicableProducts, item.product.id, item.product.product_type);
 
       // If override explicitly disabled, skip discount for this item
       if (override && override.is_active === false) {
@@ -125,9 +115,9 @@ export const CartDrawer = () => {
         return;
       }
 
-      // Resolve discount type and value
-      let dType = discountInfo.type;
-      let dValue = discountInfo.value;
+      // Resolve discount type and value from per-product override (single source of truth)
+      let dType = override?.discount_type || "percentage";
+      let dValue = override ? Number(override.discount_value ?? 10) : 10;
 
       if (override && override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
         dType = override.discount_type;
@@ -373,7 +363,7 @@ export const CartDrawer = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Email / ईमेल पता (For PDF Delivery) *</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-mt-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-mt-primary" placeholder="john@example.com" />
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-mt-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-mt-primary" placeholder="your.email@gmail.com" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider mb-1">Phone / फ़ोन नंबर (For Delivery / UPI) *</label>

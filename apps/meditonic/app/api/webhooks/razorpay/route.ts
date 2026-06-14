@@ -5,7 +5,7 @@ import { createAdminClient } from "../../../../lib/supabase";
 import { sendConfirmationEmail } from "../../../../lib/email";
 import { Template_ConsultationConfirmed, Template_EbookPurchased, Template_ProgramPurchased, Template_StorePaymentConfirmed } from "../../../../lib/email-templates";
 import { processStoreFulfillment } from "../../../../lib/storeFulfillment";
-import { isReferralApplicable } from "../../../../lib/referrals/product-mapping";
+import { isReferralApplicable, findReferralOverride } from "../../../../lib/referrals/product-mapping";
 
 async function handleReferralCommission(
   supabase: any,
@@ -78,12 +78,13 @@ async function handleReferralCommission(
         .limit(1)
         .maybeSingle();
 
+      const rawPrice = (consultRecord.price_charged || 0) + (consultRecord.discount_applied || 0);
       itemsList = [{
         product: {
           id: feeData?.id || consultRecord.type,
           product_type: "consultation",
-          price: consultRecord.price_charged,
-          original_price: (consultRecord.price_charged || 0) + (consultRecord.discount_applied || 0)
+          price: rawPrice,
+          original_price: rawPrice
         },
         quantity: 1
       }];
@@ -114,8 +115,8 @@ async function handleReferralCommission(
       product: {
         id: product_id,
         product_type: product_type,
-        price: amount,
-        original_price: originalAmount
+        price: originalAmount || amount,
+        original_price: originalAmount || amount
       },
       quantity: 1
     }];
@@ -144,27 +145,19 @@ async function handleReferralCommission(
     const itemId = itemProduct.id;
     const itemType = itemProduct.product_type || itemProduct.type || purpose;
     
-    // Find matching override row in mt_referral_products
-    let override = referralData.mt_referral_products?.find((rp: any) => 
-      rp.product_id === itemId
-    );
-    
-    if (!override) {
-      override = referralData.mt_referral_products?.find((rp: any) => 
-        isReferralApplicable(rp.product_type, itemType) && !rp.product_id
-      );
-    }
+    // Find matching override row in mt_referral_products using prioritized resolution
+    let override = findReferralOverride(referralData.mt_referral_products, itemId, itemType);
 
     // If override explicitly disabled, skip commission/attribution for this item
     if (override && override.is_active === false) {
       continue;
     }
 
-    // Resolve discount and commission values for this item
-    let discType = referralData.discount_type;
-    let discVal = Number(referralData.discount_value);
-    let commType = "percentage";
-    let commVal = Number(referralData.commission_rate ?? partner.base_commission_rate ?? 10);
+    // Resolve discount and commission values for this item (from mt_referral_products only)
+    let discType = override?.discount_type || "percentage";
+    let discVal = override ? Number(override.discount_value ?? 10) : 10;
+    let commType = override?.commission_type || "percentage";
+    let commVal = override ? Number(override.commission_value ?? partner.base_commission_rate ?? 10) : Number(partner.base_commission_rate ?? 10);
 
     if (override) {
       if (override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
@@ -219,7 +212,7 @@ async function handleReferralCommission(
     revenue_before_discount: originalAmount,
     discount_applied: totalDiscountApplied || discountApplied,
     revenue_after_discount: totalAttributedRevenue || amount,
-    commission_percentage: referralData.commission_rate ?? partner.base_commission_rate ?? 10.00,
+    commission_percentage: totalAttributedRevenue > 0 ? ((totalAttributedCommission / totalAttributedRevenue) * 100) : Number(partner.base_commission_rate ?? 10),
     commission_amount: totalAttributedCommission,
     status: "pending"
   });
@@ -246,18 +239,10 @@ async function handleReferralCommission(
       .eq("id", referralData.partner_id);
   }
   
-  // 6. Update usage counters on referral code
-  const updateFields: any = {};
-  if (referralData.current_usage !== undefined) {
-    updateFields.current_usage = (referralData.current_usage || 0) + 1;
-  }
-  if (referralData.current_uses !== undefined) {
-    updateFields.current_uses = (referralData.current_uses || 0) + 1;
-  }
-
+  // 6. Update usage counter on referral code
   await supabase
     .from("mt_referral_codes")
-    .update(updateFields)
+    .update({ current_uses: (referralData.current_uses || 0) + 1 })
     .eq("id", referralData.id);
 }
 

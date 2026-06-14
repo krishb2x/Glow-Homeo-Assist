@@ -8,15 +8,20 @@ export async function middleware(request: NextRequest) {
   const role = request.cookies.get("meditonic_role")?.value;
 
   const isAdminRoute = pathname.startsWith("/admin");
-  const isPartnerRoute = pathname.startsWith("/partner-dashboard") || pathname.startsWith("/partner");
+  // Only match actual protected partner dashboard or partner sub-routes, excluding public routes like /partners
+  const isPartnerRoute = pathname.startsWith("/partner-dashboard") || pathname.startsWith("/partner/");
   
   const isLoginPage = pathname === "/admin/login" || pathname === "/partner-login" || pathname === "/partner/login";
 
-  // If authenticated and tries to hit login page, redirect directly to dashboard
+  // If authenticated and tries to hit login page, redirect directly to dashboard ONLY if role matches the login target
   if (isLoginPage && session) {
-    if (role === "partner") {
+    const isHittingAdminLogin = pathname === "/admin/login";
+    const isHittingPartnerLogin = pathname === "/partner-login" || pathname === "/partner/login";
+
+    if (isHittingPartnerLogin && role === "partner") {
       return NextResponse.redirect(new URL("/partner-dashboard", request.url));
-    } else {
+    }
+    if (isHittingAdminLogin && role !== "partner") {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
   }

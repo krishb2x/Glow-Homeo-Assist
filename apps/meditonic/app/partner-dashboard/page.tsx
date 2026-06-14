@@ -159,7 +159,7 @@ export default function PartnerDashboard() {
   const firstName = name.split(" ")[0];
   
   const primaryCode = codes.length > 0 ? codes[0].code : null;
-  const partnerCommission = codes.length > 0 && codes[0].commission_rate ? codes[0].commission_rate : partner.base_commission_rate;
+  const partnerCommission = partner.base_commission_rate || 10;
   
   const pendingCommission = attributions
     .filter(a => a.status === 'pending')

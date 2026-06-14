@@ -138,7 +138,7 @@ export default function CheckoutForm({ ebook, isPhysical }: CheckoutFormProps) {
           id="email"
           type="email"
           required
-          placeholder="rajesh.k@example.com"
+          placeholder="your.email@gmail.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isSubmitting}

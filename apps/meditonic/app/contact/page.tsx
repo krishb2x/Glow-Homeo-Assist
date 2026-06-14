@@ -144,7 +144,7 @@ export default function ContactPage() {
                         
                         <div className="space-y-2">
                           <label htmlFor="email" className="text-sm font-semibold text-mt-text">Email Address</label>
-                          <Input id="email" type="email" placeholder="john@example.com" />
+                          <Input id="email" type="email" placeholder="your.email@gmail.com" />
                         </div>
                         
                         <div className="space-y-2">

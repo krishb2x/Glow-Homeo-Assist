@@ -9,6 +9,7 @@ import { TREATMENT_CATEGORIES } from "../../lib/constants";
 import { formatPrice } from "../../lib/utils";
 import { Button } from "../../components/ui/Button";
 import { Input, Textarea } from "../../components/ui/Input";
+import { isReferralApplicable } from "../../lib/referrals/product-mapping";
 
 interface BookingFormProps {
   initialConcern?: string;
@@ -71,7 +72,22 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
       const res = await fetch(`/api/referral/validate?code=${encodeURIComponent(code)}&productType=consultation`);
       const data = await res.json();
       if (res.ok && data.success) {
-        setDiscountInfo({ type: data.discountType, value: data.discountValue, code: data.code });
+        let finalType = "percentage";
+        let finalValue = 10;
+
+        if (data.applicableProducts && data.applicableProducts.length > 0) {
+          const override = data.applicableProducts.find(
+            (p: any) => p.product_id === feeObj?.id || (isReferralApplicable(p.product_type, "consultation") && !p.product_id)
+          );
+          if (override && override.is_active !== false) {
+            if (override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
+              finalType = override.discount_type;
+              finalValue = Number(override.discount_value);
+            }
+          }
+        }
+
+        setDiscountInfo({ type: finalType, value: finalValue, code: data.code });
       } else {
         setRefError(data.error || "Invalid code");
         setDiscountInfo(null);
@@ -188,7 +204,7 @@ export default function BookingForm({ initialConcern = "", fees = [], onSuccess 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1 sm:col-span-2">
             <label className="text-sm font-semibold text-mt-text">Email Address / ईमेल पता</label>
-            <Input {...register("email")} type="email" placeholder="john@example.com" />
+            <Input {...register("email")} type="email" placeholder="your.email@gmail.com" />
             {errors.email && <p className="text-xs text-mt-error mt-1">{errors.email.message}</p>}
           </div>
           

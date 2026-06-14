@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
+    "@types/nodemailer": "^8.0.1",
     "typescript": "5.7.2"
   },
   "overrides": {
@@ -36,5 +37,8 @@
     "@next/swc-linux-x64-musl": "15.5.15",
     "@next/swc-win32-arm64-msvc": "15.5.15",
     "@next/swc-win32-x64-msvc": "15.5.15"
+  },
+  "dependencies": {
+    "nodemailer": "^8.0.11"
   }
 }
