@@ -42,7 +42,7 @@ export default async function StorefrontPage() {
       {/* Minimalist Trust Strip */}
       <div className="bg-white border-b border-mt-border py-1.5 sm:py-2.5">
         <div 
-          className="max-w-7xl mx-auto px-4 flex flex-row items-center justify-center flex-nowrap overflow-x-auto scrollbar-none gap-x-3 text-[10px] sm:text-xs md:text-sm whitespace-nowrap"
+          className="max-w-7xl mx-auto px-4 flex flex-row items-center justify-start md:justify-center flex-nowrap overflow-x-auto scrollbar-none gap-x-3 text-[10px] sm:text-xs md:text-sm whitespace-nowrap"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           <div className="flex items-center gap-1 font-semibold text-mt-text shrink-0">
