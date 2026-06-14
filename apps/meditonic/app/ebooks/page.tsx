@@ -37,10 +37,10 @@ export default async function StorefrontPage() {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#FDFDFD] pb-32 pt-0 sm:pt-4 md:pt-[52px]">
+    <div className="flex flex-col min-h-screen bg-[#FDFDFD] pb-32 pt-0">
       
       {/* Minimalist Trust Strip */}
-      <div className="bg-white border-b border-mt-border py-1.5 sm:py-2.5">
+      <div className="bg-white border-b border-mt-border py-1.5 md:py-1.5">
         <div 
           className="max-w-7xl mx-auto px-4 flex flex-row items-center justify-start md:justify-center flex-nowrap overflow-x-auto scrollbar-none gap-x-3 text-[10px] sm:text-xs md:text-sm whitespace-nowrap"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
@@ -62,7 +62,7 @@ export default async function StorefrontPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-3 sm:pt-6 md:pt-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-3 sm:pt-4 md:pt-6">
         <StorefrontClient initialCatalog={catalog} categories={categories} />
       </div>
 

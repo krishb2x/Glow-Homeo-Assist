@@ -25,9 +25,10 @@ export const ProductCard = ({ product }: { product: Product }) => {
   const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.type === 'hardcopy';
   const formatBadge = isPhysical ? 'Physical Book' : 'Digital PDF';
   const rating = product.metadata?.rating || 5.0;
+  const detailUrl = isPhysical ? `/store/${product.slug}` : `/ebooks/${product.slug}`;
 
   return (
-    <Link href={`/ebooks/${product.slug}`} className="group flex flex-col h-full bg-white rounded-2xl overflow-hidden border border-mt-border shadow-sm hover:shadow-xl transition-all duration-300">
+    <Link href={detailUrl} className="group flex flex-col h-full bg-white rounded-2xl overflow-hidden border border-mt-border shadow-sm hover:shadow-xl transition-all duration-300">
       {/* Cover Image Container */}
       <div className="relative aspect-[3/4] w-full bg-mt-primary-bg overflow-hidden flex-shrink-0">
         {imageSrc ? (
@@ -120,9 +121,11 @@ export const ComboCard = ({ product }: { product: Product }) => {
 
   const imageSrc = getImageUrl(product.cover_image_path || product.image_url);
   const savings = product.original_price ? product.original_price - product.price : 0;
+  const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.type === 'hardcopy';
+  const detailUrl = isPhysical ? `/store/${product.slug}` : `/ebooks/${product.slug}`;
 
   return (
-    <Link href={`/ebooks/${product.slug}`} className="group block w-full bg-[#1B6B5C] rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
+    <Link href={detailUrl} className="group block w-full bg-[#1B6B5C] rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
       <div className="flex flex-col sm:flex-row items-stretch">
         {/* Combo Image / Visual */}
         <div className="w-full sm:w-[40%] relative aspect-[16/9] sm:aspect-auto bg-[#0A3D33] overflow-hidden">

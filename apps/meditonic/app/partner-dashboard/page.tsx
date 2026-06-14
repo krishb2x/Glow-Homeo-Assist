@@ -94,7 +94,7 @@ export default function PartnerDashboard() {
         // Fetch Products for Marketing Marketplace
         const { data: productsData } = await supabase
           .from("mt_products")
-          .select("id, title, slug, price, cover_image_path, image_url")
+          .select("id, title, slug, price, cover_image_path, image_url, product_type")
           .eq("clinic_id", "595cd444-e89c-4d1f-b31f-27f76f59e0d7") 
           .eq("is_active", true)
           .order("display_order", { ascending: true });
@@ -330,7 +330,8 @@ export default function PartnerDashboard() {
               {primaryCode ? (
                 <div className="space-y-3.5">
                   {products.map((product) => {
-                    const link = `https://meditonic.glowhomeo.com/ebooks/${product.slug}?ref=${primaryCode}`;
+                    const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.product_type === 'TREATMENT_KIT';
+                    const link = `https://meditonic.glowhomeo.com/${isPhysical ? 'store' : 'ebooks'}/${product.slug}?ref=${primaryCode}`;
                     const estimatedEarnings = (product.price * partnerCommission) / 100;
                     const imageSrc = product.cover_image_path?.startsWith('http') 
                       ? product.cover_image_path 
