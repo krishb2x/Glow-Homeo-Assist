@@ -43,53 +43,12 @@ export default function StorefrontClient({ initialCatalog, categories }: Storefr
   const others = filteredCatalog.filter((e) => !e.is_bundle && !e.is_bestseller && !e.is_new_release && !e.is_featured);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
+    <div className="w-full">
       
-      {/* 1. Desktop Sidebar - sticky left column */}
-      {categories.length > 0 && (
-        <div className="hidden lg:block w-64 shrink-0">
-          <div className="sticky top-24 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-display text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-mt-primary" />
-              Collections
-            </h3>
-            <ul className="space-y-1.5">
-              <li>
-                <button
-                  onClick={() => setActiveCategory("")}
-                  className={`w-full text-left px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
-                    !activeCategory
-                      ? "bg-mt-primary-bg text-mt-primary font-semibold"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  All Resources
-                </button>
-              </li>
-              {categories.map((cat) => (
-                <li key={cat}>
-                  <button
-                    onClick={() => setActiveCategory(cat)}
-                    className={`w-full text-left px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
-                      activeCategory === cat
-                        ? "bg-mt-primary-bg text-mt-primary font-semibold"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {formatCategoryName(cat)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Main Feed & Mobile Controls */}
-      <div className="flex-1 min-w-0">
-        
+      {/* Search & Category Filter Controls */}
+      <div className="max-w-2xl mx-auto mb-6">
         {/* Search Bar - styled to feel extremely premium */}
-        <div className="relative mb-3.5 md:mb-5">
+        <div className="relative mb-4">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
@@ -109,15 +68,15 @@ export default function StorefrontClient({ initialCatalog, categories }: Storefr
           )}
         </div>
 
-        {/* Mobile Horizontal Category Tabs */}
+        {/* Horizontal Category Tabs */}
         {categories.length > 0 && (
           <div 
-            className="flex lg:hidden overflow-x-auto gap-2 pb-2.5 mb-3 -mx-4 px-4 scrollbar-none"
+            className="flex overflow-x-auto md:flex-wrap justify-start md:justify-center gap-2 pb-2.5 md:pb-0 -mx-4 px-4 md:-mx-0 md:px-0 scrollbar-none"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             <button
               onClick={() => setActiveCategory("")}
-              className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shadow-sm ${
+              className={`px-3.5 py-1.5 md:px-4.5 md:py-2 rounded-full text-[11px] md:text-xs font-semibold whitespace-nowrap transition-all shadow-sm ${
                 !activeCategory
                   ? "bg-mt-primary text-white"
                   : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -129,7 +88,7 @@ export default function StorefrontClient({ initialCatalog, categories }: Storefr
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shadow-sm ${
+                className={`px-3.5 py-1.5 md:px-4.5 md:py-2 rounded-full text-[11px] md:text-xs font-semibold whitespace-nowrap transition-all shadow-sm ${
                   activeCategory === cat
                     ? "bg-mt-primary text-white"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -140,6 +99,10 @@ export default function StorefrontClient({ initialCatalog, categories }: Storefr
             ))}
           </div>
         )}
+      </div>
+
+      {/* Main Feed Container */}
+      <div className="w-full">
 
         {/* Product Sections */}
         {filteredCatalog.length === 0 ? (

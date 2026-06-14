@@ -101,13 +101,27 @@ export const CartDrawer = () => {
 
   const originalTotal = cart.reduce((total, item) => total + ((item.product.original_price || item.product.price) * item.quantity), 0);
   
-  // Resolve coupon displays
-  const firstApplicable = discountInfo?.applicableProducts?.[0];
-  const displayType = discountInfo?.type || firstApplicable?.discount_type || "percentage";
+  // Resolve coupon displays dynamically based on cart items
+  const activeDiscountOverride = (() => {
+    if (!discountInfo?.applicableProducts) return null;
+    for (const item of cart) {
+      const override = findReferralOverride(
+        discountInfo.applicableProducts, 
+        item.product.id, 
+        item.product.product_type
+      );
+      if (override && override.is_active !== false) {
+        return override;
+      }
+    }
+    return discountInfo.applicableProducts[0];
+  })();
+
+  const displayType = discountInfo?.type || activeDiscountOverride?.discount_type || "percentage";
   const displayValue = (discountInfo?.value !== null && discountInfo?.value !== undefined)
     ? discountInfo.value 
-    : (firstApplicable?.discount_value !== null && firstApplicable?.discount_value !== undefined)
-      ? firstApplicable.discount_value
+    : (activeDiscountOverride?.discount_value !== null && activeDiscountOverride?.discount_value !== undefined)
+      ? activeDiscountOverride.discount_value
       : 10;
 
   let discountAmount = 0;
