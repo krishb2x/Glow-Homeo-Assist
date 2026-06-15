@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowRight, Eye, EyeOff, HeartHandshake } from "lucide-react";
+import { Loader2, ArrowRight, Eye, EyeOff, HeartHandshake, Sparkles } from "lucide-react";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 import Link from "next/link";
 
@@ -13,30 +13,15 @@ export default function PartnerLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [timeString, setTimeString] = useState("09:41 AM");
   const [postLoginPath, setPostLoginPath] = useState("/partner-dashboard");
 
   useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      let hours = now.getHours();
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12; 
-      setTimeString(`${hours}:${minutes} ${ampm}`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 30000);
-
     // Extract next/redirectTo parameter
     const q = new URLSearchParams(window.location.search);
     const n = q.get("next") || q.get("redirectTo");
     if (n && n.startsWith("/") && !n.startsWith("//")) {
       setPostLoginPath(n);
     }
-
-    return () => clearInterval(interval);
   }, []);
 
   const handleSubmit = async (e: any) => {
@@ -83,47 +68,66 @@ export default function PartnerLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center font-sans md:py-6 select-none animate-in fade-in duration-500">
-      
-      {/* Phone Simulator Frame Shell on Desktop */}
-      <div className="w-full md:max-w-md md:h-[840px] bg-white flex flex-col justify-between relative overflow-hidden md:rounded-[40px] md:shadow-2xl md:border-[10px] md:border-slate-800">
+    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row font-sans overflow-x-hidden select-none animate-in fade-in duration-500">
+      {/* Left Panel - Branding & Info (Hidden on Mobile) */}
+      <div className="hidden md:flex md:w-1/2 bg-slate-900 relative overflow-hidden flex-col justify-between p-12 lg:p-16 border-r border-slate-800/80">
+        {/* Background glow effects */}
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-[100px] -z-10"></div>
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-gradient-to-tl from-teal-500/10 to-transparent rounded-full blur-[100px] -z-10"></div>
         
-        {/* Notch - Speaker Notch Simulator */}
-        <div className="hidden md:block absolute top-0 left-1/2 -translate-x-1/2 w-36 h-5.5 bg-slate-850 rounded-b-2xl z-55">
-          <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-16 h-1 bg-slate-850 rounded-full"></div>
-          <div className="absolute top-1 right-8 w-2 h-2 bg-slate-900 rounded-full border border-slate-950"></div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-600 to-teal-800 flex items-center justify-center text-white font-serif font-black shadow-lg shadow-emerald-500/15">
+            M
+          </div>
+          <div>
+            <span className="text-[10px] font-black text-slate-400 block uppercase tracking-widest leading-none">MediTonic</span>
+            <span className="font-extrabold text-sm text-white tracking-tight mt-0.5 block">Partner Program</span>
+          </div>
         </div>
 
-        {/* Dynamic Mobile OS Status Bar (Desktop Mockup Only) */}
-        <div className="hidden md:flex items-center justify-between px-6 pt-5 pb-2 bg-white text-slate-800 text-[11px] shrink-0 select-none font-bold z-50">
-          <div>{timeString}</div>
-          <div className="flex items-center gap-2">
-            <span className="flex items-end gap-0.5 h-2.5">
-              <span className="w-0.5 h-1.2 bg-slate-850 rounded-sm"></span>
-              <span className="w-0.5 h-1.6 bg-slate-850 rounded-sm"></span>
-              <span className="w-0.5 h-2 bg-slate-850 rounded-sm"></span>
-              <span className="w-0.5 h-2.4 bg-slate-850 rounded-sm"></span>
-            </span>
-            <span className="text-[10px] font-black tracking-tighter">5G</span>
-            {/* Battery Indicator */}
-            <div className="flex items-center border border-slate-700 rounded-md p-0.5 w-6 h-3 relative">
-              <div className="bg-emerald-600 h-full w-4/5 rounded-[1px]"></div>
-              <div className="absolute -right-0.5 top-[3px] w-0.5 h-1 bg-slate-700 rounded-r-[1px]"></div>
+        <div className="my-auto max-w-lg space-y-6">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1.5 rounded-full uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" /> Premium Health Operating System
+          </span>
+          <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tight">
+            Empower Patients. <br/>
+            <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent font-black">Earn Commissions.</span>
+          </h2>
+          <p className="text-slate-400 text-sm leading-relaxed font-medium">
+            Recommend Dr. Aman Agrawal's premium homeopathy treatment programs, kits, and digital resources to your clients. Gain full visibility into your conversions, monthly payouts, and promo resources.
+          </p>
+
+          <div className="grid grid-cols-2 gap-6 pt-4">
+            <div>
+              <h4 className="text-2xl font-black text-white">Up to 20%</h4>
+              <p className="text-slate-400 text-xs font-semibold mt-1">High conversion commissions</p>
+            </div>
+            <div>
+              <h4 className="text-2xl font-black text-white">30-Day</h4>
+              <p className="text-slate-400 text-xs font-semibold mt-1">Attribution cookie tracking</p>
             </div>
           </div>
         </div>
 
-        {/* Content Body */}
-        <div className="flex-1 flex flex-col justify-center px-6 py-6 pb-12">
-          
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-center text-emerald-700 shadow-sm animate-bounce duration-1000">
+        <div className="text-slate-500 text-xs font-semibold">
+          &copy; {new Date().getFullYear()} MediTonic Health. All rights reserved.
+        </div>
+      </div>
+
+      {/* Right Panel - Login Form */}
+      <div className="w-full md:w-1/2 min-h-screen flex items-center justify-center p-6 sm:p-12 bg-slate-950 relative overflow-hidden">
+        {/* Background glow for mobile */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-emerald-500/5 rounded-full blur-[80px] -z-10 md:hidden"></div>
+        
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl p-8 shadow-2xl shadow-emerald-950/20 border border-slate-200 relative">
+          <div className="flex justify-center mb-6 md:hidden">
+            <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-center text-emerald-700 shadow-sm">
               <HeartHandshake className="w-8 h-8" />
             </div>
           </div>
 
-          <h1 className="text-3xl font-black text-slate-900 text-center tracking-tight mb-1">Partner Portal</h1>
-          <p className="text-slate-400 text-center text-[10px] font-black uppercase tracking-widest mb-6">MediTonic Affiliates</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-1 text-center md:text-left">Partner Portal</h1>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-6 text-center md:text-left">MediTonic Affiliates</p>
 
           {error && (
             <div className="bg-rose-50 border border-rose-100 text-rose-800 p-4 rounded-2xl text-xs font-bold mb-6 text-center animate-shake">
@@ -178,13 +182,8 @@ export default function PartnerLogin() {
             </p>
           </div>
         </div>
-
-        {/* iOS Home Pill indicator (Desktop mockup simulation only) */}
-        <div className="hidden md:flex justify-center items-center pb-6 shrink-0 select-none">
-          <div className="w-32 h-1.2 bg-slate-300 rounded-full"></div>
-        </div>
-
       </div>
     </div>
   );
 }
+

@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Play } from "lucide-react";
 
 export default function PreviewVideo({ videoUrl, title }: { videoUrl: string; title: string }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [imgSrc, setImgSrc] = useState("");
 
   if (!videoUrl) return null;
 
@@ -23,10 +24,18 @@ export default function PreviewVideo({ videoUrl, title }: { videoUrl: string; ti
     embedUrl = videoUrl;
   }
 
-  // Use maxresdefault for thumbnail if possible
-  const thumbnailUrl = videoId 
-    ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-    : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  // Set the initial image source after mount to ensure hydration is complete and onError binds properly
+  useEffect(() => {
+    if (videoId) {
+      setImgSrc(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
+    }
+  }, [videoId]);
+
+  const handleImgError = () => {
+    if (videoId) {
+      setImgSrc(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+    }
+  };
 
   return (
     <div className="w-full mb-12">
@@ -37,15 +46,14 @@ export default function PreviewVideo({ videoUrl, title }: { videoUrl: string; ti
             onClick={() => setIsPlaying(true)}
             className="absolute inset-0 w-full h-full flex items-center justify-center cursor-pointer group"
           >
-            <img 
-              src={thumbnailUrl} 
-              alt={`Preview of ${title}`} 
-              className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
-              onError={(e) => {
-                // Fallback to hqdefault if maxresdefault doesn't exist
-                (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-              }}
-            />
+            {imgSrc && (
+              <img 
+                src={imgSrc} 
+                alt={`Preview of ${title}`} 
+                className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
+                onError={handleImgError}
+              />
+            )}
             <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors duration-300"></div>
             <div className="relative w-20 h-20 bg-mt-primary/90 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:bg-mt-primary transition-all duration-300">
               <Play className="w-8 h-8 text-white fill-white ml-1" />

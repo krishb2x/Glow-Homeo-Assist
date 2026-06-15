@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getSupabaseBrowser } from "../../../lib/supabase-browser";
 import Link from "next/link";
-import { LayoutDashboard, Users, UserPlus, Gift, IndianRupee, LogOut, Loader2, Workflow, FolderGit2, ShoppingCart, Package, UserCircle } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, Gift, IndianRupee, LogOut, Loader2, Workflow, FolderGit2, ShoppingCart, Package, UserCircle, Mail } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -49,6 +49,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (loading) return;
+
+    // Super Admin route guard
+    if (pathname.startsWith("/admin/superadmin") && userRole !== "super_admin") {
+      router.push(userRole === "doctor" ? "/admin/commerce/treatment-kits" : (userRole === "support" ? "/admin/operations/treatment-kits" : "/admin"));
+      return;
+    }
 
     // Support route guard
     if (userRole === "support") {
@@ -95,6 +101,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   // Role checking flags
+  const isSuperAdmin = userRole === "super_admin";
   const isSuperAdminOrAdmin = ["super_admin", "admin"].includes(userRole);
   const isSupport = userRole === "support";
   const isDoctor = userRole === "doctor";
@@ -119,6 +126,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Applications", href: "/admin/partners/applications", icon: UserPlus, visible: isSuperAdminOrAdmin },
     { name: "Partners", href: "/admin/partners", icon: Users, visible: isSuperAdminOrAdmin },
     { name: "Commissions", href: "/admin/partners/commissions", icon: IndianRupee, visible: isSuperAdminOrAdmin },
+  ].filter(i => i.visible);
+
+  const superAdminItems = [
+    { name: "Superadmin Overview", href: "/admin/superadmin", icon: LayoutDashboard, visible: isSuperAdmin },
+    { name: "Email Settings", href: "/admin/superadmin/email-settings", icon: Mail, visible: isSuperAdmin },
   ].filter(i => i.visible);
 
   return (
@@ -198,6 +210,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               })}
             </>
           )}
+
+          {superAdminItems.length > 0 && (
+            <>
+              <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-6 px-2">Super Admin</div>
+              {superAdminItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || (item.href !== '/admin/superadmin' && pathname.startsWith(item.href));
+                return (
+                  <Link 
+                    key={item.href} 
+                    href={item.href}
+                    className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-3 py-2 md:py-2.5 rounded-xl text-[10px] md:text-sm font-medium transition-colors shrink-0 ${
+                      isActive ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 md:w-5 md:h-5 ${isActive ? "text-emerald-200" : "text-slate-500"}`} />
+                    <span className="hidden md:inline">{item.name}</span>
+                    <span className="md:hidden">{item.name.split(' ')[0]}</span>
+                  </Link>
+                )
+              })}
+            </>
+          )}
         </div>
 
         <div className="hidden md:block p-4 border-t border-slate-800 shrink-0">
@@ -216,7 +251,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 md:px-8 justify-between sticky top-0 z-10 w-full">
           <h1 className="text-lg md:text-xl font-semibold text-slate-800 capitalize truncate pr-4">
-            {[...navItems, ...commerceItems, ...partnerItems].find(i => pathname === i.href || (i.href !== '/admin/commerce' && pathname.startsWith(i.href)))?.name || "Dashboard"}
+            {[...navItems, ...commerceItems, ...partnerItems, ...superAdminItems].find(i => pathname === i.href || (i.href !== '/admin/commerce' && i.href !== '/admin/superadmin' && pathname.startsWith(i.href)))?.name || "Dashboard"}
           </h1>
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <button onClick={handleLogout} className="md:hidden p-2 text-slate-500">
