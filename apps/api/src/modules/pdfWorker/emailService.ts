@@ -1,170 +1,160 @@
-import nodemailer from "nodemailer";
-import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
-
 interface EmailOptions {
   cc?: string;
   bcc?: string;
 }
 
-// Create a reusable transporter (AWS SES or Zoho SMTP)
-function createTransporter() {
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  const region = process.env.AWS_REGION || "eu-north-1";
+let _zohoAccessToken: string | null = null;
+let _zohoTokenExpiry = 0;
+let _zohoAccountId: string | null = null;
 
-  // 1. AWS SES (Primary)
-  if (accessKeyId && secretAccessKey) {
-    const sesClient = new SESClient({
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-    });
-
-    return nodemailer.createTransport({
-      SES: { ses: sesClient, aws: { SendRawEmailCommand } },
-    } as any);
+async function getZohoAccessToken(): Promise<string> {
+  const now = Date.now();
+  if (_zohoAccessToken && _zohoTokenExpiry > now + 60000) {
+    return _zohoAccessToken;
   }
 
-  // 2. Zoho SMTP (Fallback)
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT) || 465;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const clientId = process.env.ZOHO_CLIENT_ID;
+  const clientSecret = process.env.ZOHO_CLIENT_SECRET;
+  const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
 
-  if (!host || !user || !pass) {
-    return null;
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error("Missing Zoho API configuration (ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN)");
   }
 
-  const isServerless = !!process.env.VERCEL || !!process.env.LAMBDA_TASK_ROOT || !!process.env.NETLIFY;
+  console.log("[Email] Refreshing Zoho Mail API access token...");
+  const params = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+  });
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-    pool: !isServerless,
-    maxConnections: isServerless ? undefined : 3,
-    dnsFamily: 4, // Force IPv4 to prevent Railway IPv6 resolution timeout issues
-    connectionTimeout: 15000, // Fail faster if blocked
-  } as any);
+  const res = await fetch("https://accounts.zoho.in/oauth/v2/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params.toString(),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Failed to refresh Zoho token: ${res.statusText} - ${errText}`);
+  }
+
+  const data = await res.json() as { access_token: string; expires_in: number; error?: string };
+  if (data.error || !data.access_token) {
+    throw new Error(`Zoho token refresh error: ${JSON.stringify(data)}`);
+  }
+
+  _zohoAccessToken = data.access_token;
+  _zohoTokenExpiry = Date.now() + (data.expires_in * 1000);
+  console.log(`[Email] Zoho token refreshed successfully. Expiry in ${data.expires_in} seconds.`);
+
+  return _zohoAccessToken;
 }
 
-// Singleton transporter instance
-let _transporter: any = null;
-
-function getTransporter() {
-  if (!_transporter) {
-    _transporter = createTransporter();
+async function getZohoAccountId(accessToken: string, senderEmail: string): Promise<string> {
+  if (_zohoAccountId) {
+    return _zohoAccountId;
   }
-  return _transporter;
+
+  console.log(`[Email] Fetching Zoho account list to resolve accountId for ${senderEmail}...`);
+  const res = await fetch("https://mail.zoho.in/api/accounts", {
+    method: "GET",
+    headers: {
+      Authorization: `Zoho-oauthtoken ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Failed to fetch Zoho accounts: ${res.statusText} - ${errText}`);
+  }
+
+  const result = await res.json() as {
+    data?: { accountId: string; mailboxAddress: string }[];
+    status?: { code: number; description: string };
+  };
+
+  if (!result.data || !Array.isArray(result.data)) {
+    throw new Error(`Invalid accounts response structure: ${JSON.stringify(result)}`);
+  }
+
+  const emailLower = senderEmail.toLowerCase();
+  const matchedAccount = result.data.find(
+    acc => acc.mailboxAddress.toLowerCase() === emailLower
+  );
+
+  if (!matchedAccount) {
+    if (result.data.length > 0) {
+      console.warn(`[Email] Sender email ${senderEmail} not found in Zoho accounts. Defaulting to first available account: ${result.data[0].mailboxAddress}`);
+      _zohoAccountId = result.data[0].accountId;
+    } else {
+      throw new Error(`No accounts found in your Zoho developer configuration.`);
+    }
+  } else {
+    _zohoAccountId = matchedAccount.accountId;
+  }
+
+  console.log(`[Email] Resolved Zoho accountId: ${_zohoAccountId} for mailbox ${senderEmail}`);
+  return _zohoAccountId;
 }
 
 export async function sendConfirmationEmail(to: string, subject: string, html: string, options?: EmailOptions) {
-  const isSES = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-  let from = process.env.NOTIFICATION_FROM_EMAIL || `"GlowHomeo" <${process.env.SMTP_USER || "care@glowhomeo.in"}>`;
-  if (isSES) {
-    const sesFrom = process.env.SES_FROM_EMAIL || "care@glowhomeo.com";
-    if (process.env.NOTIFICATION_FROM_EMAIL) {
-      if (process.env.NOTIFICATION_FROM_EMAIL.includes("<")) {
-        from = process.env.NOTIFICATION_FROM_EMAIL.replace(/<[^>]+>/, `<${sesFrom}>`);
-      } else {
-        from = sesFrom;
-      }
-    } else {
-      from = `"GlowHomeo" <${sesFrom}>`;
-    }
-  }
+  const ccList = options?.cc ? options.cc.split(",").map(e => e.trim()).filter(Boolean) : undefined;
+  const bccList = options?.bcc ? options.bcc.split(",").map(e => e.trim()).filter(Boolean) : undefined;
 
-  const replyTo = process.env.NOTIFICATION_REPLY_TO_EMAIL || "care@glowhomeo.in";
-
-  // 1. AWS SES (Primary)
-  if (isSES) {
-    const transporter = getTransporter();
-    if (transporter) {
-      try {
-        console.log(`[Email] Attempting to send email via AWS SES to ${to}...`);
-        const info = await transporter.sendMail({
-          from,
-          to,
-          cc: options?.cc || undefined,
-          bcc: options?.bcc || undefined,
-          replyTo,
-          subject,
-          html,
-          text: `Please enable HTML to view this email.`,
-        });
-        console.log("Successfully sent email via AWS SES to:", to, "| MessageID:", info.messageId);
-        return { success: true, data: { id: info.messageId } };
-      } catch (error: any) {
-        console.error("Error sending email via AWS SES:", error.message);
-        // Fallback to Resend or Zoho SMTP if SES fails
-      }
-    }
-  }
-
-  // 2. Resend API
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  if (resendApiKey) {
-    try {
-      console.log(`[Email] Attempting to send email via Resend API (HTTPS) to ${to}...`);
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          from,
-          to: [to],
-          subject,
-          html,
-          text: `Please enable HTML to view this email.`,
-          reply_to: replyTo,
-          cc: options?.cc ? [options.cc] : undefined,
-          bcc: options?.bcc ? [options.bcc] : undefined,
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json() as { id?: string };
-        console.log("Successfully sent email via Resend API to:", to, "| MessageID:", data.id);
-        return { success: true, data: { id: data.id } };
-      } else {
-        const errText = await res.text();
-        console.warn(`[Email] Resend API failed: ${errText}. Falling back to SMTP...`);
-      }
-    } catch (e: any) {
-      console.warn(`[Email] Resend API exception: ${e.message}. Falling back to SMTP...`);
-    }
-  }
-
-  // 3. Zoho SMTP
-  const transporter = getTransporter();
-  
-  if (!transporter) {
-    console.warn("Email transport is not configured. Email will not be sent to:", to);
-    return { success: false, error: "Email transport not configured" };
-  }
+  const from = process.env.NOTIFICATION_FROM_EMAIL || `"GlowHomeo" <${process.env.SMTP_USER || "care@glowhomeo.in"}>`;
 
   try {
-    const info = await transporter.sendMail({
-      from,
-      to,
-      cc: options?.cc || undefined,
-      bcc: options?.bcc || undefined,
-      replyTo,
+    console.log(`[Email] Sending email via Zoho Mail REST API to ${to}...`);
+    const accessToken = await getZohoAccessToken();
+    
+    let rawFromAddress = process.env.SMTP_USER || "care@glowhomeo.in";
+    const fromMatch = from.match(/<([^>]+)>/);
+    if (fromMatch) {
+      rawFromAddress = fromMatch[1];
+    }
+
+    const accountId = await getZohoAccountId(accessToken, rawFromAddress);
+
+    const ccString = ccList && ccList.length > 0 ? ccList.join(",") : undefined;
+    const bccString = bccList && bccList.length > 0 ? bccList.join(",") : undefined;
+
+    const payload: any = {
+      fromAddress: rawFromAddress,
+      toAddress: to,
       subject,
-      html,
-      text: `Please enable HTML to view this email.`,
+      content: html,
+      mailFormat: "html",
+      askReceipt: "no",
+    };
+
+    if (ccString) payload.ccAddress = ccString;
+    if (bccString) payload.bccAddress = bccString;
+
+    const sendRes = await fetch(`https://mail.zoho.in/api/accounts/${accountId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Zoho-oauthtoken ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
 
-    console.log("Successfully sent email via SMTP to:", to, "| MessageID:", info.messageId);
-    return { success: true, data: { id: info.messageId } };
-    
+    const sendResult = await sendRes.json() as any;
+
+    if (sendRes.ok && sendResult.status?.code === 200) {
+      console.log(`Successfully sent email via Zoho REST API to: ${to} | MessageID: ${sendResult.data?.messageId || "unknown"}`);
+      return { success: true, data: { id: sendResult.data?.messageId } };
+    } else {
+      const errDesc = sendResult.status?.description || JSON.stringify(sendResult);
+      console.error(`[Email] Zoho REST API send failed: ${errDesc}`);
+      return { success: false, error: `Zoho REST API send failed: ${errDesc}` };
+    }
   } catch (error: any) {
-    console.error("Error sending email via SMTP:", error.message);
+    console.error("[Email] Error sending email via Zoho REST API:", error.message);
     return { success: false, error: error.message };
   }
 }
