@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   
   const { data: product } = await supabase
     .from("mt_products")
-    .select("title, description, image_url")
+    .select("title, description, cover_image_path")
     .eq("slug", resolvedParams.slug)
     .single();
 
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url: `https://meditonic.glowhomeo.com/ebooks/${resolvedParams.slug}`,
       images: [
         {
-          url: product.image_url || `https://meditonic.glowhomeo.com/og-default.jpg`,
+          url: getImageUrl(product.cover_image_path) || `https://meditonic.glowhomeo.com/og-default.jpg`,
           width: 1200,
           height: 630,
         }
@@ -73,7 +73,7 @@ export default async function StoreProductPage({
     .select(`
       related_product_id,
       related_product:mt_products!related_product_id (
-        id, title, price, original_price, cover_image_path, image_url, slug, is_bundle
+        id, title, price, original_price, cover_image_path, slug, is_bundle
       )
     `)
     .eq("product_id", product.id)
@@ -92,7 +92,7 @@ export default async function StoreProductPage({
   const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.type === 'hardcopy';
   const rating = metadata.rating || 5.0;
   const author = metadata.author || "Dr. Aman Agrawal";
-  const imageSrc = getImageUrl(product.cover_image_path || product.image_url);
+  const imageSrc = getImageUrl(product.cover_image_path);
   const reviewCount = metadata.verified_reviews?.length || 12; // Fallback to 12 if none
 
   return (

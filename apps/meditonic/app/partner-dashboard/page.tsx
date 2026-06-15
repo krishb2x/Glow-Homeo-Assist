@@ -95,8 +95,8 @@ export default function PartnerDashboard() {
 
         const { data: productsData } = await supabase
           .from("mt_products")
-          .select("id, title, slug, price, cover_image_path, image_url, product_type")
-          .eq("clinic_id", "595cd444-e89c-4d1f-b31f-27f76f59e0d7") 
+          .select("id, title, slug, price, cover_image_path, product_type")
+          .eq("clinic_id", partnerData.clinic_id) 
           .eq("is_active", true)
           .order("display_order", { ascending: true });
 
@@ -107,6 +107,7 @@ export default function PartnerDashboard() {
         const { data: consultData } = await supabase
           .from("mt_consultation_fees")
           .select("id, label, type, price")
+          .eq("clinic_id", partnerData.clinic_id)
           .eq("is_active", true)
           .order("price", { ascending: true });
 
@@ -315,9 +316,9 @@ export default function PartnerDashboard() {
                       <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">YOUR TRACKING CODE</span>
                       <span className="font-mono font-black text-2.5xl text-emerald-700 tracking-wider">{primaryCode}</span>
                     </div>
-                    <div className="space-y-1 sm:text-right">
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">BASE COMMISSION RATE</span>
-                      <span className="font-bold text-slate-800 text-xl">{partnerCommission}%</span>
+                     <div className="space-y-1 sm:text-right">
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">COMMISSION STRUCTURE</span>
+                      <span className="font-bold text-slate-800 text-lg">Product-specific</span>
                     </div>
                   </div>
 
@@ -443,11 +444,11 @@ export default function PartnerDashboard() {
                           ? `${discVal}% off` 
                           : `₹${discVal} off`;
 
-                        const imageSrc = product.cover_image_path?.startsWith('http') 
-                          ? product.cover_image_path 
-                          : product.cover_image_path 
-                            ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.cover_image_path}` 
-                            : product.image_url;
+                         const imageSrc = product.cover_image_path?.startsWith('http') 
+                           ? product.cover_image_path 
+                           : product.cover_image_path 
+                             ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${product.cover_image_path}` 
+                             : null;
 
                         const socialText = `Check out Dr. Aman Agrawal's premium homeopathy treatment program: "${product.title}"! Get ${discountText} with my exclusive link: ${link}`;
                         const emailSubject = `Homeopathy Care: ${product.title}`;
