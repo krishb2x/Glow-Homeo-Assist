@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { createAdminClient } from "../../../lib/supabase";
 import { BRAND } from "../../../lib/constants";
+import { isReferralApplicable, findReferralOverride } from "../../../lib/referrals/product-mapping";
+
 
 function getRazorpay() {
   return new Razorpay({
@@ -13,7 +15,7 @@ function getRazorpay() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, phone, email, age, gender, symptoms, symptomDescription, slug, photoUrl, reportUrl } = body;
+    const { name, phone, email, age, gender, symptoms, symptomDescription, slug, photoUrl, reportUrl, referralCode } = body;
 
     // Validate inputs
     if (!name || !phone || !gender || !slug) {
@@ -37,7 +39,73 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid treatment kit slug or product not found" }, { status: 400 });
     }
 
-    const price = product.price;
+    const originalPrice = product.price;
+    let price = originalPrice;
+    let discountApplied = 0;
+    let referralCodeId = null;
+
+    // Process Referral Code if provided
+    if (referralCode) {
+      const { data: referralData, error: referralError } = await supabase
+        .from("mt_referral_codes")
+        .select(`
+          *,
+          mt_referral_products (
+            product_type,
+            product_id,
+            discount_type,
+            discount_value,
+            commission_type,
+            commission_value,
+            is_active
+          )
+        `)
+        .eq("clinic_id", clinicId)
+        .ilike("code", referralCode)
+        .single();
+
+      if (!referralError && referralData && referralData.is_active) {
+        const now = new Date();
+        
+        // Start date check
+        const validFrom = referralData.valid_from ? new Date(referralData.valid_from) : null;
+        const startValid = !validFrom || validFrom <= now;
+
+        // Expiration check
+        const validUntil = referralData.valid_until ? new Date(referralData.valid_until) : null;
+        const endValid = !validUntil || validUntil >= now;
+
+        // Usage limit check
+        const maxUses = referralData.max_uses;
+        const currentUses = referralData.current_uses || 0;
+        const limitValid = maxUses === undefined || maxUses === null || currentUses < maxUses;
+        
+        // Scoping check using shared logic and overrides
+        let override = findReferralOverride(referralData.mt_referral_products, product.id, "treatment_kit");
+
+        const isApplicable = !referralData.mt_referral_products || referralData.mt_referral_products.length === 0 || (override && override.is_active !== false);
+
+        if (startValid && endValid && limitValid && isApplicable) {
+          referralCodeId = referralData.id;
+          
+          let discountType = override?.discount_type || "percentage";
+          let discountValue = override ? Number(override.discount_value) : 10;
+          
+          if (override && override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
+            discountType = override.discount_type;
+            discountValue = Number(override.discount_value);
+          }
+          
+          if (discountType === 'percentage') {
+            discountApplied = (originalPrice * discountValue) / 100;
+          } else if (discountType === 'fixed') {
+            discountApplied = discountValue;
+          }
+          
+          price = Math.max(0, originalPrice - discountApplied);
+        }
+      }
+    }
 
     // 2. Upsert Patient
     let patientId: string;
@@ -87,6 +155,7 @@ export async function POST(req: Request) {
         concern_category: product.title,
         description: symptomDescription || null,
         source: "website",
+        referral_code_id: referralCodeId,
         payment_status: "pending",
         status: "new",
         workflow_status: "doctor_review",
@@ -137,13 +206,14 @@ export async function POST(req: Request) {
         clinic_id: clinicId,
         patient_id: patientId,
         amount: price,
-        original_amount: price,
-        discount_applied: 0,
+        original_amount: originalPrice,
+        discount_applied: discountApplied,
         currency: "INR",
         razorpay_order_id: orderId,
         status: "created",
         purpose: "treatment_kit",
         reference_id: newCase.id,
+        referral_code_id: referralCodeId,
       });
 
     if (paymentError) {

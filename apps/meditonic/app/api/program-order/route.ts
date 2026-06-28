@@ -3,6 +3,8 @@ import Razorpay from "razorpay";
 import { createAdminClient } from "../../../lib/supabase";
 import { BRAND } from "../../../lib/constants";
 import * as z from "zod";
+import { isReferralApplicable, findReferralOverride } from "../../../lib/referrals/product-mapping";
+
 
 function getRazorpay() {
   return new Razorpay({
@@ -18,6 +20,7 @@ const programOrderSchema = z.object({
   phone: z.string().min(10),
   age: z.number().optional(),
   gender: z.string().optional(),
+  referralCode: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -29,13 +32,78 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid data", details: parsedData.error.errors }, { status: 400 });
     }
 
-    const { programId, name, email, phone, age, gender } = parsedData.data;
+    const { programId, name, email, phone, age, gender, referralCode } = parsedData.data;
     const supabase = createAdminClient();
     const clinicId = BRAND.clinicId;
 
-    // 1. Get Program Details (Assuming we have mt_programs or similar, or fallback to fixed price)
-    // We'll mock price to 1999 if the table is missing for now to ensure flow completion
-    const price = 1999; 
+    // 1. Determine Price dynamically
+    let originalPrice = programId === "glow_skin" ? 2499 : 1999;
+    let price = originalPrice;
+    let discountApplied = 0;
+    let referralCodeId = null;
+
+    // Process Referral Code if provided
+    if (referralCode) {
+      const { data: referralData, error: referralError } = await supabase
+        .from("mt_referral_codes")
+        .select(`
+          *,
+          mt_referral_products (
+            product_type,
+            product_id,
+            discount_type,
+            discount_value,
+            commission_type,
+            commission_value,
+            is_active
+          )
+        `)
+        .eq("clinic_id", clinicId)
+        .ilike("code", referralCode)
+        .single();
+
+      if (!referralError && referralData && referralData.is_active) {
+        const now = new Date();
+        
+        // Start date check
+        const validFrom = referralData.valid_from ? new Date(referralData.valid_from) : null;
+        const startValid = !validFrom || validFrom <= now;
+
+        // Expiration check
+        const validUntil = referralData.valid_until ? new Date(referralData.valid_until) : null;
+        const endValid = !validUntil || validUntil >= now;
+
+        // Usage limit check
+        const maxUses = referralData.max_uses;
+        const currentUses = referralData.current_uses || 0;
+        const limitValid = maxUses === undefined || maxUses === null || currentUses < maxUses;
+        
+        // Scoping check using shared logic and overrides
+        let override = findReferralOverride(referralData.mt_referral_products, programId, "program");
+
+        const isApplicable = !referralData.mt_referral_products || referralData.mt_referral_products.length === 0 || (override && override.is_active !== false);
+
+        if (startValid && endValid && limitValid && isApplicable) {
+          referralCodeId = referralData.id;
+          
+          let discountType = override?.discount_type || "percentage";
+          let discountValue = override ? Number(override.discount_value) : 10;
+          
+          if (override && override.discount_type && override.discount_value !== undefined && override.discount_value !== null) {
+            discountType = override.discount_type;
+            discountValue = Number(override.discount_value);
+          }
+          
+          if (discountType === 'percentage') {
+            discountApplied = (originalPrice * discountValue) / 100;
+          } else if (discountType === 'fixed') {
+            discountApplied = discountValue;
+          }
+          
+          price = Math.max(0, originalPrice - discountApplied);
+        }
+      }
+    }
 
     // 2. Upsert Patient
     let patientId: string;
@@ -103,12 +171,14 @@ export async function POST(req: Request) {
         clinic_id: clinicId,
         patient_id: patientId,
         amount: price,
-        original_amount: price,
+        original_amount: originalPrice,
+        discount_applied: discountApplied,
         currency: "INR",
         razorpay_order_id: rzpOrder.id,
         status: "created",
         purpose: "program",
         reference_id: enrollment.id,
+        referral_code_id: referralCodeId,
       });
 
     // DEV ONLY MOCK

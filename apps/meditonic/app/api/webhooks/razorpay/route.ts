@@ -318,7 +318,7 @@ export async function POST(req: Request) {
               const { data: refCodeData } = await supabase
                 .from("mt_referral_codes")
                 .select("id")
-                .eq("code", referralLog.code)
+                .ilike("code", referralLog.code)
                 .single();
 
               if (refCodeData) {

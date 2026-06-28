@@ -135,6 +135,7 @@ export default function TreatmentKitClient({ product }: { product: Product }) {
     setLoading(true);
 
     try {
+      const refCode = localStorage.getItem("mt_referral_code");
       // 1. Call Create Order API
       const res = await fetch("/api/treatment-kit-order", {
         method: "POST",
@@ -150,6 +151,7 @@ export default function TreatmentKitClient({ product }: { product: Product }) {
           slug: product.slug,
           photoUrl,
           reportUrl,
+          referralCode: refCode || undefined
         }),
       });
 
