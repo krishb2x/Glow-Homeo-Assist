@@ -8,15 +8,28 @@ export async function saveProductAction(payload: any, productId?: string) {
   try {
     const supabase = createAdminClient();
 
-      // Determine if digital uploads apply
-      const hasDigitalUploads = ['EBOOK', 'PROGRAM', 'COURSE'].includes(payload.product_type || 'EBOOK');
+      const productType = payload.product_type || 'EBOOK';
+      const hasDigitalUploads = ['EBOOK', 'PROGRAM', 'COURSE'].includes(productType);
+      
+      const fulfillmentTypeMap: Record<string, string> = {
+        EBOOK: 'DIGITAL_DOWNLOAD',
+        PHYSICAL_BOOK: 'PHYSICAL_SHIPPING',
+        CONSULTATION: 'BOOKING',
+        PROGRAM: 'DIGITAL_DOWNLOAD',
+        COURSE: 'LMS_ACCESS',
+        MEMBERSHIP: 'LMS_ACCESS',
+        BUNDLE: 'DIGITAL_DOWNLOAD',
+        TREATMENT_KIT: 'PHYSICAL_SHIPPING',
+      };
+      
+      const fulfillmentType = payload.fulfillment_type || fulfillmentTypeMap[productType] || 'DIGITAL_DOWNLOAD';
 
       const metadata: any = {
         ...(payload.metadata || {}),
         gallery_image_paths: payload.gallery_image_paths || [],
         meta_title: payload.meta_title || "",
         meta_description: payload.meta_description || "",
-        fulfillment_type: payload.fulfillment_type || "DIGITAL_DOWNLOAD",
+        fulfillment_type: fulfillmentType,
         
         // Recoverable Metadata
         pages: payload.metadata?.pages || undefined,
@@ -52,11 +65,12 @@ export async function saveProductAction(payload: any, productId?: string) {
         is_bestseller: payload.is_bestseller || false,
         is_new_release: payload.is_new_release || false,
         is_bundle: payload.is_bundle || false,
-        category: payload.category || null,
+        category: payload.category || "",
 
         // Core Classification
-        product_type: payload.product_type || 'EBOOK',
-        is_combo: payload.product_type === 'BUNDLE' || payload.is_bundle,
+        product_type: productType,
+        fulfillment_type: fulfillmentType,
+        is_combo: productType === 'BUNDLE' || payload.is_bundle,
         
         metadata: metadata
       };

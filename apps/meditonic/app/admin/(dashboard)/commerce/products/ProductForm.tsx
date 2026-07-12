@@ -262,10 +262,28 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: ['price', 'original_price', 'display_order'].includes(name) ? Number(value) : value 
-      }));
+      setFormData(prev => {
+        const nextData = {
+          ...prev,
+          [name]: ['price', 'original_price', 'display_order'].includes(name) ? Number(value) : value
+        };
+        
+        if (name === 'product_type') {
+          const fulfillmentTypeMap: Record<string, string> = {
+            EBOOK: 'DIGITAL_DOWNLOAD',
+            PHYSICAL_BOOK: 'PHYSICAL_SHIPPING',
+            CONSULTATION: 'BOOKING',
+            PROGRAM: 'DIGITAL_DOWNLOAD',
+            COURSE: 'LMS_ACCESS',
+            MEMBERSHIP: 'LMS_ACCESS',
+            BUNDLE: 'DIGITAL_DOWNLOAD',
+            TREATMENT_KIT: 'PHYSICAL_SHIPPING',
+          };
+          nextData.fulfillment_type = (fulfillmentTypeMap[value] || 'DIGITAL_DOWNLOAD') as FulfillmentType;
+        }
+        
+        return nextData;
+      });
     }
   };
 
