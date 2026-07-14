@@ -90,20 +90,23 @@ export class ShiprocketProvider implements LogisticsProvider {
         }
       }
 
+      // Fallback: If no couriers are returned by Shiprocket, allow standard SpeedPost delivery
       return {
-        isServiceable: false,
-        codAvailable: false,
-        estimatedDays: 0,
-        shippingCharge: 0,
+        isServiceable: true,
+        codAvailable: true,
+        estimatedDays: 5,
+        shippingCharge: 60.00,
+        carrierName: "India Post (SpeedPost)",
       };
     } catch (error) {
       console.error("[Shiprocket Serviceability Check Failed]:", error);
-      // Return safe fallback (non-serviceable or standard rate if it was just an API timeout)
+      // Fallback to standard delivery instead of blocking checkout on network/auth errors
       return {
-        isServiceable: false,
-        codAvailable: false,
-        estimatedDays: 0,
-        shippingCharge: 0,
+        isServiceable: true,
+        codAvailable: true,
+        estimatedDays: 5,
+        shippingCharge: 60.00,
+        carrierName: "Standard Delivery",
       };
     }
   }

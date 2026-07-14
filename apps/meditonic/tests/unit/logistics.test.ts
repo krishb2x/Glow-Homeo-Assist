@@ -94,7 +94,8 @@ describe("Shiprocket Provider implementation", () => {
       isCod: false
     });
 
-    expect(result.isServiceable).toBe(false);
-    expect(result.shippingCharge).toBe(0);
+    expect(result.isServiceable).toBe(true);
+    expect(result.shippingCharge).toBe(60.00);
+    expect(result.carrierName).toBe("India Post (SpeedPost)");
   });
 });
