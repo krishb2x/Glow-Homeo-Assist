@@ -58,6 +58,14 @@ export interface Product {
   // Temporary legacy mapping to prevent breaking existing UI until they are fully migrated
   type?: string;
   image_url?: string;
+  weight_grams?: number;
+  length_cm?: number;
+  width_cm?: number;
+  height_cm?: number;
+  hsn_code?: string;
+  cod_allowed?: boolean;
+  partial_cod_allowed?: boolean;
+  partial_cod_amount?: number;
   related_product_ids?: string[];
   bundle_item_ids?: string[];
   fbt_product_ids?: string[];

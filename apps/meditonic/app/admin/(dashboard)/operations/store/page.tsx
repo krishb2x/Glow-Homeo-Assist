@@ -45,9 +45,9 @@ export default function StoreOperationsBoard() {
       const supabase = getSupabaseBrowser();
       const { data, error } = await supabase
         .from("mt_orders")
-        .select("*")
+        .select("*, mt_shipments(*)")
         .eq("clinic_id", BRAND.clinicId)
-        .eq("status", "paid")
+        .or("status.eq.paid,status.eq.confirmed")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -346,10 +346,93 @@ export default function StoreOperationsBoard() {
                           </div>
                         )}
 
-                        {o.tracking_id && (
-                          <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 text-[10px] text-indigo-900">
-                            <span className="font-bold block mb-0.5">Shipping Status:</span>
-                            <p>{o.carrier_name} - {o.tracking_id}</p>
+                        {/* Payment Method Details */}
+                        <div className="flex justify-between items-center text-[10px] bg-slate-50 p-2 rounded-lg border">
+                          <span className="font-semibold text-slate-500">Payment:</span>
+                          <span className={`px-1.5 py-0.5 rounded font-extrabold uppercase text-[8px] ${
+                            o.payment_method === 'cod' 
+                              ? "bg-amber-100 text-amber-800" 
+                              : o.payment_method === 'partial_cod' 
+                                ? "bg-orange-100 text-orange-800" 
+                                : "bg-emerald-100 text-emerald-800"
+                          }`}>
+                            {o.payment_method === 'cod' 
+                              ? "COD" 
+                              : o.payment_method === 'partial_cod' 
+                                ? `Partial COD (Pending ₹${o.cod_amount_pending})` 
+                                : "Prepaid"}
+                          </span>
+                        </div>
+
+                        {/* Shiprocket Shipments & Tracking Timeline */}
+                        {o.mt_shipments && o.mt_shipments.length > 0 ? (
+                          <div className="space-y-2">
+                            {o.mt_shipments.map((shipment: any) => (
+                              <div key={shipment.id} className="p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 text-[10px] text-indigo-900 space-y-1">
+                                <div className="flex justify-between items-center font-bold text-indigo-950">
+                                  <span>Shipment #{shipment.shipment_number} ({shipment.provider})</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-indigo-100 font-extrabold uppercase text-[8px]">
+                                    {shipment.status}
+                                  </span>
+                                </div>
+                                
+                                {shipment.awb_code && (
+                                  <p><span className="font-semibold text-slate-500">AWB Code:</span> {shipment.awb_code} ({shipment.courier_name})</p>
+                                )}
+
+                                {shipment.sync_status === 'FAILED' && (
+                                  <div className="text-red-600 space-y-1">
+                                    <p className="font-semibold">Sync Error:</p>
+                                    <p className="bg-red-50 p-1.5 rounded font-mono text-[8px] break-all">{shipment.last_error || "Unknown Shiprocket Error"}</p>
+                                  </div>
+                                )}
+
+                                <div className="flex gap-2 pt-1.5 border-t border-indigo-100">
+                                  {shipment.label_url && (
+                                    <a 
+                                      href={shipment.label_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 py-1 rounded text-[9px] inline-block text-center"
+                                    >
+                                      Print Label
+                                    </a>
+                                  )}
+                                  
+                                  {(shipment.sync_status === 'FAILED' || shipment.sync_status === 'PENDING') && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          alert("Retrying sync with Shiprocket...");
+                                          const res = await fetch("/api/admin/shipping/retry-sync", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ shipmentId: shipment.id })
+                                          });
+                                          const data = await res.json();
+                                          if (data.success) {
+                                            alert("Synced successfully!");
+                                            fetchOrders();
+                                          } else {
+                                            alert(`Sync failed: ${data.error}`);
+                                          }
+                                        } catch (err: any) {
+                                          alert(`Error: ${err.message}`);
+                                        }
+                                      }}
+                                      className="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded hover:bg-indigo-200 text-[9px]"
+                                    >
+                                      Retry Sync
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-slate-500 text-[10px] text-center italic">
+                            No logistics shipment initialized
                           </div>
                         )}
 

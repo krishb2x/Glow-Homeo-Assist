@@ -37,6 +37,16 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     meta_title: (initialData as any)?.meta_title || "",
     meta_description: (initialData as any)?.meta_description || "",
     
+    // Shipping dimensions & logistics configuration
+    weight_grams: (initialData as any)?.weight_grams ?? 500,
+    length_cm: (initialData as any)?.length_cm ?? 15,
+    width_cm: (initialData as any)?.width_cm ?? 15,
+    height_cm: (initialData as any)?.height_cm ?? 5,
+    hsn_code: (initialData as any)?.hsn_code || "",
+    cod_allowed: (initialData as any)?.cod_allowed ?? true,
+    partial_cod_allowed: (initialData as any)?.partial_cod_allowed ?? false,
+    partial_cod_amount: (initialData as any)?.partial_cod_amount ?? 0,
+
     // Legacy support
     status: (initialData as any)?.status || "PUBLISHED",
     type: (initialData as any)?.type || "EBOOK",
@@ -265,7 +275,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
       setFormData(prev => {
         const nextData = {
           ...prev,
-          [name]: ['price', 'original_price', 'display_order'].includes(name) ? Number(value) : value
+          [name]: ['price', 'original_price', 'display_order', 'weight_grams', 'length_cm', 'width_cm', 'height_cm', 'partial_cod_amount'].includes(name) ? Number(value) : value
         };
         
         if (name === 'product_type') {
@@ -528,6 +538,90 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Language</label>
                   <input type="text" name="language" value={metaFields.language || ''} onChange={handleMetaChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. English, Hindi" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Shipping & Logistics Panel (Shiprocket & COD) */}
+          {['PHYSICAL_BOOK', 'TREATMENT_KIT'].includes(formData.product_type || '') && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4 border-l-4 border-l-indigo-600">
+              <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">
+                Shipping & Logistics (Shiprocket)
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Weight (grams) *</label>
+                  <input required type="number" name="weight_grams" value={formData.weight_grams ?? 500} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. 500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">HSN Code (Optional)</label>
+                  <input type="text" name="hsn_code" value={formData.hsn_code ?? ''} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. 4901" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Length (cm) *</label>
+                  <input required type="number" name="length_cm" value={formData.length_cm ?? 15} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Width (cm) *</label>
+                  <input required type="number" name="width_cm" value={formData.width_cm ?? 15} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Height (cm) *</label>
+                  <input required type="number" name="height_cm" value={formData.height_cm ?? 5} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 space-y-4">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Payment Options</h4>
+                
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      name="cod_allowed" 
+                      checked={formData.cod_allowed ?? true} 
+                      onChange={handleChange} 
+                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-800">Allow Cash on Delivery (COD)</span>
+                      <span className="text-[10px] text-slate-500">Allow customers to pay full amount in cash upon delivery.</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      name="partial_cod_allowed" 
+                      checked={formData.partial_cod_allowed ?? false} 
+                      onChange={handleChange} 
+                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-800">Allow Partial COD</span>
+                      <span className="text-[10px] text-slate-500">Require a small upfront deposit, with the remaining balance collected as COD.</span>
+                    </div>
+                  </label>
+
+                  {formData.partial_cod_allowed && (
+                    <div className="pl-6 pt-1 animate-fade-in">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Partial COD Upfront Deposit Amount (₹) *</label>
+                      <input 
+                        required 
+                        type="number" 
+                        name="partial_cod_amount" 
+                        value={formData.partial_cod_amount ?? 0} 
+                        onChange={handleChange} 
+                        className="w-full max-w-[200px] border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 font-semibold text-slate-800" 
+                        placeholder="e.g. 150"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

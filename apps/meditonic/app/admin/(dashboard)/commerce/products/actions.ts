@@ -67,6 +67,16 @@ export async function saveProductAction(payload: any, productId?: string) {
         is_bundle: payload.is_bundle || false,
         category: payload.category || "",
 
+        // Shipping dimensions & logistics configuration
+        weight_grams: payload.weight_grams ?? 500,
+        length_cm: payload.length_cm ?? 15,
+        width_cm: payload.width_cm ?? 15,
+        height_cm: payload.height_cm ?? 5,
+        hsn_code: payload.hsn_code || null,
+        cod_allowed: payload.cod_allowed ?? true,
+        partial_cod_allowed: payload.partial_cod_allowed ?? false,
+        partial_cod_amount: payload.partial_cod_amount ?? 0,
+
         // Core Classification
         product_type: productType,
         fulfillment_type: fulfillmentType,

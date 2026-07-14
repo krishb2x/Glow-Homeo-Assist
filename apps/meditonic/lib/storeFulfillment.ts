@@ -22,7 +22,7 @@ export async function processStoreFulfillment(mtOrderId: string) {
     return { success: true, already_fulfilled: true };
   }
 
-  if (order.status !== 'paid') {
+  if (order.status !== 'paid' && order.payment_method !== 'cod') {
     throw new Error("Order is not paid");
   }
 
@@ -80,6 +80,69 @@ export async function processStoreFulfillment(mtOrderId: string) {
   }
 
   const physicalItems = items.filter((item: any) => item.product.product_type === 'PHYSICAL_BOOK' || item.product.product_type === 'TREATMENT_KIT');
+
+  if (physicalItems.length > 0) {
+    // 1. Verify stock status
+    for (const item of physicalItems) {
+      if (item.product.stock_status === 'OUT_OF_STOCK') {
+        console.warn(`[Fulfillment Warning] Product ${item.product.id} is out of stock, continuing sync anyway.`);
+      }
+    }
+
+    // 2. Fetch default pickup warehouse location
+    const { data: location } = await supabase
+      .from("mt_shipping_locations")
+      .select("id")
+      .eq("is_default", true)
+      .limit(1)
+      .maybeSingle();
+
+    // 3. Fetch default enabled logistics provider
+    const { data: providerConfig } = await supabase
+      .from("mt_logistics_providers")
+      .select("provider")
+      .eq("enabled", true)
+      .eq("default_provider", true)
+      .limit(1)
+      .maybeSingle();
+
+    const providerName = providerConfig?.provider || "shiprocket";
+
+    // 4. Create local mt_shipments record (sync_status = PENDING)
+    const { data: shipment, error: shipErr } = await supabase
+      .from("mt_shipments")
+      .insert({
+        clinic_id: order.clinic_id,
+        order_id: order.id,
+        shipment_number: 1,
+        pickup_location_id: location?.id || null,
+        provider: providerName,
+        status: "PENDING",
+        sync_status: "PENDING"
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (shipErr || !shipment) {
+      console.error("[Fulfillment Error] Failed to create local shipment record:", shipErr);
+    } else {
+      // 5. Log creation audit event
+      await supabase.from("mt_shipment_logs").insert({
+        shipment_id: shipment.id,
+        action: "CREATED"
+      });
+
+      // 6. Trigger background async Shiprocket sync (fire-and-forget)
+      (async () => {
+        try {
+          const { syncShipmentToProvider } = await import("./logistics/sync");
+          await syncShipmentToProvider(shipment.id);
+        } catch (syncErr: any) {
+          console.error(`[Fulfillment Sync Trigger Failed] Shipment: ${shipment.id}, Error:`, syncErr.message);
+        }
+      })();
+    }
+  }
 
   // Send request to Railway Background Worker
   if (digitalItems.length > 0) {
@@ -139,14 +202,17 @@ export async function processStoreFulfillment(mtOrderId: string) {
     console.error("Failed to send admin notification email:", adminErr);
   }
 
-  // Update fulfillment_status to fulfilled
+  // Update fulfillment_status
+  const hasPhysical = physicalItems.length > 0;
+  const targetFulfillmentStatus = hasPhysical ? "PROCESSING" : "fulfilled";
+
   await supabase
     .from("mt_orders")
     .update({ 
-      fulfillment_status: "fulfilled",
+      fulfillment_status: targetFulfillmentStatus,
       updated_at: new Date().toISOString() 
     })
     .eq("id", mtOrderId);
 
-  return { success: true, fulfilled: true };
+  return { success: true, fulfilled: !hasPhysical };
 }

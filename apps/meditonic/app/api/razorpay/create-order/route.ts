@@ -5,7 +5,7 @@ import { BRAND } from "../../../../lib/constants";
 
 export async function POST(req: Request) {
   try {
-    const { amount, items, contact, referralCode, shippingAddress } = await req.json();
+    const { amount, items, contact, referralCode, shippingAddress, paymentMethod, codAmountPending, partialCodDeposited } = await req.json();
 
     if (!amount || !items || !contact) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -35,8 +35,11 @@ export async function POST(req: Request) {
         customer_email: contact.email,
         customer_phone: contact.phone,
         razorpay_order_id: order.id,
-        total_amount: amount,
+        total_amount: paymentMethod === 'partial_cod' ? (amount + (codAmountPending || 0)) : amount, // Store the FULL order total value (deposit + remaining)
         status: "pending",
+        payment_method: paymentMethod || "prepaid",
+        cod_amount_pending: codAmountPending || 0,
+        partial_cod_deposited: partialCodDeposited || 0,
         items: items, // CartItem[]
         // Pick utm_source from the first item if exists
         utm_source: items[0]?.utm_source || null,

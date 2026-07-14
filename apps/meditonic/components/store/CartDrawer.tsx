@@ -27,6 +27,12 @@ export const CartDrawer = () => {
   const [pincodeError, setPincodeError] = useState("");
   const [validatingPincode, setValidatingPincode] = useState(false);
 
+  // Logistics serviceability state
+  const [isServiceable, setIsServiceable] = useState(true);
+  const [codAvailable, setCodAvailable] = useState(false);
+  const [shippingCharge, setShippingCharge] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<'prepaid' | 'cod' | 'partial_cod'>('prepaid');
+
   const hasPhysicalItems = cart.some(item => 
     item.product.product_type === 'PHYSICAL_BOOK' || 
     item.product.product_type === 'TREATMENT_KIT'
@@ -54,6 +60,10 @@ export const CartDrawer = () => {
     const lookupPincode = async () => {
       if (pincode.length !== 6) {
         setPincodeError("");
+        setIsServiceable(true);
+        setCodAvailable(false);
+        setShippingCharge(0);
+        setPaymentMethod('prepaid');
         return;
       }
       if (!/^\d{6}$/.test(pincode)) {
@@ -75,6 +85,22 @@ export const CartDrawer = () => {
             setCity(resolvedCity);
             setState(resolvedState);
             setPincodeError("");
+
+            // Dynamically check serviceability & rates
+            const totalWeight = cart.reduce((acc, item) => acc + (Number((item.product as any).weight_grams || 500) * item.quantity), 0);
+            const servRes = await fetch(`/api/shipping/serviceability?pincode=${pincode}&weight=${totalWeight}`);
+            const servData = await servRes.json();
+            
+            if (servData.isServiceable) {
+              setIsServiceable(true);
+              setCodAvailable(servData.codAvailable);
+              setShippingCharge(servData.shippingCharge);
+            } else {
+              setIsServiceable(false);
+              setCodAvailable(false);
+              setShippingCharge(0);
+              setPincodeError("This PIN code is not serviceable for shipping.");
+            }
           } else {
             setPincodeError("Invalid PIN code. Not found.");
           }
@@ -215,9 +241,11 @@ export const CartDrawer = () => {
       }
     });
   }
-  const finalTotal = Math.max(0, cartTotal - discountAmount);
+  const finalTotal = Math.max(0, cartTotal - discountAmount + shippingCharge);
   
   const savings = Math.max(0, originalTotal - cartTotal + discountAmount);
+
+  const partialCodDeposit = cart.reduce((acc, item) => acc + (Number((item.product as any).partial_cod_amount || 150) * item.quantity), 0);
 
   const handleCreateOrderAndPay = async () => {
     if (!name || !email || !phone) return alert("Please fill all contact details.");
@@ -229,16 +257,47 @@ export const CartDrawer = () => {
       if (pincode.length !== 6 || pincodeError) {
         return alert("Please enter a valid 6-digit PIN code.");
       }
+      if (!isServiceable) {
+        return alert("We cannot ship to this PIN code. Please use a serviceable address.");
+      }
     }
 
     setLoading(true);
     try {
+      if (hasPhysicalItems && paymentMethod === 'cod') {
+        // Direct COD checkout (no Razorpay popup!)
+        const res = await fetch("/api/shipping/create-cod-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            amount: finalTotal,
+            items: cart,
+            contact: { name, email, phone },
+            referralCode: discountInfo?.code,
+            shippingAddress: { street, landmark, city, state, pincode }
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          clearCart();
+          setCheckoutStep("confirmation");
+        } else {
+          alert(`COD checkout failed: ${data.error}`);
+        }
+        return;
+      }
+
+      // Prepaid or Partial COD checkout (needs Razorpay popup!)
+      const upfrontAmount = hasPhysicalItems && paymentMethod === 'partial_cod' ? partialCodDeposit : finalTotal;
+      const codAmountPending = hasPhysicalItems && paymentMethod === 'partial_cod' ? (finalTotal - partialCodDeposit) : 0;
+      const partialCodDeposited = hasPhysicalItems && paymentMethod === 'partial_cod' ? partialCodDeposit : 0;
+
       // 1. Create order on server
       const res = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          amount: finalTotal,
+          amount: upfrontAmount,
           items: cart,
           contact: { name, email, phone },
           referralCode: discountInfo?.code,
@@ -248,7 +307,10 @@ export const CartDrawer = () => {
             city,
             state,
             pincode
-          } : undefined
+          } : undefined,
+          paymentMethod: hasPhysicalItems ? paymentMethod : "prepaid",
+          codAmountPending,
+          partialCodDeposited
         })
       });
       
@@ -258,10 +320,10 @@ export const CartDrawer = () => {
       // 2. Open Razorpay
       const options = {
         key: keyId,
-        amount: finalTotal * 100,
+        amount: upfrontAmount * 100,
         currency: "INR",
         name: "MediTonic",
-        description: "Store Purchase",
+        description: hasPhysicalItems && paymentMethod === 'partial_cod' ? "Partial COD Deposit" : "Store Purchase",
         order_id: orderId,
         prefill: { name, email, contact: phone },
         handler: async function (response: any) {
@@ -474,9 +536,23 @@ export const CartDrawer = () => {
                         <span className="text-sm font-bold">-{formatPrice(discountAmount)}</span>
                       </div>
                     )}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-mt-text-secondary">Shipping Charge</span>
+                      <span className="text-sm font-semibold">{shippingCharge > 0 ? formatPrice(shippingCharge) : "Free"}</span>
+                    </div>
+                    {paymentMethod === 'partial_cod' && (
+                      <div className="flex items-center justify-between mb-2 text-orange-600">
+                        <span className="text-sm">COD Balance Due (on delivery)</span>
+                        <span className="text-sm font-semibold">{formatPrice(finalTotal - partialCodDeposit)}</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between mb-2 pt-2 border-t border-slate-100">
-                      <span className="text-base font-bold text-mt-text">Final Total</span>
-                      <span className="text-base font-bold text-mt-text">{formatPrice(finalTotal)}</span>
+                      <span className="text-base font-bold text-mt-text">
+                        {paymentMethod === 'partial_cod' ? "Upfront Deposit Due" : "Final Total"}
+                      </span>
+                      <span className="text-base font-bold text-mt-text">
+                        {formatPrice(paymentMethod === 'partial_cod' ? partialCodDeposit : finalTotal)}
+                      </span>
                     </div>
                     {savings > 0 && (
                       <div className="flex items-center justify-between mb-4 bg-emerald-50 p-2 rounded-lg">
@@ -597,6 +673,63 @@ export const CartDrawer = () => {
                       </div>
                     </div>
                   )}
+
+                  {hasPhysicalItems && isServiceable && (
+                    <div className="pt-3 border-t border-slate-100 space-y-2.5 animate-fade-in">
+                      <p className="text-[10px] font-bold text-mt-text-secondary uppercase tracking-wider">Payment Options / भुगतान विकल्प *</p>
+                      
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-all">
+                          <input 
+                            type="radio" 
+                            name="paymentMethod" 
+                            value="prepaid" 
+                            checked={paymentMethod === 'prepaid'} 
+                            onChange={() => setPaymentMethod('prepaid')} 
+                            className="w-4 h-4 text-mt-primary border-slate-300 focus:ring-mt-primary"
+                          />
+                          <div className="text-xs font-semibold text-slate-800">
+                            Pay Online (Full) / ऑनलाइन भुगतान
+                          </div>
+                        </label>
+
+                        {codAvailable && cart.every(item => (item.product as any).cod_allowed !== false) && (
+                          <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-all">
+                            <input 
+                              type="radio" 
+                              name="paymentMethod" 
+                              value="cod" 
+                              checked={paymentMethod === 'cod'} 
+                              onChange={() => setPaymentMethod('cod')} 
+                              className="w-4 h-4 text-mt-primary border-slate-300 focus:ring-mt-primary"
+                            />
+                            <div className="text-xs font-semibold text-slate-800">
+                              Cash on Delivery (COD) / कैश ऑन डिलीवरी
+                            </div>
+                          </label>
+                        )}
+
+                        {codAvailable && cart.every(item => (item.product as any).partial_cod_allowed || (item.product as any).cod_allowed !== false) && (
+                          <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-all">
+                            <input 
+                              type="radio" 
+                              name="paymentMethod" 
+                              value="partial_cod" 
+                              checked={paymentMethod === 'partial_cod'} 
+                              onChange={() => setPaymentMethod('partial_cod')} 
+                              className="w-4 h-4 text-mt-primary border-slate-300 focus:ring-mt-primary"
+                            />
+                            <div className="text-xs font-semibold text-slate-800">
+                              Partial COD / आंशिक कैश ऑन डिलीवरी
+                              <p className="text-[9px] text-slate-500 font-normal mt-0.5">
+                                Pay ₹{cart.reduce((acc, item) => acc + (Number((item.product as any).partial_cod_amount || 150) * item.quantity), 0)} upfront, rest on delivery.
+                              </p>
+                            </div>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2.5 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -613,7 +746,13 @@ export const CartDrawer = () => {
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                     <>
                       <Lock className="w-4 h-4" />
-                      <span>Secure Checkout • Pay {formatPrice(finalTotal)}</span>
+                      {hasPhysicalItems && paymentMethod === 'cod' ? (
+                        <span>Place COD Order • Pay ₹0 Now (₹{formatPrice(finalTotal)} on Delivery)</span>
+                      ) : hasPhysicalItems && paymentMethod === 'partial_cod' ? (
+                        <span>Pay Deposit • {formatPrice(partialCodDeposit)} (₹{formatPrice(finalTotal - partialCodDeposit)} on Delivery)</span>
+                      ) : (
+                        <span>Secure Checkout • Pay {formatPrice(finalTotal)}</span>
+                      )}
                     </>
                   )}
                 </button>
