@@ -81,6 +81,13 @@ export async function GET(req: Request) {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[Pincode Serviceability API Error]:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    // Industry standard fallback: Do not block checkout if logistics API is down/throttled
+    return NextResponse.json({
+      isServiceable: true,
+      codAvailable: true,
+      estimatedDays: 5,
+      shippingCharge: 60.00,
+      is_fallback: true
+    });
   }
 }

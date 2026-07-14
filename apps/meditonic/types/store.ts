@@ -66,6 +66,7 @@ export interface Product {
   cod_allowed?: boolean;
   partial_cod_allowed?: boolean;
   partial_cod_amount?: number;
+  bypass_shipping_check?: boolean;
   related_product_ids?: string[];
   bundle_item_ids?: string[];
   fbt_product_ids?: string[];

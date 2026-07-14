@@ -91,10 +91,13 @@ export const CartDrawer = () => {
             const servRes = await fetch(`/api/shipping/serviceability?pincode=${pincode}&weight=${totalWeight}`);
             const servData = await servRes.json();
             
-            if (servData.isServiceable) {
+            const skipShippingCheck = cart.some(item => (item.product as any).bypass_shipping_check === true);
+            
+            if (servData.isServiceable || skipShippingCheck) {
               setIsServiceable(true);
-              setCodAvailable(servData.codAvailable);
-              setShippingCharge(servData.shippingCharge);
+              setCodAvailable(skipShippingCheck ? true : servData.codAvailable);
+              setShippingCharge(servData.shippingCharge || (skipShippingCheck ? 60.00 : 0));
+              setPincodeError("");
             } else {
               setIsServiceable(false);
               setCodAvailable(false);

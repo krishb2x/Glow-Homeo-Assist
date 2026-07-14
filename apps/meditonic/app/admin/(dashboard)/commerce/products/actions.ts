@@ -76,6 +76,7 @@ export async function saveProductAction(payload: any, productId?: string) {
         cod_allowed: payload.cod_allowed ?? true,
         partial_cod_allowed: payload.partial_cod_allowed ?? false,
         partial_cod_amount: payload.partial_cod_amount ?? 0,
+        bypass_shipping_check: payload.bypass_shipping_check ?? false,
 
         // Core Classification
         product_type: productType,

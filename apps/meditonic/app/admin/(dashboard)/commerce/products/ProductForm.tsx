@@ -46,6 +46,7 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
     cod_allowed: (initialData as any)?.cod_allowed ?? true,
     partial_cod_allowed: (initialData as any)?.partial_cod_allowed ?? false,
     partial_cod_amount: (initialData as any)?.partial_cod_amount ?? 0,
+    bypass_shipping_check: (initialData as any)?.bypass_shipping_check ?? false,
 
     // Legacy support
     status: (initialData as any)?.status || "PUBLISHED",
@@ -622,6 +623,20 @@ export default function ProductForm({ initialData }: { initialData?: Product }) 
                       />
                     </div>
                   )}
+
+                  <label className="flex items-center gap-2.5 cursor-pointer pt-2 border-t border-slate-100 mt-2">
+                    <input 
+                      type="checkbox" 
+                      name="bypass_shipping_check" 
+                      checked={formData.bypass_shipping_check ?? false} 
+                      onChange={handleChange} 
+                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-800">All India Deliverable (Bypass Logistics Check)</span>
+                      <span className="text-[10px] text-slate-500">Allow customer checkout to all pincodes regardless of Shiprocket coverage.</span>
+                    </div>
+                  </label>
                 </div>
               </div>
             </div>
