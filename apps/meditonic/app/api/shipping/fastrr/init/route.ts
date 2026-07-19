@@ -23,8 +23,8 @@ export async function POST(req: Request) {
         customer_phone: contact?.phone || "0000000000",
         total_amount: amount,
         status: "pending",
-        payment_method: "pending",
-        fulfillment_status: "PENDING",
+        payment_method: "prepaid", // Valid placeholder, webhook overwrites this
+        fulfillment_status: "unfulfilled",
         items: items,
         audit_log: [{ action: 'fastrr_checkout_initiated', timestamp: new Date().toISOString() }],
         workflow_status: "checkout_pending"

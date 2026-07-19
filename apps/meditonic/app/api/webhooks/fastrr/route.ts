@@ -94,7 +94,7 @@ export async function POST(req: Request) {
       }
 
       // 2. Trigger Store Fulfillment Pipeline
-      if (dbOrder.fulfillment_status === "PENDING") {
+      if (dbOrder.fulfillment_status === "unfulfilled" || dbOrder.fulfillment_status === "PENDING") {
         console.log(`[Fastrr Webhook] Triggering fulfillment for order ${mtOrderId}`);
         try {
           await processStoreFulfillment(mtOrderId);
