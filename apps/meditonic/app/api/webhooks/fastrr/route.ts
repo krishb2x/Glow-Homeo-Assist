@@ -15,17 +15,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    // Verify webhook signature if FASTRR_WEBHOOK_SECRET is set
+    // Support for standard Shiprocket plain-text webhook tokens or Fastrr HMAC signatures
     const secret = process.env.FASTRR_WEBHOOK_SECRET;
-    if (secret && signature) {
-      const generatedSignature = crypto
-        .createHmac("sha256", secret)
-        .update(payloadString)
-        .digest("hex");
-        
-      if (generatedSignature !== signature) {
-        console.error("Fastrr Webhook signature mismatch");
-        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    const plainToken = req.headers.get("x-api-key");
+    
+    if (secret) {
+      if (signature) {
+        // Fastrr HMAC Signature verification
+        const generatedSignature = crypto
+          .createHmac("sha256", secret)
+          .update(payloadString)
+          .digest("hex");
+          
+        if (generatedSignature !== signature) {
+          console.error("Fastrr Webhook HMAC signature mismatch");
+          return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+        }
+      } else if (plainToken) {
+        // Standard Shiprocket token verification
+        if (plainToken !== secret) {
+          console.error("Shiprocket Webhook token mismatch");
+          return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+        }
+      } else {
+        console.error("Missing webhook authentication headers");
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
 

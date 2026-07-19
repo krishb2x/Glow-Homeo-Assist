@@ -7,7 +7,7 @@ let tokenExpiry: number = 0;
 export class ShiprocketProvider implements LogisticsProvider {
   name = "shiprocket";
 
-  private async getAuthToken(): Promise<string> {
+  public async getAuthToken(): Promise<string> {
     const now = Date.now();
     if (cachedToken && now < tokenExpiry) {
       return cachedToken;

@@ -38,9 +38,12 @@ export async function POST(req: Request) {
     }
 
     // 2. Call Shiprocket Fastrr API to generate checkout session
-    // NOTE: This uses environment variables that must be configured in Shiprocket Fastrr Dashboard
     const fastrrApiUrl = process.env.FASTRR_API_URL || "https://api.shiprocket.in/v1/external/fastrr/init";
-    const fastrrApiKey = process.env.FASTRR_API_KEY || process.env.SHIPROCKET_PASSWORD; 
+    
+    // Fastrr uses the standard Shiprocket bearer token
+    const { ShiprocketProvider } = await import("../../../../../lib/logistics/shiprocket");
+    const shiprocket = new ShiprocketProvider();
+    const fastrrApiKey = await shiprocket.getAuthToken(); 
 
     // Transform items to Fastrr format
     const fastrrItems = items.map((item: any) => ({
@@ -68,7 +71,7 @@ export async function POST(req: Request) {
 
     let checkoutUrl = "";
     
-    if (process.env.FASTRR_API_KEY) {
+    if (fastrrApiKey) {
         const response = await fetch(fastrrApiUrl, {
           method: "POST",
           headers: {
