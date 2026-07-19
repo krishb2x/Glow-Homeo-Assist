@@ -94,8 +94,32 @@ describe("Shiprocket Provider implementation", () => {
       isCod: false
     });
 
-    expect(result.isServiceable).toBe(true);
-    expect(result.shippingCharge).toBe(60.00);
-    expect(result.carrierName).toBe("India Post (SpeedPost)");
+    expect(result.isServiceable).toBe(false);
+    expect(result.codAvailable).toBe(false);
+    expect(result.shippingCharge).toBe(0);
+    expect(result.carrierName).toBe("");
+  });
+
+  it("should return unserviceable when checkServiceability API fails", async () => {
+    // Mock login token success
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ token: "mock_jwt_token" }),
+    });
+
+    // Mock API fetch failure
+    mockFetch.mockRejectedValueOnce(new Error("API Down"));
+
+    const result = await provider.checkServiceability({
+      pickupPincode: "110001",
+      deliveryPincode: "500001",
+      weightGrams: 500,
+      isCod: false
+    });
+
+    expect(result.isServiceable).toBe(false);
+    expect(result.codAvailable).toBe(false);
+    expect(result.shippingCharge).toBe(0);
+    expect(result.carrierName).toBe("");
   });
 });

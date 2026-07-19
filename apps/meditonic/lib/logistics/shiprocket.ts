@@ -90,23 +90,23 @@ export class ShiprocketProvider implements LogisticsProvider {
         }
       }
 
-      // Fallback: If no couriers are returned by Shiprocket, allow standard SpeedPost delivery
+      // If no couriers are returned by Shiprocket, the postcode is not serviceable
       return {
-        isServiceable: true,
-        codAvailable: true,
-        estimatedDays: 5,
-        shippingCharge: 60.00,
-        carrierName: "India Post (SpeedPost)",
+        isServiceable: false,
+        codAvailable: false,
+        estimatedDays: 0,
+        shippingCharge: 0,
+        carrierName: "",
       };
     } catch (error) {
       console.error("[Shiprocket Serviceability Check Failed]:", error);
-      // Fallback to standard delivery instead of blocking checkout on network/auth errors
+      // Return unserviceable to prevent non-Shiprocket checkout when the API fails
       return {
-        isServiceable: true,
-        codAvailable: true,
-        estimatedDays: 5,
-        shippingCharge: 60.00,
-        carrierName: "Standard Delivery",
+        isServiceable: false,
+        codAvailable: false,
+        estimatedDays: 0,
+        shippingCharge: 0,
+        carrierName: "",
       };
     }
   }
