@@ -50,7 +50,7 @@ export default function Footer() {
             </div>
             
             <div className="flex flex-col gap-3 text-sm text-mt-text-secondary">
-              <a href={\mailto:\\} className="flex items-center gap-2 hover:text-mt-primary transition-colors w-fit">
+              <a href={`mailto:${BRAND.email}`} className="flex items-center gap-2 hover:text-mt-primary transition-colors w-fit">
                 <Mail className="h-4 w-4 shrink-0" />
                 <span>{BRAND.email}</span>
               </a>
@@ -73,9 +73,9 @@ export default function Footer() {
               className="flex w-full items-center justify-between font-display text-lg font-semibold text-mt-text md:mb-6 md:cursor-default"
             >
               Shop
-              <ChevronDown className={\h-5 w-5 text-slate-400 transition-transform md:hidden \\} />
+              <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform md:hidden ${openSection === 'shop' ? 'rotate-180' : ''}`} />
             </button>
-            <ul className={\mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex \\}>
+            <ul className={`mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex ${openSection === 'shop' ? 'flex' : 'hidden'}`}>
               <li><Link href="/store" className="hover:text-mt-primary block py-1 md:py-0">Physical Books</Link></li>
               <li><Link href="/ebooks" className="hover:text-mt-primary block py-1 md:py-0">eBooks (PDF)</Link></li>
               <li><Link href="/store?category=bundles" className="hover:text-mt-primary block py-1 md:py-0">Bundles & Combos</Link></li>
@@ -90,9 +90,9 @@ export default function Footer() {
               className="flex w-full items-center justify-between font-display text-lg font-semibold text-mt-text md:mb-6 md:cursor-default"
             >
               Legal & Support
-              <ChevronDown className={\h-5 w-5 text-slate-400 transition-transform md:hidden \\} />
+              <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform md:hidden ${openSection === 'legal' ? 'rotate-180' : ''}`} />
             </button>
-            <ul className={\mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex \\}>
+            <ul className={`mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex ${openSection === 'legal' ? 'flex' : 'hidden'}`}>
               <li><Link href="/about" className="hover:text-mt-primary block py-1 md:py-0">About Us</Link></li>
               <li><Link href="/privacy" className="hover:text-mt-primary block py-1 md:py-0">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-mt-primary block py-1 md:py-0">Terms & Conditions</Link></li>

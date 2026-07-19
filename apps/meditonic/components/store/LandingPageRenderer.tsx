@@ -2,10 +2,8 @@
 
 import React from 'react';
 import { LandingPage, LandingPageSection } from '@/types/cms';
-import { HeroBanner } from '../sections/HeroBanner';
-import { TrustStrip } from '../sections/TrustStrip';
-import { CategoryGrid } from '../sections/CategoryGrid';
-import { CTABand } from '../sections/CTABand';
+import HeroBanner from '../sections/HeroBanner';
+import CTABand from '../sections/CTABand';
 
 export function LandingPageRenderer({ page }: { page: LandingPage }) {
   // If the page has no sections or is empty, we can render a fallback or just empty.
@@ -35,17 +33,11 @@ function DynamicSection({ section }: { section: LandingPageSection }) {
     case 'hero':
       // Passing CMS data as props; the component needs to handle it.
       // For now, we fallback to our existing components or pass data if they support it.
-      return <HeroBanner cmsData={section} />;
-      
-    case 'trust-strip':
-      return <TrustStrip cmsData={section} />;
-      
-    case 'categories':
-      return <CategoryGrid cmsData={section} />;
+      return <HeroBanner config={section.settings} />;
       
     case 'cta-band':
     case 'newsletter':
-      return <CTABand cmsData={section} />;
+      return <CTABand />;
       
     // Add other cases like 'best-sellers', 'reviews', 'youtube' as needed
     // using existing components and passing `cmsData`.

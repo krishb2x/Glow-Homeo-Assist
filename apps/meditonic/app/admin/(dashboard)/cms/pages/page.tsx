@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Plus, Settings, Globe, EyeOff, LayoutTemplate } from "lucide-react";
-import { createClient } from "@/lib/supabase";
+import { createAdminClient } from "../../../../../lib/supabase";
 import { cookies } from "next/headers";
-import { LandingPage } from "@/types/cms";
+import { LandingPage } from "../../../../../types/cms";
 
 export default async function CMSPagesList() {
   const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = createAdminClient();
 
   // For real app, use clinic_id from session context
   const { data: pages } = await supabase

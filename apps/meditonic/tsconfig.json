@@ -24,7 +24,8 @@
       }
     ],
     "paths": {
-      "@homeoassist/testing": ["../../packages/testing/src/index.ts"]
+      "@homeoassist/testing": ["../../packages/testing/src/index.ts"],
+      "@/*": ["./*"]
     }
   },
   "include": [

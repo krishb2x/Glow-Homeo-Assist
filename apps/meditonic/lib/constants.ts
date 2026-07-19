@@ -21,10 +21,16 @@ export const BRAND = {
   clinicId: process.env.MEDITONIC_CLINIC_ID || "595cd444-e89c-4d1f-b31f-27f76f59e0d7",
 } as const;
 
-export const NAV_LINKS = [
+export type NavItem = {
+  href: string;
+  label: string;
+  children?: { href: string; label: string }[];
+};
+
+export const NAV_LINKS: NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/store", label: "Physical Books" },
   { href: "/ebooks", label: "eBooks" },
   { href: "/store?category=bundles", label: "Bundles & Combos" },
   { href: "/about", label: "About Us" },
-] as const;
+];

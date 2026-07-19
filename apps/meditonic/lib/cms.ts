@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase-browser';
-import { LandingPage, LandingPageSection, LandingPageItem, AnnouncementBar, PromotionBanner, CtaBlock } from '@/types/cms';
+import { getSupabaseBrowser } from './supabase-browser';
+import { LandingPage, LandingPageSection, LandingPageItem, AnnouncementBar, PromotionBanner, CtaBlock } from '../types/cms';
 
 export async function fetchActiveHomepage(): Promise<LandingPage | null> {
-  const supabase = createClient();
+  const supabase = getSupabaseBrowser();
   const { data, error } = await supabase
     .from('mt_landing_pages')
     .select(`
@@ -33,7 +33,7 @@ export async function fetchActiveHomepage(): Promise<LandingPage | null> {
 }
 
 export async function fetchGlobalAnnouncementBars(): Promise<AnnouncementBar[]> {
-  const supabase = createClient();
+  const supabase = getSupabaseBrowser();
   const { data, error } = await supabase
     .from('mt_announcement_bars')
     .select('*')
@@ -45,7 +45,7 @@ export async function fetchGlobalAnnouncementBars(): Promise<AnnouncementBar[]> 
 }
 
 export async function fetchGlobalPromotionBanners(): Promise<PromotionBanner[]> {
-  const supabase = createClient();
+  const supabase = getSupabaseBrowser();
   const { data, error } = await supabase
     .from('mt_promotion_banners')
     .select('*')
