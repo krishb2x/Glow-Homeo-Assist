@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "../../../../../lib/supabase-browser";
-import { formatPrice, getImageUrl } from "../../../../../lib/utils";
+import { getSupabaseBrowser } from "../../../../lib/supabase-browser";
+import { formatPrice, getImageUrl } from "../../../../lib/utils";
 import Link from "next/link";
 import { Search, Plus, Edit, Package, CircleDot, AlertCircle, ExternalLink } from "lucide-react";
 

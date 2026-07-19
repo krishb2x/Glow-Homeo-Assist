@@ -51,34 +51,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (loading) return;
 
 
-    // Support route guard
+    // E-commerce store manager route guard
     if (userRole === "support") {
       const isForbidden = 
         pathname.startsWith("/admin/partners") || 
-        pathname.startsWith("/admin/commerce/products") || 
-        pathname.startsWith("/admin/commerce/customers") ||
-        (pathname.startsWith("/admin/operations") && 
-         !pathname.startsWith("/admin/operations/treatment-kits") && 
-         !pathname.startsWith("/admin/operations/store") && 
-         !pathname.startsWith("/admin/operations/cases"));
+        pathname.startsWith("/admin/cms");
 
       if (isForbidden) {
-        router.push("/admin/operations/treatment-kits");
-      }
-    }
-    
-    // Doctor route guard
-    if (userRole === "doctor") {
-      const isForbidden = 
-        pathname.startsWith("/admin/partners") || 
-        pathname.startsWith("/admin/commerce/products") || 
-        pathname.startsWith("/admin/commerce/customers") ||
-        pathname.startsWith("/admin/commerce/orders") ||
-        (pathname.startsWith("/admin/operations") && 
-         !pathname.startsWith("/admin/operations/cases"));
-
-      if (isForbidden) {
-        router.push("/admin/commerce/treatment-kits");
+        router.push("/admin/orders");
       }
     }
   }, [pathname, loading, userRole, router]);
@@ -101,20 +81,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isSupport = userRole === "support";
   const isDoctor = userRole === "doctor";
 
-  const navItems = [
-    { name: "Overview", href: "/admin", icon: LayoutDashboard, visible: isSuperAdminOrAdmin || isDoctor || isSupport },
-    { name: "Operations", href: "/admin/operations", icon: Workflow, visible: isSuperAdminOrAdmin },
-    { name: "All Cases", href: "/admin/operations/cases", icon: FolderGit2, visible: isSuperAdminOrAdmin || isDoctor || isSupport },
-    { name: "Treatment Kits", href: "/admin/operations/treatment-kits", icon: Package, visible: isSuperAdminOrAdmin || isSupport },
-    { name: "Store Shipments", href: "/admin/operations/store", icon: Package, visible: isSuperAdminOrAdmin || isSupport },
+  const storeItems = [
+    { name: "Overview", href: "/admin", icon: LayoutDashboard, visible: isSuperAdminOrAdmin || isSupport },
+    { name: "Products", href: "/admin/products", icon: Package, visible: isSuperAdminOrAdmin },
+    { name: "Orders", href: "/admin/orders", icon: ShoppingCart, visible: isSuperAdminOrAdmin || isSupport },
+    { name: "Customers", href: "/admin/customers", icon: UserCircle, visible: isSuperAdminOrAdmin },
+    { name: "Coupons", href: "/admin/coupons", icon: Gift, visible: isSuperAdminOrAdmin },
   ].filter(i => i.visible);
 
-  const commerceItems = [
-    { name: "Overview", href: "/admin/commerce", icon: LayoutDashboard, visible: isSuperAdminOrAdmin },
-    { name: "Orders", href: "/admin/commerce/orders", icon: ShoppingCart, visible: isSuperAdminOrAdmin || isSupport },
-    { name: "Products", href: "/admin/commerce/products", icon: Package, visible: isSuperAdminOrAdmin },
-    { name: "Kit Reviews", href: "/admin/commerce/treatment-kits", icon: FolderGit2, visible: isSuperAdminOrAdmin || isDoctor || isSupport },
-    { name: "Customers", href: "/admin/commerce/customers", icon: UserCircle, visible: isSuperAdminOrAdmin },
+  const cmsItems = [
+    { name: "Storefront Config", href: "/admin/cms/storefront", icon: LayoutDashboard, visible: isSuperAdminOrAdmin },
+    { name: "Banners & Media", href: "/admin/cms/media", icon: Package, visible: isSuperAdminOrAdmin },
   ].filter(i => i.visible);
 
   const partnerItems = [
@@ -130,14 +107,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className="fixed bottom-0 w-full z-50 md:z-auto md:w-64 bg-slate-900 text-white flex md:flex-col shrink-0 md:h-full md:top-0 border-t md:border-t-0 md:border-r border-slate-800">
         <div className="hidden md:flex h-16 items-center px-6 border-b border-slate-800 shrink-0">
           <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-400 font-serif text-lg mr-3">M</div>
-          <span className="font-semibold text-lg">MediTonic</span>
+          <span className="font-semibold text-lg">MediTonic Store</span>
         </div>
         
         <div className="flex-1 flex md:flex-col overflow-x-auto md:overflow-y-auto overflow-y-hidden md:p-4 space-x-2 md:space-x-0 md:space-y-1 p-2 items-center md:items-stretch">
-          <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-4 px-2">Clinic Administration</div>
-          {navItems.map((item) => {
+          <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-4 px-2">Store Management</div>
+          {storeItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = item.href === '/admin' 
+              ? pathname === '/admin'
+              : pathname.startsWith(item.href);
             return (
               <Link 
                 key={item.href} 
@@ -153,14 +132,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )
           })}
 
-          {commerceItems.length > 0 && (
+          {cmsItems.length > 0 && (
             <>
-              <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-6 px-2">Commerce Module</div>
-              {commerceItems.map((item) => {
+              <div className="hidden md:block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 mt-6 px-2">Storefront CMS</div>
+              {cmsItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = item.href === '/admin/commerce' 
-                  ? pathname === '/admin/commerce'
-                  : pathname.startsWith(item.href);
+                const isActive = pathname.startsWith(item.href);
                   
                 return (
                   <Link 
@@ -220,7 +197,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 md:px-8 justify-between sticky top-0 z-10 w-full">
           <h1 className="text-lg md:text-xl font-semibold text-slate-800 capitalize truncate pr-4">
-            {[...navItems, ...commerceItems, ...partnerItems].find(i => pathname === i.href || (i.href !== '/admin/commerce' && pathname.startsWith(i.href)))?.name || "Dashboard"}
+            {[...storeItems, ...cmsItems, ...partnerItems].find(i => pathname === i.href || (i.href !== '/admin' && pathname.startsWith(i.href)))?.name || "Dashboard"}
           </h1>
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <button onClick={handleLogout} className="md:hidden p-2 text-slate-500">

@@ -1,8 +1,8 @@
 "use server";
 
-import { createAdminClient } from "../../../../../lib/supabase";
+import { createAdminClient } from "../../../../lib/supabase";
 import { revalidatePath } from "next/cache";
-import { BRAND } from "../../../../../lib/constants";
+import { BRAND } from "../../../../lib/constants";
 
 export async function saveProductAction(payload: any, productId?: string) {
   try {
