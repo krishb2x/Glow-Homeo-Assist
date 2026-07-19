@@ -44,10 +44,11 @@ export async function POST(req: Request) {
     }
 
     const { event, data } = payload;
-    const mtOrderId = data.order_id || data.reference_id; // Our internal mt_orders ID
+    const mtOrderId = data?.order_id || data?.reference_id; // Our internal mt_orders ID
 
     if (!mtOrderId) {
-      return NextResponse.json({ error: "Missing order_id in payload" }, { status: 400 });
+      console.log("Fastrr Webhook: Received test or malformed payload. Returning 200 to satisfy Shiprocket Test.", payload);
+      return NextResponse.json({ success: true, message: "Test payload received successfully" });
     }
 
     const supabase = createAdminClient();
@@ -60,8 +61,8 @@ export async function POST(req: Request) {
       .single();
 
     if (orderErr || !dbOrder) {
-      console.error(`Fastrr Webhook: Order ${mtOrderId} not found.`);
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      console.warn(`Fastrr Webhook: Order ${mtOrderId} not found. Returning 200 to prevent retry loops.`);
+      return NextResponse.json({ success: true, warning: "Order not found but accepted payload" });
     }
 
     if (event === "order.success" || event === "payment.success") {
