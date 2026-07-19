@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Eye, LayoutTemplate, Plus, GripVertical, Settings2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { LandingPage, LandingPageSection } from "@/types/cms";
-// Need a supabase browser client here for real implementation
+import { use } from "react";
 
-export default function PageBuilder({ params }: { params: { id: string } }) {
+export default function PageBuilder({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const [page, setPage] = useState<LandingPage | null>(null);
   const [sections, setSections] = useState<LandingPageSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
