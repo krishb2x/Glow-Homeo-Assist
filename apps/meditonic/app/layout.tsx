@@ -8,6 +8,8 @@ import { StoreProvider } from "../components/store/StoreProvider";
 import { CartDrawer } from "../components/store/CartDrawer";
 import Script from "next/script";
 import { Suspense } from "react";
+import { AnnouncementBars } from "../components/store/AnnouncementBars";
+import { PromotionBanners } from "../components/store/PromotionBanners";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -88,14 +90,25 @@ export default function RootLayout({
           >
             Skip to main content
           </a>
+          
+          <Suspense fallback={null}>
+            <AnnouncementBars />
+          </Suspense>
+          
           <Header />
           <main id="main-content" className="flex-1">
             {children}
           </main>
           <Footer />
+          
           <Suspense fallback={null}>
             <CartDrawer />
           </Suspense>
+          
+          <Suspense fallback={null}>
+            <PromotionBanners />
+          </Suspense>
+          
         </StoreProvider>
       </body>
     </html>

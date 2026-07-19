@@ -104,13 +104,24 @@ export function CartDrawer() {
                       
                       {/* Format Badge */}
                       <div className="mt-1.5 mb-1">
-                        <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
-                          (item.product.product_type === 'PHYSICAL_BOOK' || item.product.type === 'hardcopy')
-                            ? 'bg-amber-50 text-amber-900 border-amber-200' 
-                            : 'bg-blue-50 text-blue-900 border-blue-200'
-                        }`}>
-                          {(item.product.product_type === 'PHYSICAL_BOOK' || item.product.type === 'hardcopy') ? 'Physical Book' : 'eBook (PDF)'}
-                        </span>
+                        {(() => {
+                          const format = item.product.metadata?.format || item.product.product_type || item.product.type;
+                          let label = '📱 PDF eBook';
+                          let bg = 'bg-blue-50 text-blue-900 border-blue-200';
+                          
+                          if (format?.toLowerCase().includes('hardcover')) { label = '📘 Hardcover'; bg = 'bg-indigo-50 text-indigo-900 border-indigo-200'; }
+                          else if (format?.toLowerCase().includes('paperback') || format?.toLowerCase().includes('physical')) { label = '📚 Paperback'; bg = 'bg-amber-50 text-amber-900 border-amber-200'; }
+                          else if (format?.toLowerCase().includes('epub')) { label = '📱 EPUB'; bg = 'bg-purple-50 text-purple-900 border-purple-200'; }
+                          else if (format?.toLowerCase().includes('kindle')) { label = '📖 Kindle'; bg = 'bg-stone-50 text-stone-900 border-stone-200'; }
+                          else if (format?.toLowerCase().includes('audio')) { label = '🎧 Audiobook'; bg = 'bg-rose-50 text-rose-900 border-rose-200'; }
+                          else if (format?.toLowerCase().includes('combo') || format?.toLowerCase().includes('bundle')) { label = '📦 Combo Pack'; bg = 'bg-emerald-50 text-emerald-900 border-emerald-200'; }
+
+                          return (
+                            <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${bg}`}>
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       <p className="text-xs text-gray-500 mt-1">Qty: {item.quantity}</p>

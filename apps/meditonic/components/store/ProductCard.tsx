@@ -22,10 +22,26 @@ export const ProductCard = ({ product }: { product: Product }) => {
   };
 
   const imageSrc = getImageUrl(product.cover_image_path || product.image_url);
-  const isPhysical = product.product_type === 'PHYSICAL_BOOK' || product.type === 'hardcopy';
-  const formatBadge = isPhysical ? 'Physical Book' : 'Digital PDF';
+  const getFormatBadge = () => {
+    const format = product.metadata?.format || product.product_type || product.type;
+    
+    if (format?.toLowerCase().includes('hardcover')) return { label: '📘 Hardcover', bg: 'bg-indigo-100 text-indigo-900 border-indigo-200' };
+    if (format?.toLowerCase().includes('paperback') || format?.toLowerCase().includes('physical')) return { label: '📚 Paperback', bg: 'bg-amber-100 text-amber-900 border-amber-200' };
+    if (format?.toLowerCase().includes('epub')) return { label: '📱 EPUB', bg: 'bg-purple-100 text-purple-900 border-purple-200' };
+    if (format?.toLowerCase().includes('kindle')) return { label: '📖 Kindle', bg: 'bg-stone-100 text-stone-900 border-stone-200' };
+    if (format?.toLowerCase().includes('audio')) return { label: '🎧 Audiobook', bg: 'bg-rose-100 text-rose-900 border-rose-200' };
+    if (format?.toLowerCase().includes('combo') || format?.toLowerCase().includes('bundle')) return { label: '📦 Combo Pack', bg: 'bg-emerald-100 text-emerald-900 border-emerald-200' };
+    
+    // Default fallback
+    return { label: '📱 PDF eBook', bg: 'bg-blue-100 text-blue-900 border-blue-200' };
+  };
+
+  const badge = getFormatBadge();
   const rating = product.metadata?.rating || 5.0;
-  const detailUrl = isPhysical ? `/store/${product.slug}` : `/ebooks/${product.slug}`;
+  
+  // Decide route based on if it's physical (paperback/hardcover) vs digital
+  const isPhysicalRoute = badge.label.includes('Paperback') || badge.label.includes('Hardcover') || badge.label.includes('Combo');
+  const detailUrl = isPhysicalRoute ? `/store/${product.slug}` : `/ebooks/${product.slug}`;
 
   return (
     <Link href={detailUrl} className="group flex flex-col h-full bg-white rounded-2xl overflow-hidden border border-mt-border shadow-sm hover:shadow-xl transition-all duration-300">
@@ -52,12 +68,8 @@ export const ProductCard = ({ product }: { product: Product }) => {
               <Crown className="w-3 h-3" /> Bestseller
             </span>
           )}
-          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm w-max border ${
-            isPhysical 
-              ? 'bg-amber-100 text-amber-900 border-amber-200' 
-              : 'bg-blue-100 text-blue-900 border-blue-200'
-          }`}>
-            {isPhysical ? 'Physical Book' : 'eBook (PDF)'}
+          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm w-max border ${badge.bg}`}>
+            {badge.label}
           </span>
         </div>
       </div>
