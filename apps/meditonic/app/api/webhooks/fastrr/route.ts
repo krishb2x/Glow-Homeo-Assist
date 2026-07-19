@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../../../lib/supabase";
-import { processStoreFulfillment } from "../../../../../lib/storeFulfillment";
+import { createAdminClient } from "../../../../lib/supabase";
+import { processStoreFulfillment } from "../../../../lib/storeFulfillment";
 import crypto from "crypto";
 
 export async function POST(req: Request) {

@@ -4,11 +4,9 @@ import React, { useState, useEffect } from "react";
 import { useStore } from "./StoreProvider";
 import { X, Loader2, CheckCircle2 } from "lucide-react";
 import { formatPrice } from "../../lib/utils";
-import { useReferral } from "./ReferralProvider";
 
-export default function CartDrawer() {
+export function CartDrawer() {
   const { cart, isCartOpen, setIsCartOpen } = useStore();
-  const { referralCode, discountInfo, applyReferral, removeReferral } = useReferral();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,9 +16,8 @@ export default function CartDrawer() {
     }
   }, [isCartOpen]);
 
-  const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const discountAmount = discountInfo ? (subtotal * discountInfo.discount_percentage) / 100 : 0;
-  const finalTotal = subtotal - discountAmount;
+  const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const finalTotal = subtotal;
 
   const handleProceedToFastrrCheckout = async () => {
     setLoading(true);
@@ -29,8 +26,7 @@ export default function CartDrawer() {
     try {
       const payload = {
         amount: finalTotal,
-        items: cart,
-        discountInfo: discountInfo ? { code: discountInfo.code } : null
+        items: cart
       };
 
       const res = await fetch("/api/shipping/fastrr/init", {
@@ -85,41 +81,18 @@ export default function CartDrawer() {
               <div className="space-y-4">
                 {cart.map((item) => (
                   <div key={item.product.id} className="flex gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    {item.product.cover_image && (
-                      <img src={item.product.cover_image} alt={item.product.title} className="w-16 h-20 object-cover rounded-md" />
-                    )}
+                    {item.product.image_url || item.product.cover_image_path ? (
+                      <img src={item.product.image_url || item.product.cover_image_path} alt={item.product.title} className="w-16 h-20 object-cover rounded-md" />
+                    ) : null}
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 line-clamp-2 leading-tight text-sm">{item.product.title}</h4>
                       <p className="text-xs text-gray-500 mt-1">Qty: {item.quantity}</p>
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="font-bold text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+                        <span className="font-bold text-gray-900">{formatPrice((item.product.price || 0) * item.quantity)}</span>
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
-              
-              <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2 block">Referral Code (Optional)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="e.g. SAVE10"
-                    value={referralCode}
-                    onChange={(e) => applyReferral(e.target.value.toUpperCase())}
-                    className="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none uppercase"
-                  />
-                  {discountInfo && (
-                    <button onClick={removeReferral} className="px-3 py-2 text-xs font-medium text-red-600 bg-red-50 rounded-lg">
-                      Remove
-                    </button>
-                  )}
-                </div>
-                {discountInfo && (
-                  <p className="text-emerald-600 text-xs font-medium mt-2 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Code applied: {discountInfo.discount_percentage}% off
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -133,12 +106,6 @@ export default function CartDrawer() {
                 <span>Subtotal</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-600">
-                  <span>Discount</span>
-                  <span>-{formatPrice(discountAmount)}</span>
-                </div>
-              )}
               <div className="flex justify-between font-bold text-gray-900 text-lg pt-2 border-t border-gray-200">
                 <span>Total</span>
                 <span>{formatPrice(finalTotal)}</span>
