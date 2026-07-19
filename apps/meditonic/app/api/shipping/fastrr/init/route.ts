@@ -19,8 +19,8 @@ export async function POST(req: Request) {
       .insert({
         clinic_id: BRAND.clinicId,
         customer_name: contact?.name || "Pending Fastrr Customer",
-        customer_email: contact?.email || null,
-        customer_phone: contact?.phone || null,
+        customer_email: contact?.email || "pending@fastrr.com",
+        customer_phone: contact?.phone || "0000000000",
         total_amount: amount,
         status: "pending",
         payment_method: "pending",
