@@ -93,32 +93,18 @@ export default function Header() {
 
           {/* CTA & Mobile Toggle */}
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link
-              href="/ebooks"
-              className="inline-block lg:hidden text-xs sm:text-sm font-semibold text-mt-text-secondary hover:text-mt-primary px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-mt-border/60 hover:bg-mt-primary-bg transition-colors"
-            >
-              eBooks
-            </Link>
-
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 text-mt-text-secondary hover:text-mt-primary transition-colors"
+              className="relative p-2 text-mt-text-secondary hover:text-mt-primary transition-colors bg-mt-primary-bg rounded-lg"
               aria-label="Open cart"
             >
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && (
-                <span className="absolute top-0 right-0 w-4 h-4 bg-mt-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-mt-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border border-white">
                   {cartCount}
                 </span>
               )}
             </button>
-
-            <Link
-              href="/book-consultation"
-              className="hidden rounded-lg bg-mt-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-mt-primary-light lg:inline-block"
-            >
-              Book Consultation
-            </Link>
 
             <button
               type="button"

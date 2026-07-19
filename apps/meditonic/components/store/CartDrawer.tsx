@@ -38,10 +38,25 @@ export function CartDrawer() {
       const data = await res.json();
       
       if (!res.ok) throw new Error(data.error || "Failed to initialize Fastrr checkout");
-      if (data.redirectUrl) {
+      if (data.mock && data.redirectUrl) {
         window.location.href = data.redirectUrl;
+        return;
+      }
+
+      if (data.token) {
+        // Ensure script is loaded
+        if (!(window as any).HeadlessCheckout) {
+          throw new Error("Shiprocket Checkout SDK not loaded");
+        }
+        
+        // Launch Fastrr headless checkout
+        (window as any).HeadlessCheckout.addToCart(
+          new MouseEvent('click'), 
+          data.token, 
+          { fallbackUrl: window.location.href }
+        );
       } else {
-        throw new Error("Missing redirect URL from Fastrr");
+        throw new Error("Missing checkout token from Fastrr");
       }
     } catch (err: any) {
       console.error(err);
@@ -86,6 +101,18 @@ export function CartDrawer() {
                     ) : null}
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 line-clamp-2 leading-tight text-sm">{item.product.title}</h4>
+                      
+                      {/* Format Badge */}
+                      <div className="mt-1.5 mb-1">
+                        <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                          (item.product.product_type === 'PHYSICAL_BOOK' || item.product.type === 'hardcopy')
+                            ? 'bg-amber-50 text-amber-900 border-amber-200' 
+                            : 'bg-blue-50 text-blue-900 border-blue-200'
+                        }`}>
+                          {(item.product.product_type === 'PHYSICAL_BOOK' || item.product.type === 'hardcopy') ? 'Physical Book' : 'eBook (PDF)'}
+                        </span>
+                      </div>
+
                       <p className="text-xs text-gray-500 mt-1">Qty: {item.quantity}</p>
                       <div className="mt-2 flex items-center justify-between">
                         <span className="font-bold text-gray-900">{formatPrice((item.product.price || 0) * item.quantity)}</span>

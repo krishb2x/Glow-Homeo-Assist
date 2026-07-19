@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../../lib/supabase";
 import { BRAND } from "../../../../../lib/constants";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
@@ -38,78 +39,63 @@ export async function POST(req: Request) {
     }
 
     // 2. Fetch the Fastrr configuration from Environment Variables
-    const fastrrApiUrl = process.env.FASTRR_API_URL;
+    const fastrrApiUrl = process.env.FASTRR_API_URL || "https://checkout-api.shiprocket.com/api/v1/access-token/checkout";
     const fastrrApiKey = process.env.FASTRR_API_KEY;
+    const fastrrSecretKey = process.env.FASTRR_SECRET_KEY;
 
-    if (!fastrrApiUrl || !fastrrApiKey) {
+    if (!fastrrApiKey || !fastrrSecretKey) {
       console.warn("Fastrr API credentials missing. Returning mock redirect URL for testing.");
       return NextResponse.json({ 
         success: true, 
-        redirectUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/payment-success?order_id=${dbOrder.id}` 
+        mock: true,
+        redirectUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/payment-success?order_id=${dbOrder.id}`
       });
     }
 
     // 3. Construct the payload for Fastrr
     const payload = {
-      order_id: dbOrder.id,
-      amount: amount,
-      currency: "INR",
-      return_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://meditonic.glowhomeo.com"}/payment-success?order_id=${dbOrder.id}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://meditonic.glowhomeo.com"}/store`,
-      customer: {
-        name: contact?.name || "",
-        email: contact?.email || "",
-        phone: contact?.phone || "",
+      cart_data: {
+        items: items.map((item: any) => ({
+          variant_id: item.product.id,
+          quantity: item.quantity
+        }))
       },
-      items: items.map((item: any) => ({
-        id: item.product.id,
-        name: item.product.title,
-        price: item.product.price,
-        quantity: item.quantity,
-        sku: item.product.sku || "",
-        image_url: item.product.image_url || item.product.cover_image_path || ""
-      }))
+      redirect_url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/payment-success?order_id=${dbOrder.id}`,
+      timestamp: new Date().toISOString()
     };
 
-    // 4. Initialize Checkout Session with Fastrr
+    // 4. Generate HMAC-SHA256 signature
+    const hmac = crypto.createHmac("sha256", fastrrSecretKey);
+    hmac.update(JSON.stringify(payload));
+    const calculatedHmac = hmac.digest("base64");
+
+    // 5. Call Fastrr API
     try {
       const response = await fetch(fastrrApiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${fastrrApiKey}`,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "application/json, text/plain, */*",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate, br",
-          "Connection": "keep-alive",
-          "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-          "Sec-Ch-Ua-Mobile": "?0",
-          "Sec-Ch-Ua-Platform": '"Windows"',
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "cross-site"
+          "X-Api-Key": fastrrApiKey,
+          "X-Api-HMAC-SHA256": calculatedHmac
         },
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("Fastrr API Error:", errText);
-        return NextResponse.json({ error: "Failed to initialize checkout with provider" }, { status: 500 });
-      }
-
       const responseData = await response.json();
-      
-      // Fastrr usually returns a redirect URL (e.g. data.redirect_url or data.url)
-      const redirectUrl = responseData.data?.redirect_url || responseData.redirect_url || responseData.url;
 
-      if (!redirectUrl) {
-        console.error("No redirect URL returned by Fastrr:", responseData);
+      if (!response.ok) {
+        console.error("Fastrr API Error:", responseData);
+        return NextResponse.json({ error: "Failed to initialize checkout with provider", details: responseData }, { status: 500 });
+      }
+      
+      const token = responseData.result?.token || responseData.token;
+
+      if (!token) {
+        console.error("No token returned by Fastrr:", responseData);
         return NextResponse.json({ error: "Invalid response from provider" }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true, redirectUrl });
+      return NextResponse.json({ success: true, token });
 
     } catch (apiError: any) {
       console.error("Fastrr Fetch Error:", apiError);

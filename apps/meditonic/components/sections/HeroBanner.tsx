@@ -28,7 +28,7 @@ export default function HeroBanner({ config }: { config: any }) {
           <div className="flex flex-col justify-center text-center lg:text-left">
             <ScrollReveal direction="up" delay={0.1}>
               <div className="mx-auto mb-6 inline-flex rounded-full bg-mt-primary/10 px-3 py-1 text-sm font-semibold text-mt-primary lg:mx-0">
-                New Arrivals Available Now
+                New Bestsellers Available Now
               </div>
             </ScrollReveal>
             
@@ -48,9 +48,9 @@ export default function HeroBanner({ config }: { config: any }) {
 
             <ScrollReveal direction="up" delay={0.4} className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
               <Button asChild size="lg" className="group">
-                <Link href="#featured-products">
+                <Link href="/store">
                   <ShoppingBag className="mr-2 h-5 w-5" />
-                  Shop Now
+                  Shop Best Sellers
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>

@@ -62,6 +62,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`scroll-smooth ${inter.variable} ${outfit.variable}`}>
       <head>
+        <link rel="stylesheet" href="https://checkout-ui.shiprocket.com/assets/styles/shopify.css" />
         {/* Google tag (gtag.js) */}
         <Script
           async
@@ -80,6 +81,7 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col font-sans text-mt-text antialiased">
         <StoreProvider>
           <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+          <Script src="https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js" strategy="afterInteractive" />
           <a
             href="#main-content"
             className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-mt-primary focus:text-white"

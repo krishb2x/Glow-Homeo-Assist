@@ -89,16 +89,16 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
           <div className="mt-8 border-t border-mt-border pt-8">
             <Link
-              href="/book-consultation"
+              href="/store"
               className="flex w-full items-center justify-center rounded-xl bg-mt-primary px-6 py-4 text-base font-semibold text-white shadow-md transition-all hover:bg-mt-primary-light active:scale-[0.98]"
               onClick={onClose}
             >
-              Book Consultation
+              Shop Best Sellers
             </Link>
             <p className="mt-4 text-center text-sm text-mt-text-tertiary">
               Need help? WhatsApp us at <br />
               <a
-                href={`https://wa.me/${BRAND.whatsapp.replace(/\D/g, "")}?text=Hello%20Dr.%20Aman,%20I%20would%20like%20to%20know%20more%20about%20your%20treatments.`}
+                href={`https://wa.me/${BRAND.whatsapp.replace(/\D/g, "")}?text=Hello%20MediTonic,%20I%20would%20like%20to%20know%20more%20about%20your%20books.`}
                 className="font-medium text-mt-primary hover:underline"
               >
                 {BRAND.whatsapp}

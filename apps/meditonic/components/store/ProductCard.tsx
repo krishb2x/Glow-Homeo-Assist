@@ -48,12 +48,16 @@ export const ProductCard = ({ product }: { product: Product }) => {
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-2">
           {product.metadata?.bestseller && (
-            <span className="bg-yellow-400 text-yellow-950 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm flex items-center gap-1">
+            <span className="bg-yellow-400 text-yellow-950 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm flex items-center gap-1 w-max">
               <Crown className="w-3 h-3" /> Bestseller
             </span>
           )}
-          <span className="bg-black/40 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
-            {formatBadge}
+          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm w-max border ${
+            isPhysical 
+              ? 'bg-amber-100 text-amber-900 border-amber-200' 
+              : 'bg-blue-100 text-blue-900 border-blue-200'
+          }`}>
+            {isPhysical ? 'Physical Book' : 'eBook (PDF)'}
           </span>
         </div>
       </div>

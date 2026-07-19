@@ -18,25 +18,25 @@ export default function CTABand() {
       <div className="section-container relative z-10 text-center mx-auto px-4 max-w-4xl">
         <ScrollReveal>
           <h2 className="font-display text-4xl sm:text-5xl font-bold">
-            Ready to Expand Your Knowledge?
+            Expand Your Knowledge Today
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-emerald-50 opacity-90">
-            Browse our complete catalog of books and exclusive bundles. 
-            Enjoy fast shipping and exclusive online discounts today.
+            Browse our complete catalog of physical books, ebooks, and exclusive bundles. 
+            Enjoy fast shipping and premium digital downloads.
           </p>
         </ScrollReveal>
 
         <ScrollReveal delay={0.2} className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg" className="w-full bg-white text-emerald-700 hover:bg-emerald-50 sm:w-auto shadow-xl">
-            <Link href="#featured-products">
-              Shop Now
+            <Link href="/store">
+              Explore Collection
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
           
           <Button asChild variant="outline" size="lg" className="w-full border-white/30 text-white hover:bg-white/10 sm:w-auto">
-            <Link href="/about">
-              Our Story
+            <Link href="/ebooks">
+              View eBooks
             </Link>
           </Button>
         </ScrollReveal>

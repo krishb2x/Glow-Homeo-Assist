@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BRAND, TREATMENT_CATEGORIES } from "../../lib/constants";
+import { BRAND } from "../../lib/constants";
 import { Mail, ChevronDown } from "lucide-react";
 
 /* Inline social SVGs */
@@ -45,18 +45,15 @@ export default function Footer() {
                 {BRAND.name}
               </Link>
               <p className="mt-2 text-sm text-mt-text-secondary pr-4 md:pr-12 leading-relaxed">
-                {BRAND.tagline}. Discover holistic healing and digital resources curated by Dr. Aman Agrawal.
+                {BRAND.tagline}. Discover exclusive physical books and premium digital resources.
               </p>
             </div>
             
             <div className="flex flex-col gap-3 text-sm text-mt-text-secondary">
-              <a href={`mailto:${BRAND.email}`} className="flex items-center gap-2 hover:text-mt-primary transition-colors w-fit">
+              <a href={\mailto:\\} className="flex items-center gap-2 hover:text-mt-primary transition-colors w-fit">
                 <Mail className="h-4 w-4 shrink-0" />
                 <span>{BRAND.email}</span>
               </a>
-              <Link href="/book-consultation" className="text-sm font-semibold text-mt-primary hover:underline w-fit">
-                Book a Consultation &rarr;
-              </Link>
             </div>
 
             <div className="flex gap-4 pt-2">
@@ -69,45 +66,35 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Column 2: Treatments (Accordion on Mobile) */}
+          {/* Column 2: Shop (Accordion on Mobile) */}
           <div className="border-t border-slate-100 md:border-none pt-4 md:pt-0">
             <button 
-              onClick={() => toggleSection('treatments')}
+              onClick={() => toggleSection('shop')}
               className="flex w-full items-center justify-between font-display text-lg font-semibold text-mt-text md:mb-6 md:cursor-default"
             >
-              Treatments
-              <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform md:hidden ${openSection === 'treatments' ? 'rotate-180' : ''}`} />
+              Shop
+              <ChevronDown className={\h-5 w-5 text-slate-400 transition-transform md:hidden \\} />
             </button>
-            <ul className={`mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex ${openSection === 'treatments' ? 'flex' : 'hidden'}`}>
-              {TREATMENT_CATEGORIES.map((treatment) => (
-                <li key={treatment.slug}>
-                  <Link href={`/treatments/${treatment.slug}`} className="hover:text-mt-primary block py-1 md:py-0">
-                    {treatment.title}
-                  </Link>
-                </li>
-              ))}
-              <li className="pt-2 md:pt-0">
-                <Link href="/treatments" className="font-semibold text-mt-primary hover:underline">
-                  View All Treatments &rarr;
-                </Link>
-              </li>
+            <ul className={\mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex \\}>
+              <li><Link href="/store" className="hover:text-mt-primary block py-1 md:py-0">Physical Books</Link></li>
+              <li><Link href="/ebooks" className="hover:text-mt-primary block py-1 md:py-0">eBooks (PDF)</Link></li>
+              <li><Link href="/store?category=bundles" className="hover:text-mt-primary block py-1 md:py-0">Bundles & Combos</Link></li>
+              <li><Link href="/store?bestseller=true" className="hover:text-mt-primary block py-1 md:py-0">Bestsellers</Link></li>
             </ul>
           </div>
 
-          {/* Column 3: Learn & Legal (Accordion on Mobile) */}
+          {/* Column 3: Legal (Accordion on Mobile) */}
           <div className="border-t border-slate-100 md:border-none pt-4 md:pt-0">
             <button 
-              onClick={() => toggleSection('learn')}
+              onClick={() => toggleSection('legal')}
               className="flex w-full items-center justify-between font-display text-lg font-semibold text-mt-text md:mb-6 md:cursor-default"
             >
-              Explore
-              <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform md:hidden ${openSection === 'learn' ? 'rotate-180' : ''}`} />
+              Legal & Support
+              <ChevronDown className={\h-5 w-5 text-slate-400 transition-transform md:hidden \\} />
             </button>
-            <ul className={`mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex ${openSection === 'learn' ? 'flex' : 'hidden'}`}>
-              <li><Link href="/ebooks" className="hover:text-mt-primary text-mt-primary font-semibold block py-1 md:py-0">eBook Store</Link></li>
-              <li><Link href="/videos" className="hover:text-mt-primary block py-1 md:py-0">Video Library</Link></li>
-              <li><Link href="/success-stories" className="hover:text-mt-primary block py-1 md:py-0">Success Stories</Link></li>
-              <li className="mt-2 md:mt-4"><Link href="/privacy" className="hover:text-mt-primary block py-1 md:py-0">Privacy Policy</Link></li>
+            <ul className={\mt-4 flex-col gap-3 text-sm text-mt-text-secondary md:flex \\}>
+              <li><Link href="/about" className="hover:text-mt-primary block py-1 md:py-0">About Us</Link></li>
+              <li><Link href="/privacy" className="hover:text-mt-primary block py-1 md:py-0">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-mt-primary block py-1 md:py-0">Terms & Conditions</Link></li>
             </ul>
           </div>
@@ -117,9 +104,6 @@ export default function Footer() {
         {/* Bottom Bar: Copyright & Credit */}
         <div className="mt-12 md:mt-16 border-t border-mt-border pt-8 flex flex-col md:flex-row justify-between items-center gap-3 text-sm text-mt-text-tertiary text-center md:text-left">
           <p>&copy; {currentYear} {BRAND.name}. All rights reserved.</p>
-          <p className="text-xs">
-            Powered by <a href="#" className="font-semibold hover:text-mt-primary transition-colors">GlowHomeo</a>
-          </p>
         </div>
       </div>
     </footer>
