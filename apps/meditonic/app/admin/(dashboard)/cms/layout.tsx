@@ -11,7 +11,6 @@ export default function CMSLayout({ children }: { children: React.ReactNode }) {
     { name: "Pages", href: "/admin/cms/pages", icon: FileText },
     { name: "Media Library", href: "/admin/cms/media", icon: Image },
     { name: "Banners", href: "/admin/cms/banners", icon: Flag },
-    { name: "Announcements", href: "/admin/cms/announcements", icon: Megaphone },
   ];
 
   return (

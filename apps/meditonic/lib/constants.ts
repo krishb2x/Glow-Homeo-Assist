@@ -34,3 +34,13 @@ export const NAV_LINKS: NavItem[] = [
   { href: "/store?category=bundles", label: "Bundles & Combos" },
   { href: "/about", label: "About Us" },
 ];
+
+export const BOOK_COLLECTIONS = [
+  { id: "medicine", label: "Medicine" },
+  { id: "diagnostic", label: "Diagnostic" },
+  { id: "gynecology", label: "Gynecology" },
+  { id: "pediatrics", label: "Pediatrics" },
+  { id: "homeopathy", label: "Homeopathy" },
+  { id: "clinical_reference", label: "Clinical Reference" },
+] as const;
+

@@ -23,98 +23,107 @@ export const ProductCard = ({ product }: { product: Product }) => {
 
   const imageSrc = getImageUrl(product.cover_image_path || product.image_url);
   const getFormatBadge = () => {
-    const format = product.metadata?.format || product.product_type || product.type;
+    const format = product.metadata?.format || product.product_type || product.type || "";
+    const formatStr = format.toLowerCase();
     
-    if (format?.toLowerCase().includes('hardcover')) return { label: '📘 Hardcover', bg: 'bg-indigo-100 text-indigo-900 border-indigo-200' };
-    if (format?.toLowerCase().includes('paperback') || format?.toLowerCase().includes('physical')) return { label: '📚 Paperback', bg: 'bg-amber-100 text-amber-900 border-amber-200' };
-    if (format?.toLowerCase().includes('epub')) return { label: '📱 EPUB', bg: 'bg-purple-100 text-purple-900 border-purple-200' };
-    if (format?.toLowerCase().includes('kindle')) return { label: '📖 Kindle', bg: 'bg-stone-100 text-stone-900 border-stone-200' };
-    if (format?.toLowerCase().includes('audio')) return { label: '🎧 Audiobook', bg: 'bg-rose-100 text-rose-900 border-rose-200' };
-    if (format?.toLowerCase().includes('combo') || format?.toLowerCase().includes('bundle')) return { label: '📦 Combo Pack', bg: 'bg-emerald-100 text-emerald-900 border-emerald-200' };
+    if (formatStr.includes('combo') || formatStr.includes('bundle')) {
+      return { label: '📦 COMBO PACK', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+    }
+    if (formatStr.includes('hardcover') || formatStr.includes('paperback') || formatStr.includes('physical') || formatStr.includes('hardcopy')) {
+      return { label: '📘 PHYSICAL BOOK', bg: 'bg-amber-50 text-amber-800 border-amber-200' };
+    }
     
-    // Default fallback
-    return { label: '📱 PDF eBook', bg: 'bg-blue-100 text-blue-900 border-blue-200' };
+    // Default/Digital
+    return { label: '📱 EBOOK (PDF)', bg: 'bg-blue-50 text-blue-800 border-blue-200' };
   };
 
   const badge = getFormatBadge();
   const rating = product.metadata?.rating || 5.0;
   
-  // Decide route based on if it's physical (paperback/hardcover) vs digital
-  const isPhysicalRoute = badge.label.includes('Paperback') || badge.label.includes('Hardcover') || badge.label.includes('Combo');
+  // Decide route based on if it's physical (paperback/hardcover/combo) vs digital
+  const isPhysicalRoute = badge.label.includes('PHYSICAL') || badge.label.includes('COMBO') || badge.label.includes('Hardcover') || badge.label.includes('Paperback');
   const detailUrl = isPhysicalRoute ? `/store/${product.slug}` : `/ebooks/${product.slug}`;
 
   return (
-    <Link href={detailUrl} className="group flex flex-col h-full bg-white rounded-2xl overflow-hidden border border-mt-border shadow-sm hover:shadow-xl transition-all duration-300">
+    <Link 
+      href={detailUrl} 
+      className="group flex flex-col h-full bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative"
+    >
       {/* Cover Image Container */}
-      <div className="relative aspect-[3/4] w-full bg-mt-primary-bg overflow-hidden flex-shrink-0">
+      <div className="relative aspect-[3/4] w-full bg-slate-50 overflow-hidden flex-shrink-0 flex items-center justify-center p-3">
         {imageSrc ? (
-          <img 
-            src={imageSrc} 
-            alt={product.title} 
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 bg-white"
-          />
+          <div className="relative w-full h-full">
+            <Image 
+              src={imageSrc} 
+              alt={product.title} 
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-contain group-hover:scale-105 transition-transform duration-500 bg-slate-50"
+              priority={product.metadata?.bestseller ? true : false}
+            />
+          </div>
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#1B6B5C] to-[#0A3D33] flex items-center justify-center p-4">
-            <span className="text-white/50 font-display text-2xl text-center leading-tight drop-shadow-md">
+          <div className="w-full h-full bg-gradient-to-br from-emerald-700 to-teal-900 flex items-center justify-center p-4 rounded-xl">
+            <span className="text-white/80 font-display text-base font-bold text-center leading-tight drop-shadow-md">
               {product.title}
             </span>
           </div>
         )}
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
+        {/* Badges Overlay */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-20">
           {product.metadata?.bestseller && (
-            <span className="bg-yellow-400 text-yellow-950 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm flex items-center gap-1 w-max">
-              <Crown className="w-3 h-3" /> Bestseller
+            <span className="bg-yellow-400 text-yellow-950 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1 w-max border border-yellow-300">
+              <Crown className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Bestseller
             </span>
           )}
-          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm w-max border ${badge.bg}`}>
+          <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider shadow-sm w-max border ${badge.bg}`}>
             {badge.label}
           </span>
         </div>
       </div>
 
       {/* Content Container */}
-      <div className="p-4 flex flex-col flex-1">
+      <div className="p-4 flex flex-col flex-1 bg-white">
         {/* Rating */}
-        <div className="flex items-center gap-1 mb-2">
-          <div className="flex items-center text-yellow-400">
+        <div className="flex items-center gap-1 mb-1.5">
+          <div className="flex items-center text-amber-400">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} className="w-3.5 h-3.5 fill-current" />
+              <Star key={i} className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" />
             ))}
           </div>
-          <span className="text-xs text-mt-text-tertiary font-medium">{rating.toFixed(1)}</span>
+          <span className="text-[10px] sm:text-xs text-slate-400 font-semibold">{rating.toFixed(1)}</span>
         </div>
 
         {/* Title & Subtitle */}
-        <h3 className="font-display text-[15px] font-bold text-mt-text leading-snug mb-1 group-hover:text-mt-primary transition-colors line-clamp-2">
+        <h3 className="font-display text-sm sm:text-base font-bold text-slate-800 leading-snug mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2">
           {product.title}
         </h3>
         {product.metadata?.subtitle && (
-          <p className="text-xs text-mt-text-secondary line-clamp-2 mb-3">
+          <p className="text-xs text-slate-500 line-clamp-1 mb-3">
             {product.metadata.subtitle}
           </p>
         )}
 
         {/* Pricing & Actions */}
-        <div className="mt-auto flex items-center justify-between pt-4">
+        <div className="mt-auto flex items-center justify-between pt-3 border-t border-slate-50">
           <div className="flex flex-col">
-            <span className="text-base font-bold text-[#1B6B5C] leading-none">{formatPrice(product.price)}</span>
+            <span className="text-sm sm:text-base font-extrabold text-emerald-600 leading-none">{formatPrice(product.price)}</span>
             {product.original_price && product.original_price > product.price && (
-              <span className="text-[11px] text-mt-text-tertiary line-through mt-0.5">{formatPrice(product.original_price)}</span>
+              <span className="text-[10px] sm:text-xs text-slate-400 line-through mt-1">{formatPrice(product.original_price)}</span>
             )}
           </div>
           
           <button 
             onClick={handleAdd} 
-            className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 shadow-sm ${
               added 
-                ? 'bg-mt-success text-white' 
-                : 'bg-mt-primary-bg text-mt-primary hover:bg-mt-primary hover:text-white'
+                ? 'bg-emerald-500 text-white' 
+                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'
             }`}
             aria-label="Add to cart"
           >
-            {added ? <Check className="w-4 h-4" /> : <ShoppingBag className="w-4 h-4" />}
+            {added ? <Check className="w-4.5 h-4.5" /> : <ShoppingBag className="w-4 h-4 sm:w-4.5 sm:h-4.5" />}
           </button>
         </div>
       </div>
@@ -141,16 +150,25 @@ export const ComboCard = ({ product }: { product: Product }) => {
   const detailUrl = isPhysical ? `/store/${product.slug}` : `/ebooks/${product.slug}`;
 
   return (
-    <Link href={detailUrl} className="group block w-full bg-[#1B6B5C] rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
-      <div className="flex flex-col sm:flex-row items-stretch">
-        {/* Combo Image / Visual */}
-        <div className="w-full sm:w-[40%] relative aspect-[16/9] sm:aspect-auto bg-[#0A3D33] overflow-hidden">
+    <Link 
+      href={detailUrl} 
+      className="group block w-full bg-gradient-to-br from-emerald-800 to-teal-950 rounded-3xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 relative border border-emerald-900/50"
+    >
+      <div className="flex flex-col md:flex-row items-stretch">
+        
+        {/* Combo Image / Visual (Responsive image) */}
+        <div className="w-full md:w-[35%] relative aspect-[16/9] md:aspect-auto bg-[#07362c] overflow-hidden min-h-[220px] p-4 flex items-center justify-center">
           {imageSrc ? (
-            <img 
-              src={imageSrc} 
-              alt={product.title} 
-              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 opacity-90 bg-[#0A3D33]"
-            />
+            <div className="relative w-full h-full">
+              <Image 
+                src={imageSrc} 
+                alt={product.title} 
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-contain group-hover:scale-[1.03] transition-transform duration-700 opacity-95"
+                priority
+              />
+            </div>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="relative w-3/4 h-3/4 flex -space-x-12 opacity-80 group-hover:-space-x-8 transition-all duration-500">
@@ -163,45 +181,45 @@ export const ComboCard = ({ product }: { product: Product }) => {
           
           {/* Discount Badge */}
           {savings > 0 && (
-            <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-950 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-1.5">
+            <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-950 px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-lg flex items-center gap-1 border border-yellow-300 z-20">
               <Crown className="w-3.5 h-3.5" /> Save {formatPrice(savings)}
             </div>
           )}
         </div>
 
         {/* Combo Details */}
-        <div className="w-full sm:w-[60%] p-6 sm:p-8 lg:p-10 flex flex-col justify-center text-white relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="w-full md:w-[65%] p-6 sm:p-8 lg:p-10 flex flex-col justify-center text-white relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
           
           <div className="inline-flex items-center gap-2 mb-3">
-            <span className="bg-white/10 text-white border border-white/20 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
+            <span className="bg-white/10 text-emerald-200 border border-emerald-500/30 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
               Premium Bundle
             </span>
-            <span className="text-white/60 text-xs font-medium">
+            <span className="text-white/60 text-xs font-semibold">
               {product.metadata?.books || 5}+ Books Included
             </span>
           </div>
 
-          <h3 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 leading-tight relative z-10">
+          <h3 className="font-display text-xl sm:text-2xl lg:text-3xl font-extrabold mb-3 leading-tight relative z-10">
             {product.title}
           </h3>
           
-          <p className="text-white/70 text-sm sm:text-base mb-8 max-w-lg relative z-10 leading-relaxed">
+          <p className="text-white/70 text-xs sm:text-sm mb-6 max-w-xl relative z-10 leading-relaxed line-clamp-3">
             {product.description}
           </p>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mt-auto relative z-10">
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl lg:text-4xl font-bold">{formatPrice(product.price)}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mt-auto relative z-10 pt-4 border-t border-white/5">
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-2xl sm:text-3xl font-black">{formatPrice(product.price)}</span>
               {product.original_price && (
-                <span className="text-lg lg:text-xl text-white/40 line-through decoration-white/30">{formatPrice(product.original_price)}</span>
+                <span className="text-base sm:text-lg text-white/40 line-through decoration-white/30">{formatPrice(product.original_price)}</span>
               )}
             </div>
             
             <button 
               onClick={handleAdd}
-              className={`px-8 py-3.5 rounded-xl font-bold text-sm transition-all duration-300 shadow-xl flex items-center justify-center gap-2 active:scale-95 ${
-                added ? 'bg-mt-success text-white' : 'bg-white text-[#1B6B5C] hover:bg-gray-50 hover:-translate-y-1'
+              className={`px-8 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 shadow-md flex items-center justify-center gap-2 active:scale-95 ${
+                added ? 'bg-emerald-500 text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50 hover:-translate-y-0.5'
               }`}
             >
               {added ? <><Check className="w-4 h-4"/> Added to Cart</> : 'Buy Bundle Now'}

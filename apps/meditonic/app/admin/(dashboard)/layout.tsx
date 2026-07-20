@@ -90,8 +90,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ].filter(i => i.visible);
 
   const cmsItems = [
-    { name: "Storefront Config", href: "/admin/cms/storefront", icon: LayoutDashboard, visible: isSuperAdminOrAdmin },
-    { name: "Banners & Media", href: "/admin/cms/media", icon: Package, visible: isSuperAdminOrAdmin },
+    { name: "Pages Config", href: "/admin/cms/pages", icon: LayoutDashboard, visible: isSuperAdminOrAdmin },
+    { name: "Media & Banners", href: "/admin/cms/banners", icon: Package, visible: isSuperAdminOrAdmin },
   ].filter(i => i.visible);
 
   const partnerItems = [
