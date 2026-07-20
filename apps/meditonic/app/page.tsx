@@ -1,7 +1,7 @@
 import React from "react";
 import { fetchActiveHomepage } from "../lib/cms";
 import { LandingPageRenderer } from "../components/store/LandingPageRenderer";
-import { createAdminClient } from "../lib/supabase";
+import { createPublicClient } from "../lib/supabase";
 import { BRAND } from "../lib/constants";
 import HeroBanner from "../components/sections/HeroBanner";
 import { ProductCard, ComboCard } from "../components/store/ProductCard";
@@ -33,7 +33,7 @@ export default async function Home() {
   }
 
   // Fallback: If no CMS page is found (e.g. before initial setup), render default premium hardcoded layout
-  const supabase = createAdminClient();
+  const supabase = createPublicClient();
   
   const { data: products } = await supabase
     .from("mt_products")
