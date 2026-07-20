@@ -8,6 +8,7 @@ import { ProductCard, ComboCard } from "../components/store/ProductCard";
 import Link from "next/link";
 import { ShieldCheck, Truck, ArrowRight, Download, Users, Landmark, Play, Mail } from "lucide-react";
 import TestimonialCarousel from "../components/sections/TestimonialCarousel";
+import NewsletterForm from "../components/store/NewsletterForm";
 
 // Custom YouTube SVG Icon because older lucide-react package versions lack it
 const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
@@ -281,20 +282,7 @@ export default async function Home() {
             Get the latest medical articles, study notes, and exclusive discounts on new books delivered straight to your inbox.
           </p>
           
-          <form onSubmit={(e) => e.preventDefault()} className="mt-6 flex gap-2">
-            <input 
-              type="email" 
-              placeholder="Enter your email" 
-              required
-              className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500"
-            />
-            <button 
-              type="submit"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-2xl text-sm shadow-sm transition-all"
-            >
-              Subscribe
-            </button>
-          </form>
+          <NewsletterForm />
         </div>
       </section>
 
